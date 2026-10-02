@@ -14,18 +14,12 @@ use App\Http\Controllers\HealthController;
 use App\Http\Controllers\EmployeController;
 use App\Http\Controllers\ViolationController;
 use App\Http\Controllers\JihyController;
-use App\Http\Controllers\AuthController;
-use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\EkstrakurikulerController;
+use App\Http\Controllers\PendaftaranEkskulController;
 
-
-// Route::get('/', function () {
-//     return view('welcome');
-// });
-// Halaman utama langsung diarahkan ke form login
 Route::get('/', function () {
-    return redirect()->route('login');
+    return view('welcome');
 });
-
 
 Route::get('/blog', function () {
     return view('blog');
@@ -91,19 +85,19 @@ Route::get('/jihy', [JihyController::class, 'index']);
 Route::get('/jihy/create', [JihyController::class, 'create']);
 Route::post('/jihy/store', [JihyController::class, 'store']);
 
+// Route::get('/', function () {
+//     return redirect()->route('ekstrakurikuler.index');
+// });
 
-// Rute Autentikasi (Tamu / Guest)
-Route::middleware('guest:eks_guard')->group(function () {
-    Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
-    Route::post('/login', [AuthController::class, 'login']);
-});
 
-// Rute yang Membutuhkan Login (Auth eks_guard)
-Route::middleware('auth:eks_guard')->group(function () {
-    Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
+Route::get('/ekstrakurikuler', [EkstrakurikulerController::class, 'index'])->name('ekstrakurikuler.index');
+Route::get('/ekstrakurikuler/create', [EkstrakurikulerController::class, 'create'])->name('ekstrakurikuler.create');
+Route::post('/ekstrakurikuler/store', [EkstrakurikulerController::class, 'store'])->name('ekstrakurikuler.store');
+Route::get('/ekstrakurikuler/{id}/edit', [EkstrakurikulerController::class, 'edit'])->name('ekstrakurikuler.edit');
+Route::put('/ekstrakurikuler/{id}', [EkstrakurikulerController::class, 'update'])->name('ekstrakurikuler.update');
+Route::delete('/ekstrakurikuler/{id}', [EkstrakurikulerController::class, 'destroy'])->name('ekstrakurikuler.destroy');
 
-    // Dashboard Peran
-    Route::get('/admin/dashboard', [DashboardController::class, 'admin'])->name('admin.dashboard');
-    Route::get('/siswa/dashboard', [DashboardController::class, 'siswa'])->name('siswa.dashboard');
-    Route::get('/pembina/dashboard', [DashboardController::class, 'pembina'])->name('pembina.dashboard');
-});
+Route::get('/pendaftaran', [PendaftaranEkskulController::class, 'index'])->name('pendaftaran.index');
+Route::post('/pendaftaran/store', [PendaftaranEkskulController::class, 'store'])->name('pendaftaran.store');
+Route::post('/pendaftaran/{pendaftaran}/status', [PendaftaranEkskulController::class, 'updateStatus'])->name('pendaftaran.updateStatus');
+Route::patch('/pendaftaran/{pendaftaran}/status', [PendaftaranEkskulController::class, 'updateStatus']); // Untuk dukungan form @method('PATCH')

@@ -2,11 +2,12 @@
 
 namespace Database\Seeders;
 
-use App\Models\EksPengguna;
 use App\Models\User;
+use Database\Seeders\EkstrakurikulerSeeder;
+use Database\Seeders\PendaftaranEkskulSeeder;
+use Database\Seeders\UserSeeder;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
-
 
 class DatabaseSeeder extends Seeder
 {
@@ -17,12 +18,18 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
+        // User::factory(10)->create();
+
         $this->call(MajorSeeder::class);
         $this->call(TreeSeeder::class);
         $this->call(HealthSeeder::class);
         // $this->call(EmployeSeeder::class);
         $this->call(ViolationSeeder::class);
-        // $this->call(JIHYSeeder::class);
-        $this->call(EksPenggunaSeeder::class);
+        $this->call([
+            UserSeeder::class,
+            EkstrakurikulerSeeder::class,
+            PendaftaranEkskulSeeder::class,
+        ]);// $this->call(JIHYSeeder::class);
+      
     }
 }

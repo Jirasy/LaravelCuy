@@ -17,6 +17,11 @@ return new class extends Migration
             $table->string('email')->unique();
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
+            // 👇 TAMBAHKAN 3 BARIS INI DI SINI 👇
+            $table->string('nisn')->nullable()->unique();
+            $table->string('kelas')->nullable();
+            $table->enum('role', ['admin', 'siswa', 'pembina'])->default('siswa');
+            // 👆 ---------------------------- 👆
             $table->rememberToken();
             $table->timestamps();
         });

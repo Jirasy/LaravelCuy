@@ -20,11 +20,6 @@ return [
         'passwords' => env('AUTH_PASSWORD_BROKER', 'users'),
     ],
 
-    // 'defaults' => [
-    // 'guard' => 'eks_guard', // Mengubah default guard ke eks_guard
-    // 'passwords' => 'users',
-    // ],
-
     /*
     |--------------------------------------------------------------------------
     | Authentication Guards
@@ -48,18 +43,7 @@ return [
             'provider' => 'users',
         ],
     ],
-    // 'guards' => [
-    // 'web' => [
-    //     'driver' => 'session',
-    //     'provider' => 'users',
-    //     ],
 
-    // // Guard khusus aplikasi Pendataan Ekskul
-    // 'eks_guard' => [
-    //     'driver' => 'session',
-    //     'provider' => 'eks_pengguna_provider',
-    //     ],
-    // ],
     /*
     |--------------------------------------------------------------------------
     | User Providers
@@ -83,21 +67,10 @@ return [
             'model' => env('AUTH_MODEL', User::class),
         ],
 
-        'users' => [
-            'driver' => 'database',
-            'table' => 'users',
-        ],
-        // 'providers' => [
         // 'users' => [
-        //     'driver' => 'eloquent',
-        //     'model' => App\Models\User::class,
-        //     ],
-
-        // // Provider khusus mengarah ke model EksPengguna
-        //     'eks_pengguna_provider' => [
-        //     'driver' => 'eloquent',
-        //     'model' => App\Models\EksPengguna::class,
-        //     ],
+        //     'driver' => 'database',
+        //     'table' => 'users',
+        // ],
     ],
 
     /*
