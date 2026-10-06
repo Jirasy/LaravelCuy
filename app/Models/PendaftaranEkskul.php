@@ -14,6 +14,11 @@ class PendaftaranEkskul extends Model
     protected $fillable = [
         'user_id',
         'ekstrakurikuler_id',
+        'nama_pendaftar',
+        'peran',
+        'kelas',
+        'nisn',
+        'alasan_mendaftar',
         'status',
         'alasan',
     ];
@@ -26,5 +31,15 @@ class PendaftaranEkskul extends Model
     public function ekstrakurikuler()
     {
         return $this->belongsTo(Ekstrakurikuler::class);
+    }
+
+    // Label tampilan: diterima = Disetujui, ditolak = Tidak Disetujui
+    public function getStatusLabelAttribute(): string
+    {
+        return match ($this->status) {
+            'diterima' => 'Disetujui',
+            'ditolak'  => 'Tidak Disetujui',
+            default    => 'Menunggu',
+        };
     }
 }
