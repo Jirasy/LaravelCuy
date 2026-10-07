@@ -39,7 +39,16 @@
     <div class="grid grid-cols-3 gap-4">
         <div>
             <label class="block text-sm font-semibold text-gray-700">Hari</label>
-            <input type="text" name="hari" value="{{ old('hari', $ekstrakurikuler->hari) }}" required class="w-full border p-2 rounded-lg mt-1">
+            <select id="hari" name="hari" class="w-full border p-2 rounded-lg mt-1 focus:ring focus:ring-indigo-200">
+                <option value="">-- Pilih Hari --</option>
+                <option value="Senin" {{ $ekstrakurikuler->hari == 'Senin' ? 'selected' : '' }}>Senin</option>
+                <option value="Selasa" {{ $ekstrakurikuler->hari == 'Selasa' ? 'selected' : '' }}>Selasa</option>
+                <option value="Rabu" {{ $ekstrakurikuler->hari == 'Rabu' ? 'selected' : '' }}>Rabu</option>
+                <option value="Kamis" {{ $ekstrakurikuler->hari == 'Kamis' ? 'selected' : '' }}>Kamis</option>
+                <option value="Jumat" {{ $ekstrakurikuler->hari == 'Jumat' ? 'selected' : '' }}>Jumat</option>
+                <option value="Sabtu" {{ $ekstrakurikuler->hari == 'Sabtu' ? 'selected' : '' }}>Sabtu</option>
+                <option value="Minggu" {{ $ekstrakurikuler->hari == 'Minggu' ? 'selected' : '' }}>Minggu</option>
+            </select>
         </div>
         <div>
             <label class="block text-sm font-semibold text-gray-700">Jam Mulai</label>

@@ -11,7 +11,7 @@ class UserSeeder extends Seeder
     public function run(): void
     {
         User::create([
-            'name'     => 'Admin Sekolah',
+            'name'     => 'Admin',
             'email'    => 'admin@gmail.com',
             'password' => Hash::make('password123'),
             'nisn'     => '0000000000',
@@ -20,7 +20,7 @@ class UserSeeder extends Seeder
         ]);
 
         User::create([
-            'name'     => 'Siswa Utama',
+            'name'     => 'Siswa',
             'email'    => 'siswa@gmail.com',
             'password' => Hash::make('password123'),
             'nisn'     => '1234567890',

@@ -36,7 +36,17 @@
             <div class="grid grid-cols-3 gap-4">
                 <div>
                     <label class="block text-sm font-semibold text-gray-700">Hari</label>
-                    <input type="text" name="hari" placeholder="Contoh: Rabu" required class="w-full border p-2 rounded-lg mt-1">
+                    <select id="hari" name="hari" class="w-full border p-2 rounded-lg mt-1 focus:ring focus:ring-indigo-200">
+                        <option value="">-- Pilih Hari --</option>
+                        <option value="Senin">Senin</option>
+                        <option value="Selasa">Selasa</option>
+                        <option value="Rabu">Rabu</option>
+                        <option value="Kamis">Kamis</option>
+                        <option value="Jumat">Jumat</option>
+                        <option value="Sabtu">Sabtu</option>
+                        <option value="Minggu">Minggu</option>
+                        </select>
+                    {{-- <input type="Enum" name="hari" placeholder="Contoh: Rabu" required class="w-full border p-2 rounded-lg mt-1"> --}}
                 </div>
                 <div>
                     <label class="block text-sm font-semibold text-gray-700">Jam Mulai</label>

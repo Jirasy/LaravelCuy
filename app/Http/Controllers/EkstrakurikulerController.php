@@ -23,7 +23,7 @@ class EkstrakurikulerController extends Controller
         $data = $request->validate([
             'nama_ekstrakurikuler' => 'required|string|max:255',
             'pembina'     => 'required|string|max:255',
-            'hari'        => 'required|string|max:50',
+            'hari'        => 'nullable|in:Senin,Selasa,Rabu,Kamis,Jumat,Sabtu,Minggu',
             'jam_mulai'   => 'required',
             'jam_selesai' => 'required',
             'deskripsi'   => 'nullable|string',
@@ -49,7 +49,7 @@ class EkstrakurikulerController extends Controller
         $data = $request->validate([
             'nama_ekstrakurikuler' => 'required|string|max:255',
             'pembina'     => 'required|string|max:255',
-            'hari'        => 'required|string|max:50',
+            'hari'        => 'required|in:Senin,Selasa,Rabu,Kamis,Jumat,Sabtu,Minggu',
             'jam_mulai'   => 'required',
             'jam_selesai' => 'required',
             'deskripsi'   => 'nullable|string',

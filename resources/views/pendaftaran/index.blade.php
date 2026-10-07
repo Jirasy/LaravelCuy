@@ -29,7 +29,6 @@
                         <th class="p-3">Ekskul</th>
                         <th class="p-3">Alasan Mendaftar</th>
                         <th class="p-3">Status</th>
-                        <th class="p-3">Keputusan &amp; Catatan</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -46,31 +45,38 @@
                             <td class="p-3">{{ $p->ekstrakurikuler->nama_ekstrakurikuler ?? '-' }}</td>
                             <td class="p-3 max-w-xs">{{ $p->alasan_mendaftar ?? '-' }}</td>
                             <td class="p-3">
-                                <span class="px-2 py-1 text-xs font-semibold rounded-full
-                                    {{ $p->status === 'diterima' ? 'bg-green-100 text-green-800' : ($p->status === 'ditolak' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800') }}">
-                                    {{ $p->status_label }}
-                                </span>
-                            </td>
-                            <td class="p-3">
                                 <form action="{{ route('pendaftaran.updateStatus', $p->id) }}" method="POST" class="space-y-2">
                                     @csrf
                                     @method('PATCH')
-                                    <select name="status" class="border p-1 rounded text-xs w-full">
+                                    <select name="status" onchange="warnaStatus(this)" class="status-select border p-1.5 rounded text-xs font-semibold w-full
+                                        {{ $p->status === 'diterima' ? 'bg-green-100 text-green-800 border-green-300' : ($p->status === 'ditolak' ? 'bg-red-100 text-red-800 border-red-300' : 'bg-yellow-100 text-yellow-800 border-yellow-300') }}">
                                         <option value="pending"  {{ $p->status === 'pending' ? 'selected' : '' }}>Menunggu</option>
                                         <option value="diterima" {{ $p->status === 'diterima' ? 'selected' : '' }}>Disetujui</option>
                                         <option value="ditolak"  {{ $p->status === 'ditolak' ? 'selected' : '' }}>Tidak Disetujui</option>
                                     </select>
-                                    <textarea name="alasan" rows="2" placeholder="Catatan / alasan keputusan" class="border p-1 rounded text-xs w-full">{{ $p->alasan }}</textarea>
+                                    <textarea name="alasan" rows="2" placeholder="Alasan / catatan" class="border p-1 rounded text-xs w-full">{{ $p->alasan }}</textarea>
                                     <button type="submit" class="bg-gray-800 text-white px-3 py-1 rounded text-xs hover:bg-gray-900">Simpan</button>
                                 </form>
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="6" class="p-6 text-center text-gray-500">Belum ada pendaftaran.</td></tr>
+                        <tr><td colspan="5" class="p-6 text-center text-gray-500">Belum ada pendaftaran.</td></tr>
                     @endforelse
                 </tbody>
             </table>
         </div>
     </div>
+
+    <script>
+        const WARNA = {
+            pending:  ['bg-yellow-100', 'text-yellow-800', 'border-yellow-300'],
+            diterima: ['bg-green-100',  'text-green-800',  'border-green-300'],
+            ditolak:  ['bg-red-100',    'text-red-800',    'border-red-300'],
+        };
+        function warnaStatus(el) {
+            Object.values(WARNA).forEach(k => el.classList.remove(...k));
+            el.classList.add(...WARNA[el.value]);
+        }
+    </script>
 </body>
 </html>
