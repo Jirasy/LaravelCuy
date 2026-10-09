@@ -38,4 +38,20 @@ class User extends Authenticatable
     {
         return $this->hasMany(PendaftaranEkskul::class);
     }
+
+    public function isAdmin(): bool
+    {
+        return $this->role === 'admin';
+    }
+
+    public function isPembina(): bool
+    {
+        return $this->role === 'pembina';
+    }
+
+    // Admin & pembina = pengelola
+    public function isStaff(): bool
+    {
+        return in_array($this->role, ['admin', 'pembina'], true);
+    }
 }

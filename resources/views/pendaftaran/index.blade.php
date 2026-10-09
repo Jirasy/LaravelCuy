@@ -8,8 +8,9 @@
 </head>
 <body class="bg-gray-100 p-6">
     <div class="max-w-7xl mx-auto">
+        @include('partials.navbar')
         <div class="flex justify-between items-center mb-6">
-            <h1 class="text-3xl font-bold text-gray-800">Data Pendaftaran Ekskul</h1>
+            <h1 class="text-3xl font-bold text-gray-800">{{ auth()->user()->isStaff() ? 'Data Pendaftaran Ekskul' : 'Pendaftaran Saya' }}</h1>
             <div class="space-x-2">
                 <a href="{{ route('pendaftaran.create') }}" class="bg-indigo-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-indigo-700">+ Daftar Baru</a>
                 <a href="{{ route('ekstrakurikuler.index') }}" class="text-gray-600 hover:underline text-sm">← Katalog</a>
@@ -45,6 +46,7 @@
                             <td class="p-3">{{ $p->ekstrakurikuler->nama_ekstrakurikuler ?? '-' }}</td>
                             <td class="p-3 max-w-xs">{{ $p->alasan_mendaftar ?? '-' }}</td>
                             <td class="p-3">
+                                @if(auth()->user()->isStaff())
                                 <form action="{{ route('pendaftaran.updateStatus', $p->id) }}" method="POST" class="space-y-2">
                                     @csrf
                                     @method('PATCH')
@@ -57,6 +59,15 @@
                                     <textarea name="alasan" rows="2" placeholder="Alasan / catatan" class="border p-1 rounded text-xs w-full">{{ $p->alasan }}</textarea>
                                     <button type="submit" class="bg-gray-800 text-white px-3 py-1 rounded text-xs hover:bg-gray-900">Simpan</button>
                                 </form>
+                                @else
+                                <span class="inline-block px-2 py-1 text-xs font-semibold rounded-full
+                                    {{ $p->status === 'diterima' ? 'bg-green-100 text-green-800' : ($p->status === 'ditolak' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800') }}">
+                                    {{ $p->status_label }}
+                                </span>
+                                @if($p->alasan)
+                                    <p class="text-xs text-gray-600 mt-2">Catatan: {{ $p->alasan }}</p>
+                                @endif
+                                @endif
                             </td>
                         </tr>
                     @empty

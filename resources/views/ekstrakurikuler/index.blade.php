@@ -8,6 +8,7 @@
 </head>
 <body class="bg-gray-100 p-6">
     <div class="max-w-6xl mx-auto">
+        @include('partials.navbar')
         
         <!-- Header & Tombol Aksi -->
         <div class="flex justify-between items-center mb-6">
@@ -16,11 +17,13 @@
                 <p class="text-gray-600 text-sm">Pilih dan daftar ekstrakurikuler sekolahmu di sini.</p>
             </div>
             <div class="space-x-2">
+                @if(auth()->user()->isStaff())
                 <a href="{{ route('ekstrakurikuler.create') }}" class="bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-blue-700">
                     + Tambah Ekskul
                 </a>
+                @endif
                 <a href="{{ route('pendaftaran.index') }}" class="bg-gray-700 text-white px-4 py-2 rounded-lg font-semibold hover:bg-gray-800">
-                    Lihat Pendaftaran
+                    {{ auth()->user()->isStaff() ? 'Lihat Pendaftaran' : 'Pendaftaran Saya' }}
                 </a>
             </div>
         </div>
@@ -56,14 +59,11 @@
 
                     <!-- Tombol Aksi per Kartu -->
                     <div class="mt-6 pt-4 border-t border-gray-100 space-y-2">
-                        <form action="{{ route('pendaftaran.store') }}" method="POST">
-                            @csrf
-                            <input type="hidden" name="ekstrakurikuler_id" value="{{ $ekskul->id }}">
-                            <button type="submit" class="w-full bg-indigo-600 text-white py-2 rounded-lg font-semibold hover:bg-indigo-700 transition">
-                                Daftar Sekarang
-                            </button>
-                        </form>
+                        <a href="{{ route('pendaftaran.create', ['ekstrakurikuler_id' => $ekskul->id]) }}" class="block w-full text-center bg-indigo-600 text-white py-2 rounded-lg font-semibold hover:bg-indigo-700 transition">
+                            Daftar Sekarang
+                        </a>
 
+                        @if(auth()->user()->isStaff())
                         <div class="flex space-x-2 pt-1">
                             <a href="{{ route('ekstrakurikuler.edit', $ekskul->id) }}" class="w-1/2 text-center bg-yellow-500 text-white py-1.5 rounded-lg text-sm font-semibold hover:bg-yellow-600">
                                 Edit
@@ -76,6 +76,7 @@
                                 </button>
                             </form>
                         </div>
+                        @endif
                     </div>
                 </div>
             @empty
