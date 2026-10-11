@@ -19,6 +19,7 @@ use App\Http\Controllers\PendaftaranEkskulController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\UserController;
 use App\Http\Middleware\RoleMiddleware;
+use App\Http\Middleware\EnsureUserIsActive;
 use App\Http\Controllers\CarsController;
 
 Route::get('/', function () {
@@ -100,7 +101,7 @@ Route::get('/register', [AuthController::class, 'showRegister'])->name('register
 Route::post('/register', [AuthController::class, 'register'])->name('register.process');
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
-Route::middleware('auth')->group(function () {
+Route::middleware(['auth', EnsureUserIsActive::class])->group(function () {
 
     // Semua user yang login
     Route::get('/ekstrakurikuler', [EkstrakurikulerController::class, 'index'])->name('ekstrakurikuler.index');
@@ -120,9 +121,13 @@ Route::middleware('auth')->group(function () {
 
     // Admin saja
     Route::middleware(RoleMiddleware::class . ':admin')->group(function () {
-        Route::get('/users', [UserController::class, 'index'])->name('users.index');
-        Route::patch('/users/{user}/role', [UserController::class, 'updateRole'])->name('users.updateRole');
-    });
+       Route::get('/users', [UserController::class, 'index'])->name('users.index');
+       Route::get('/users/{user}/edit', [UserController::class, 'edit'])->name('users.edit');
+       Route::put('/users/{user}', [UserController::class, 'update'])->name('users.update');
+       Route::patch('/users/{user}/role', [UserController::class, 'updateRole'])->name('users.updateRole');
+       Route::patch('/users/{user}/toggle', [UserController::class, 'toggleActive'])->name('users.toggle');
+       Route::delete('/users/{user}', [UserController::class, 'destroy'])->name('users.destroy');
+   });
 });
 
 Route::get('/cars', [CarsController::class, 'index']);

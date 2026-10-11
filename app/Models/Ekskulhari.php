@@ -10,7 +10,7 @@ class EkskulHari extends Model
 
     public $timestamps = false;
 
-    protected $fillable = ['ekstrakurikuler_id', 'hari'];
+    protected $fillable = ['ekstrakurikuler_id', 'hari', 'jam_mulai', 'jam_selesai'];
 
     public function ekstrakurikuler()
     {

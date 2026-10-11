@@ -12,6 +12,8 @@ return new class extends Migration
             $table->id();
             $table->foreignId('ekstrakurikuler_id')->constrained('ekstrakurikulers')->onDelete('cascade');
             $table->enum('hari', ['senin', 'selasa', 'rabu', 'kamis', 'jumat', 'sabtu', 'minggu']);
+            $table->time('jam_mulai');
+            $table->time('jam_selesai');
             $table->unique(['ekstrakurikuler_id', 'hari']); // satu hari tidak boleh dobel
         });
     }

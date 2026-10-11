@@ -15,8 +15,6 @@ class Ekstrakurikuler extends Model
     protected $fillable = [
         'nama_ekstrakurikuler',
         'pembina',
-        'jam_mulai',
-        'jam_selesai',
         'deskripsi',
         'status',
     ];
@@ -31,27 +29,35 @@ class Ekstrakurikuler extends Model
         return $this->hasMany(EkskulHari::class);
     }
 
-    // Contoh hasil: "Rabu, Jumat" (urut Senin -> Minggu)
-    public function getHariLabelAttribute(): string
+    // Jadwal per hari, urut Senin -> Minggu
+    public function getJadwalAttribute()
     {
         $urutan = array_map(fn ($c) => $c->value, Hari::cases());
 
         return $this->haris
-            ->pluck('hari')
-            ->sortBy(fn ($h) => array_search($h, $urutan))
-            ->map(fn ($h) => ucfirst($h))
-            ->implode(', ');
+            ->sortBy(fn ($h) => array_search($h->hari, $urutan))
+            ->values();
     }
 
-    // Samakan daftar hari di database dengan yang dicentang di form
-    public function syncHari(array $hari): void
+    // Contoh hasil: "Rabu, Jumat"
+    public function getHariLabelAttribute(): string
     {
-        $hari = array_values(array_unique($hari));
+        return $this->jadwal->map(fn ($h) => ucfirst($h->hari))->implode(', ');
+    }
 
-        $this->haris()->whereNotIn('hari', $hari)->delete();
+    /**
+     * Samakan jadwal di database dengan yang diisi di form.
+     * $jadwal = [['hari' => 'rabu', 'jam_mulai' => '15:30', 'jam_selesai' => '17:00'], ...]
+     */
+    public function syncJadwal(array $jadwal): void
+    {
+        $this->haris()->whereNotIn('hari', array_column($jadwal, 'hari'))->delete();
 
-        foreach ($hari as $h) {
-            $this->haris()->firstOrCreate(['hari' => $h]);
+        foreach ($jadwal as $j) {
+            $this->haris()->updateOrCreate(
+                ['hari' => $j['hari']],
+                ['jam_mulai' => $j['jam_mulai'], 'jam_selesai' => $j['jam_selesai']]
+            );
         }
     }
 }

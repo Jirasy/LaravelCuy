@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
 
 class AuthController extends Controller
 {
@@ -23,9 +24,17 @@ class AuthController extends Controller
             'password' => 'required',
         ]);
 
-        if (Auth::attempt($credentials, $request->boolean('remember'))) {
+        if (Auth::attempt($credentials + ['is_active' => true], $request->boolean('remember'))) {
             $request->session()->regenerate();
             return redirect()->intended(route('ekstrakurikuler.index'));
+        }
+
+        // Password benar tapi akun dinonaktifkan: beri pesan yang jelas
+        $user = User::where('email', $credentials['email'])->first();
+        if ($user && !$user->is_active && Hash::check($credentials['password'], $user->password)) {
+            return back()
+                ->withErrors(['email' => 'Akunmu dinonaktifkan. Hubungi admin.'])
+                ->onlyInput('email');
         }
 
         return back()

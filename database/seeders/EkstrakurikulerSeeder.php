@@ -10,14 +10,14 @@ class EkstrakurikulerSeeder extends Seeder
     public function run(): void
     {
         $ekskul = Ekstrakurikuler::create([
-            'nama_ekstrakurikuler' => 'Bola Basket',
-            'pembina'     => 'Ibu Rina',
-            'jam_mulai'   => '15:30',
-            'jam_selesai' => '17:00',
-            'deskripsi'   => 'Melatih teknik dasar bola basket dan persiapan kompetisi.',
-            'status'      => 'aktif',
+            'nama_ekstrakurikuler' => 'Silat',
+            'pembina'   => 'kang Rizky',
+            'deskripsi' => 'Melatih teknik dasar silat dan persiapan kompetisi.',
+            'status'    => 'aktif',
         ]);
 
-        $ekskul->syncHari(['rabu']);
+        $ekskul->syncJadwal([
+            ['hari' => 'sabtu', 'jam_mulai' => '08:00', 'jam_selesai' => '10:00'],
+        ]);
     }
 }

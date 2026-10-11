@@ -15,8 +15,6 @@ return new class extends Migration
             $table->id();
             $table->string('nama_ekstrakurikuler');
             $table->string('pembina');
-            $table->time('jam_mulai');
-            $table->time('jam_selesai');
             $table->text('deskripsi')->nullable();
             $table->enum('status', ['aktif', 'nonaktif'])->default('aktif');
             $table->timestamps();

@@ -53,7 +53,14 @@
 
                         <h2 class="text-xl font-bold text-gray-900 mt-2">{{ $ekskul->nama_ekstrakurikuler }}</h2>
                         <p class="text-sm text-gray-600 mt-1">Pembina: <strong>{{ $ekskul->pembina }}</strong></p>
-                        <p class="text-sm text-gray-600">Jadwal: {{ $ekskul->hari_label }}, {{ $ekskul->jam_mulai }} - {{ $ekskul->jam_selesai }} WIB</p>
+                        <div class="text-sm text-gray-600">
+                            <p class="font-semibold">Jadwal:</p>
+                            @forelse($ekskul->jadwal as $j)
+                                <p>{{ ucfirst($j->hari) }}, {{ substr($j->jam_mulai, 0, 5) }} - {{ substr($j->jam_selesai, 0, 5) }} WIB</p>
+                            @empty
+                                <p class="text-gray-400">Belum ada jadwal.</p>
+                            @endforelse
+                        </div>
                         <p class="text-gray-700 text-sm mt-3">{{ $ekskul->deskripsi ?? 'Tidak ada deskripsi.' }}</p>
                     </div>
 
