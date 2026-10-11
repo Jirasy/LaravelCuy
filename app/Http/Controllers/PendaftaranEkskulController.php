@@ -25,7 +25,7 @@ class PendaftaranEkskulController extends Controller
 
     public function create(Request $request)
     {
-        $ekskuls  = Ekstrakurikuler::where('status', 'aktif')->orderBy('nama_ekstrakurikuler')->get();
+        $ekskuls  = Ekstrakurikuler::with('haris')->where('status', 'aktif')->orderBy('nama_ekstrakurikuler')->get();
         $terpilih = $request->query('ekstrakurikuler_id', $request->query('ekskul'));
         return view('pendaftaran.create', compact('ekskuls', 'terpilih'));
     }

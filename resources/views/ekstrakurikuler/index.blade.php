@@ -53,7 +53,7 @@
 
                         <h2 class="text-xl font-bold text-gray-900 mt-2">{{ $ekskul->nama_ekstrakurikuler }}</h2>
                         <p class="text-sm text-gray-600 mt-1">Pembina: <strong>{{ $ekskul->pembina }}</strong></p>
-                        <p class="text-sm text-gray-600">Jadwal: {{ $ekskul->hari }}, {{ $ekskul->jam_mulai }} - {{ $ekskul->jam_selesai }} WIB</p>
+                        <p class="text-sm text-gray-600">Jadwal: {{ $ekskul->hari_label }}, {{ $ekskul->jam_mulai }} - {{ $ekskul->jam_selesai }} WIB</p>
                         <p class="text-gray-700 text-sm mt-3">{{ $ekskul->deskripsi ?? 'Tidak ada deskripsi.' }}</p>
                     </div>
 

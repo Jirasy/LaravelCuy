@@ -20,11 +20,12 @@ class DatabaseSeeder extends Seeder
     {
         // User::factory(10)->create();
 
-        $this->call(MajorSeeder::class);
-        $this->call(TreeSeeder::class);
-        $this->call(HealthSeeder::class);
-        // $this->call(EmployeSeeder::class);
-        $this->call(ViolationSeeder::class);
+        // $this->call(MajorSeeder::class);
+        // $this->call(TreeSeeder::class);
+        // $this->call(HealthSeeder::class);
+        // // $this->call(EmployeSeeder::class);
+        // $this->call(ViolationSeeder::class);
+        $this->call(CarSeeder::class);
         $this->call([
             UserSeeder::class,
             EkstrakurikulerSeeder::class,

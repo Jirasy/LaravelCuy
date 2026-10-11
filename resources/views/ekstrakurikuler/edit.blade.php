@@ -36,20 +36,19 @@
         <input type="text" name="pembina" value="{{ old('pembina', $ekstrakurikuler->pembina) }}" required class="w-full border p-2 rounded-lg mt-1">
     </div>
 
-    <div class="grid grid-cols-3 gap-4">
-        <div>
-            <label class="block text-sm font-semibold text-gray-700">Hari</label>
-            <select id="hari" name="hari" class="w-full border p-2 rounded-lg mt-1 focus:ring focus:ring-indigo-200">
-                <option value="">-- Pilih Hari --</option>
-                <option value="Senin" {{ $ekstrakurikuler->hari == 'Senin' ? 'selected' : '' }}>Senin</option>
-                <option value="Selasa" {{ $ekstrakurikuler->hari == 'Selasa' ? 'selected' : '' }}>Selasa</option>
-                <option value="Rabu" {{ $ekstrakurikuler->hari == 'Rabu' ? 'selected' : '' }}>Rabu</option>
-                <option value="Kamis" {{ $ekstrakurikuler->hari == 'Kamis' ? 'selected' : '' }}>Kamis</option>
-                <option value="Jumat" {{ $ekstrakurikuler->hari == 'Jumat' ? 'selected' : '' }}>Jumat</option>
-                <option value="Sabtu" {{ $ekstrakurikuler->hari == 'Sabtu' ? 'selected' : '' }}>Sabtu</option>
-                <option value="Minggu" {{ $ekstrakurikuler->hari == 'Minggu' ? 'selected' : '' }}>Minggu</option>
-            </select>
-        </div>
+    <div>
+                <label class="block text-sm font-semibold text-gray-700">Hari Pelaksanaan <span class="text-gray-400 font-normal">(boleh lebih dari satu)</span></label>
+                <div class="flex flex-wrap gap-2 mt-2">
+                    @foreach(\App\Enums\Hari::cases() as $h)
+                        <label class="inline-flex items-center gap-2 px-3 py-1.5 border rounded-lg text-sm cursor-pointer hover:bg-gray-50">
+                            <input type="checkbox" name="hari[]" value="{{ $h->value }}" {{ in_array($h->value, old('hari', $ekstrakurikuler->haris->pluck('hari')->all())) ? 'checked' : '' }}>
+                            {{ $h->label() }}
+                        </label>
+                    @endforeach
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
         <div>
             <label class="block text-sm font-semibold text-gray-700">Jam Mulai</label>
             <input type="time" name="jam_mulai" value="{{ old('jam_mulai', $ekstrakurikuler->jam_mulai) }}" required class="w-full border p-2 rounded-lg mt-1">

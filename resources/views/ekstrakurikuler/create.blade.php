@@ -33,21 +33,19 @@
                 <input type="text" name="pembina" placeholder="Contoh: Pak Herman" required class="w-full border p-2 rounded-lg mt-1 focus:ring focus:ring-indigo-200">
             </div>
 
-            <div class="grid grid-cols-3 gap-4">
-                <div>
-                    <label class="block text-sm font-semibold text-gray-700">Hari</label>
-                    <select id="hari" name="hari" class="w-full border p-2 rounded-lg mt-1 focus:ring focus:ring-indigo-200">
-                        <option value="">-- Pilih Hari --</option>
-                        <option value="Senin">Senin</option>
-                        <option value="Selasa">Selasa</option>
-                        <option value="Rabu">Rabu</option>
-                        <option value="Kamis">Kamis</option>
-                        <option value="Jumat">Jumat</option>
-                        <option value="Sabtu">Sabtu</option>
-                        <option value="Minggu">Minggu</option>
-                        </select>
-                    {{-- <input type="Enum" name="hari" placeholder="Contoh: Rabu" required class="w-full border p-2 rounded-lg mt-1"> --}}
+            <div>
+                <label class="block text-sm font-semibold text-gray-700">Hari Pelaksanaan <span class="text-gray-400 font-normal">(boleh lebih dari satu)</span></label>
+                <div class="flex flex-wrap gap-2 mt-2">
+                    @foreach(\App\Enums\Hari::cases() as $h)
+                        <label class="inline-flex items-center gap-2 px-3 py-1.5 border rounded-lg text-sm cursor-pointer hover:bg-gray-50">
+                            <input type="checkbox" name="hari[]" value="{{ $h->value }}" {{ in_array($h->value, old('hari', [])) ? 'checked' : '' }}>
+                            {{ $h->label() }}
+                        </label>
+                    @endforeach
                 </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
                 <div>
                     <label class="block text-sm font-semibold text-gray-700">Jam Mulai</label>
                     <input type="time" name="jam_mulai" required class="w-full border p-2 rounded-lg mt-1">

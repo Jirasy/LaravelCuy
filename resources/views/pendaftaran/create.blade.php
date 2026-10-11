@@ -47,7 +47,7 @@
                         <option value="">-- Pilih ekskul --</option>
                         @foreach($ekskuls as $e)
                             <option value="{{ $e->id }}" {{ old('ekstrakurikuler_id', $terpilih) == $e->id ? 'selected' : '' }}>
-                                {{ $e->nama_ekstrakurikuler }} ({{ $e->hari }})
+                                {{ $e->nama_ekstrakurikuler }} ({{ $e->hari_label }})
                             </option>
                         @endforeach
                     </select>

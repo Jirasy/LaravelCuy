@@ -12,7 +12,7 @@ class TreeController extends Controller
      */
     public function index()
     {
-        $trees= Tree::all();
+        $trees= Tree::all(); 
         // dd($trees);
         // return view('Tree.index', compact('trees'));
         return view('pohon',compact(['trees']));

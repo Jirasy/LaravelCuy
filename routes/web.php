@@ -19,6 +19,7 @@ use App\Http\Controllers\PendaftaranEkskulController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\UserController;
 use App\Http\Middleware\RoleMiddleware;
+use App\Http\Controllers\CarsController;
 
 Route::get('/', function () {
     return view('welcome');
@@ -123,3 +124,10 @@ Route::middleware('auth')->group(function () {
         Route::patch('/users/{user}/role', [UserController::class, 'updateRole'])->name('users.updateRole');
     });
 });
+
+Route::get('/cars', [CarsController::class, 'index']);
+Route::get('/cars/create', [CarsController::class, 'create']);
+Route::post('/cars', [CarsController::class, 'store']);
+Route::get('/cars/{id}/edit', [CarsController::class, 'edit']);
+Route::put('/cars/{id}', [CarsController::class, 'update']);
+Route::delete('/cars/{id}', [CarsController::class, 'destroy']);
