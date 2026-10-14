@@ -4,8 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Enums\Hari;
 use App\Models\Ekstrakurikuler;
+use App\Models\PendaftaranEkskul;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
@@ -15,6 +17,48 @@ class EkstrakurikulerController extends Controller
     {
         $ekskuls = Ekstrakurikuler::with('haris')->latest()->get();
         return view('ekstrakurikuler.index', compact('ekskuls'));
+    }
+
+    // Halaman detail satu ekskul: tab Informasi / Pengumuman / Anggota
+    public function show(Request $request, $id)
+    {
+        $user = Auth::user();
+        $staff = $user->isStaff();
+
+        $ekskul = Ekstrakurikuler::with('haris')
+            ->withCount(['pendaftaran as anggota_count' => fn ($q) => $q->where('status', 'diterima')])
+            ->findOrFail($id);
+
+        // Pendaftaran milik user yang sedang login (kalau ada)
+        $pendaftaranSaya = PendaftaranEkskul::where('ekstrakurikuler_id', $ekskul->id)
+            ->where('user_id', $user->id)
+            ->latest()
+            ->first();
+
+        // Pengumuman & daftar anggota: hanya admin/pembina dan anggota yang sudah disetujui
+        $bolehLihat = $staff || ($pendaftaranSaya && $pendaftaranSaya->status === 'diterima');
+
+        $tab = in_array($request->query('tab'), ['info', 'pengumuman', 'anggota'], true)
+            ? $request->query('tab')
+            : 'info';
+
+        $pengumumans = collect();
+        $anggota = collect();
+
+        if ($bolehLihat && $tab === 'pengumuman') {
+            $pengumumans = $ekskul->pengumuman()->with('penulis')->latest()->get();
+        }
+
+        if ($bolehLihat && $tab === 'anggota') {
+            $anggota = PendaftaranEkskul::where('ekstrakurikuler_id', $ekskul->id)
+                ->where('status', 'diterima')
+                ->orderBy('nama_pendaftar')
+                ->get();
+        }
+
+        return view('ekstrakurikuler.show', compact(
+            'ekskul', 'tab', 'staff', 'bolehLihat', 'pendaftaranSaya', 'pengumumans', 'anggota'
+        ));
     }
 
     public function create()

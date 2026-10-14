@@ -29,6 +29,11 @@ class Ekstrakurikuler extends Model
         return $this->hasMany(EkskulHari::class);
     }
 
+    public function pengumuman()
+    {
+        return $this->hasMany(EkskulPengumuman::class);
+    }
+
     // Jadwal per hari, urut Senin -> Minggu
     public function getJadwalAttribute()
     {

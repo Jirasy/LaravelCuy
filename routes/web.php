@@ -19,7 +19,8 @@ use App\Http\Controllers\PendaftaranEkskulController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\UserController;
 use App\Http\Middleware\RoleMiddleware;
-use App\Http\Middleware\EnsureUserIsActive;
+use App\Http\Middleware\EnsureUserIsActive;   
+use App\Http\Controllers\EkskulPengumumanController;
 use App\Http\Controllers\CarsController;
 
 Route::get('/', function () {
@@ -105,6 +106,7 @@ Route::middleware(['auth', EnsureUserIsActive::class])->group(function () {
 
     // Semua user yang login
     Route::get('/ekstrakurikuler', [EkstrakurikulerController::class, 'index'])->name('ekstrakurikuler.index');
+    Route::get('/ekstrakurikuler/{id}', [EkstrakurikulerController::class, 'show'])->whereNumber('id')->name('ekstrakurikuler.show');
     Route::get('/pendaftaran', [PendaftaranEkskulController::class, 'index'])->name('pendaftaran.index');
     Route::get('/pendaftaran/create', [PendaftaranEkskulController::class, 'create'])->name('pendaftaran.create');
     Route::post('/pendaftaran/store', [PendaftaranEkskulController::class, 'store'])->name('pendaftaran.store');
@@ -117,6 +119,10 @@ Route::middleware(['auth', EnsureUserIsActive::class])->group(function () {
         Route::put('/ekstrakurikuler/{id}', [EkstrakurikulerController::class, 'update'])->name('ekstrakurikuler.update');
         Route::delete('/ekstrakurikuler/{id}', [EkstrakurikulerController::class, 'destroy'])->name('ekstrakurikuler.destroy');
         Route::patch('/pendaftaran/{pendaftaran}/status', [PendaftaranEkskulController::class, 'updateStatus'])->name('pendaftaran.updateStatus');
+        Route::post('/ekstrakurikuler/{ekstrakurikuler}/pengumuman', [EkskulPengumumanController::class, 'store'])->name('ekskul-pengumuman.store');
+        Route::get('/ekskul-pengumuman/{pengumuman}/edit', [EkskulPengumumanController::class, 'edit'])->name('ekskul-pengumuman.edit');
+        Route::put('/ekskul-pengumuman/{pengumuman}', [EkskulPengumumanController::class, 'update'])->name('ekskul-pengumuman.update');
+        Route::delete('/ekskul-pengumuman/{pengumuman}', [EkskulPengumumanController::class, 'destroy'])->name('ekskul-pengumuman.destroy');
     });
 
     // Admin saja
