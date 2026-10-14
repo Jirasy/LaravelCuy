@@ -21,16 +21,16 @@ class UserSeeder extends Seeder
         User::create([
             'name'     => 'Pembina Ekskul',
             'email'    => 'pembina@gmail.com',
-            'password' => 'password123',
+            'password' => 'pembina123',
             'nisn'     => null,
             'kelas'    => null,
             'role'     => 'pembina',
         ]);
 
         User::create([
-            'name'     => 'Siswa Utama',
+            'name'     => 'Siswa test',
             'email'    => 'siswa@gmail.com',
-            'password' => 'password123',
+            'password' => 'siswa123',
             'nisn'     => '1234567890',
             'kelas'    => 'XII PPLG',
             'role'     => 'siswa',
