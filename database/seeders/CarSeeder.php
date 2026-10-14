@@ -18,7 +18,9 @@ class CarSeeder extends Seeder
             'car_model' => 'Camry',
             'car_engine' => '2.5L',
             'car_fuel' => 'Gasoline',
-            'car_type' => 'Sedan'
+            'car_type' => 'Sedan',
+            'car_stock' => 10,
+            'car_price' => 25000
         ]);
 
         cars::create([
@@ -26,7 +28,9 @@ class CarSeeder extends Seeder
             'car_model' => 'Civic',
             'car_engine' => '1.5L',
             'car_fuel' => 'Gasoline',
-            'car_type' => 'Sedan'
+            'car_type' => 'Sedan',
+            'car_stock' => 5,
+            'car_price' => 22000
         ]);
 
         cars::create([
@@ -34,7 +38,9 @@ class CarSeeder extends Seeder
             'car_model' => 'F-150',
             'car_engine' => '3.3L V6',
             'car_fuel' => 'Gasoline',
-            'car_type' => 'Truck'
+            'car_type' => 'Truck',
+            'car_stock' => 3,
+            'car_price' => 30000
         ]);
     }
 }
