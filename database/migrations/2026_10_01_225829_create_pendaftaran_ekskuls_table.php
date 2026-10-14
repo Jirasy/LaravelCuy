@@ -10,11 +10,11 @@ return new class extends Migration
     {
         Schema::create('pendaftaran_ekskuls', function (Blueprint $table) {
             $table->id();
-            // Nullable: pendaftar boleh diisi manual tanpa akun login
+            // Nullable: pendaftar boleh isi manual tanpa akun login
             $table->foreignId('user_id')->nullable()->constrained()->nullOnDelete();
             $table->foreignId('ekstrakurikuler_id')->constrained('ekstrakurikulers')->onDelete('cascade');
 
-            // Data pendaftar (diisi manual di form)
+            // Data pendaftar (isi manual di form)
             $table->string('nama_pendaftar');
             $table->enum('peran', ['siswa', 'admin', 'pembina'])->default('siswa');
             $table->string('kelas')->nullable();

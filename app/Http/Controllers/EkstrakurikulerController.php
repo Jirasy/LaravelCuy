@@ -29,13 +29,13 @@ class EkstrakurikulerController extends Controller
             ->withCount(['pendaftaran as anggota_count' => fn ($q) => $q->where('status', 'diterima')])
             ->findOrFail($id);
 
-        // Pendaftaran milik user yang sedang login (kalau ada)
+        // Pendaftaran milik user yang lagi login (kalo ada)
         $pendaftaranSaya = PendaftaranEkskul::where('ekstrakurikuler_id', $ekskul->id)
             ->where('user_id', $user->id)
             ->latest()
             ->first();
 
-        // Pengumuman & daftar anggota: hanya admin/pembina dan anggota yang sudah disetujui
+        // Pengumuman & daftar anggota: cuma admin/pembina dan anggota yang udah disetujuin
         $bolehLihat = $staff || ($pendaftaranSaya && $pendaftaranSaya->status === 'diterima');
 
         $tab = in_array($request->query('tab'), ['info', 'pengumuman', 'anggota'], true)
@@ -112,7 +112,7 @@ class EkstrakurikulerController extends Controller
                          ->with('success', 'Ekstrakurikuler berhasil dihapus!');
     }
 
-    // Ubah input form (hari[] + jadwal[hari][jam_*]) menjadi daftar jadwal
+    // Ubah input form (hari[] + jadwal[hari][jam_*]) jadi daftar jadwal
     private function susunJadwal(array $data): array
     {
         return collect($data['hari'])
@@ -139,7 +139,7 @@ class EkstrakurikulerController extends Controller
             'status'    => ($statusWajib ? 'required' : 'nullable') . '|in:aktif,nonaktif',
         ];
 
-        // Jam wajib diisi untuk SETIAP hari yang dipilih
+        // Jam wajib diisi buat SETIAP hari yang dipilih
         $dipilih = array_intersect(array_filter((array) $request->input('hari', []), 'is_string'), $valid);
 
         foreach ($dipilih as $h) {

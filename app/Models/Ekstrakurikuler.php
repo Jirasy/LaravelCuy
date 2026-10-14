@@ -44,7 +44,6 @@ class Ekstrakurikuler extends Model
             ->values();
     }
 
-    // Contoh hasil: "Rabu, Jumat"
     public function getHariLabelAttribute(): string
     {
         return $this->jadwal->map(fn ($h) => ucfirst($h->hari))->implode(', ');

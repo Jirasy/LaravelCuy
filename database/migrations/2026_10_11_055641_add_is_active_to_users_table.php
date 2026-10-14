@@ -9,7 +9,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('users', function (Blueprint $table) {
-            // true = akun aktif, false = dinonaktifkan oleh admin
+            // true = akun aktif, false = dinonaktifin admin
             $table->boolean('is_active')->default(true)->after('role');
         });
     }

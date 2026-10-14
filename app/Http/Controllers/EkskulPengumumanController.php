@@ -7,7 +7,7 @@ use App\Models\Ekstrakurikuler;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
-// Semua method di sini hanya untuk admin & pembina (dijaga di route)
+// Semua method di sini cuma buat admin & pembina (dijaga di route)
 class EkskulPengumumanController extends Controller
 {
     public function store(Request $request, Ekstrakurikuler $ekstrakurikuler)

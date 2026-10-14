@@ -111,7 +111,7 @@ Route::middleware(['auth', EnsureUserIsActive::class])->group(function () {
     Route::get('/pendaftaran/create', [PendaftaranEkskulController::class, 'create'])->name('pendaftaran.create');
     Route::post('/pendaftaran/store', [PendaftaranEkskulController::class, 'store'])->name('pendaftaran.store');
 
-    // Admin & pembina
+    // Admin & pembina aja
     Route::middleware(RoleMiddleware::class . ':admin,pembina')->group(function () {
         Route::get('/ekstrakurikuler/create', [EkstrakurikulerController::class, 'create'])->name('ekstrakurikuler.create');
         Route::post('/ekstrakurikuler/store', [EkstrakurikulerController::class, 'store'])->name('ekstrakurikuler.store');
@@ -125,7 +125,7 @@ Route::middleware(['auth', EnsureUserIsActive::class])->group(function () {
         Route::delete('/ekskul-pengumuman/{pengumuman}', [EkskulPengumumanController::class, 'destroy'])->name('ekskul-pengumuman.destroy');
     });
 
-    // Admin saja
+    // Admin aja
     Route::middleware(RoleMiddleware::class . ':admin')->group(function () {
        Route::get('/users', [UserController::class, 'index'])->name('users.index');
        Route::get('/users/{user}/edit', [UserController::class, 'edit'])->name('users.edit');
