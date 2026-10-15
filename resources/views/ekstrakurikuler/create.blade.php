@@ -4,9 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tambah Ekstrakurikuler</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    @include('partials.head')
 </head>
-<body class="bg-gray-100 p-6">
+<body class="app-bg p-6">
     <div class="max-w-2xl mx-auto bg-white p-8 rounded-xl shadow-sm border border-gray-200">
         <div class="flex justify-between items-center mb-6">
             <h1 class="text-2xl font-bold text-gray-800">Tambah Ekstrakurikuler Baru</h1>

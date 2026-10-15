@@ -4,11 +4,23 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Katalog Ekstrakurikuler</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    @include('partials.head')
 </head>
-<body class="bg-gray-100 p-6">
+<body class="app-bg p-6">
     <div class="max-w-6xl mx-auto">
         @include('partials.navbar')
+
+        {{-- Hero: pakai public/images/hero.jpg kalo ada, kalo tidak pakai gradient --}}
+        @php $heroFoto = file_exists(public_path('images/hero.jpg')) ? asset('images/hero.jpg') : null; @endphp
+        <div class="relative overflow-hidden rounded-2xl mb-8 text-white shadow-lg" data-aos="fade-down">
+            <div class="absolute inset-0 {{ $heroFoto ? 'bg-cover bg-center' : 'hero-fallback' }}"
+                 @if($heroFoto) style="background-image:url('{{ $heroFoto }}')" @endif></div>
+            <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-[2px]"></div>
+            <div class="relative px-8 py-10 md:py-14">
+                <h1 class="text-3xl md:text-4xl font-bold" data-sapaan data-nama="{{ explode(' ', trim(auth()->user()->name))[0] }}">Halo, {{ explode(' ', trim(auth()->user()->name))[0] }}! 👋</h1>
+                <p class="mt-2 text-white/90" data-sapaan-sub>Siap untuk jadwal ekskul hari ini?</p>
+            </div>
+        </div>
         
         <!-- Header & Tombol Aksi -->
         <div class="flex justify-between items-center mb-6">
@@ -44,7 +56,8 @@
         <!-- Grid Kartu Ekstrakurikuler -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
             @forelse($ekskuls as $ekskul)
-                <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 flex flex-col justify-between">
+                <div data-aos="fade-up" data-aos-delay="{{ ($loop->index % 3) * 100 }}" class="h-full">
+                <div class="card-hover h-full bg-white p-6 rounded-xl shadow-sm border border-gray-200 flex flex-col justify-between">
                     <div>
                         <!-- Status Badge -->
                         <span class="inline-block px-3 py-1 text-xs font-semibold rounded-full {{ $ekskul->status === 'aktif' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800' }}">
@@ -88,6 +101,7 @@
                         </div>
                         @endif
                     </div>
+                </div>
                 </div>
             @empty
                 <div class="col-span-3 bg-white p-8 text-center rounded-xl border border-gray-200 text-gray-500">

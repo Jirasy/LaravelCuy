@@ -4,9 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Edit Pengumuman</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    @include('partials.head')
 </head>
-<body class="bg-gray-100 p-6">
+<body class="app-bg p-6">
     <div class="max-w-2xl mx-auto">
         @include('partials.navbar')
 

@@ -4,9 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Data Pendaftaran Ekskul</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    @include('partials.head')
 </head>
-<body class="bg-gray-100 p-6">
+<body class="app-bg p-6">
     <div class="max-w-7xl mx-auto">
         @include('partials.navbar')
         <div class="flex justify-between items-center mb-6">
@@ -21,7 +21,18 @@
             <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-lg mb-4">{{ session('success') }}</div>
         @endif
 
-        <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-x-auto">
+        @if(session('error'))
+            <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg mb-4">{{ session('error') }}</div>
+        @endif
+        @if($errors->any())
+            <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg mb-4 text-sm">
+                <ul class="list-disc pl-5">
+                    @foreach($errors->all() as $e)<li>{{ $e }}</li>@endforeach
+                </ul>
+            </div>
+        @endif
+
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-x-auto" data-aos="fade-up">
             <table class="w-full text-sm text-left">
                 <thead class="bg-gray-50 text-gray-700">
                     <tr>
@@ -50,20 +61,17 @@
                                 <form action="{{ route('pendaftaran.updateStatus', $p->id) }}" method="POST" class="space-y-2">
                                     @csrf
                                     @method('PATCH')
-                                    <select name="status" onchange="warnaStatus(this)" class="status-select border p-1.5 rounded text-xs font-semibold w-full
+                                    <select name="status" onchange="warnaStatus(this); tandaiBerubah(this.form)" class="status-select border p-1.5 rounded text-xs font-semibold w-full
                                         {{ $p->status === 'diterima' ? 'bg-green-100 text-green-800 border-green-300' : ($p->status === 'ditolak' ? 'bg-red-100 text-red-800 border-red-300' : 'bg-yellow-100 text-yellow-800 border-yellow-300') }}">
                                         <option value="pending"  {{ $p->status === 'pending' ? 'selected' : '' }}>Menunggu</option>
                                         <option value="diterima" {{ $p->status === 'diterima' ? 'selected' : '' }}>Disetujui</option>
                                         <option value="ditolak"  {{ $p->status === 'ditolak' ? 'selected' : '' }}>Tidak Disetujui</option>
                                     </select>
-                                    <textarea name="alasan" rows="2" placeholder="Alasan / catatan" class="border p-1 rounded text-xs w-full">{{ $p->alasan }}</textarea>
-                                    <button type="submit" class="bg-gray-800 text-white px-3 py-1 rounded text-xs hover:bg-gray-900">Simpan</button>
+                                    <textarea name="alasan" rows="2" oninput="tandaiBerubah(this.form)" placeholder="Alasan / catatan" class="border p-1 rounded text-xs w-full">{{ $p->alasan }}</textarea>
+                                    <button type="submit" class="btn-simpan bg-gray-800 text-white px-3 py-1 rounded text-xs hover:bg-gray-900">Simpan</button>
                                 </form>
                                 @else
-                                <span class="inline-block px-2 py-1 text-xs font-semibold rounded-full
-                                    {{ $p->status === 'diterima' ? 'bg-green-100 text-green-800' : ($p->status === 'ditolak' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800') }}">
-                                    {{ $p->status_label }}
-                                </span>
+                                @include('partials.status-badge', ['status' => $p->status, 'label' => $p->status_label])
                                 @if($p->alasan)
                                     <p class="text-xs text-gray-600 mt-2">Catatan: {{ $p->alasan }}</p>
                                 @endif
@@ -84,6 +92,12 @@
             diterima: ['bg-green-100',  'text-green-800',  'border-green-300'],
             ditolak:  ['bg-red-100',    'text-red-800',    'border-red-300'],
         };
+        function tandaiBerubah(form) {
+            const b = form.querySelector('.btn-simpan');
+            b.textContent = 'Simpan perubahan (belum disimpan!)';
+            b.classList.remove('bg-gray-800', 'hover:bg-gray-900');
+            b.classList.add('bg-amber-500', 'hover:bg-amber-600');
+        }
         function warnaStatus(el) {
             Object.values(WARNA).forEach(k => el.classList.remove(...k));
             el.classList.add(...WARNA[el.value]);

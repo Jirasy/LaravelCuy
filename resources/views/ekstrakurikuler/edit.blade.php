@@ -4,16 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Edit Ekstrakurikuler</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    @include('partials.head')
 </head>
-<body class="bg-gray-100 p-6">
+<body class="app-bg p-6">
     <div class="max-w-2xl mx-auto bg-white p-8 rounded-xl shadow-sm border border-gray-200">
         <div class="flex justify-between items-center mb-6">
             <h1 class="text-2xl font-bold text-gray-800">Edit Ekstrakurikuler</h1>
             <a href="{{ route('ekstrakurikuler.index') }}" class="text-gray-600 hover:underline text-sm">← Batal</a>
         </div>
 
-        <!-- Action mengarah ke route manual update -->
+        <!-- Action yang arahnya ke route manual update -->
         @if($errors->any())
             <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg mb-4">
                 <ul class="list-disc pl-5 text-sm">
@@ -24,7 +24,7 @@
 
         <form action="{{ route('ekstrakurikuler.update', $ekstrakurikuler->id) }}" method="POST" class="space-y-4">
     @csrf
-    @method('PUT') <!-- 🔴 WAJIB ADA agar Laravel mengenali request ini sebagai UPDATE -->
+    @method('PUT') <!-- 🔴 WAJIB ADA biar Laravel kenal request ini sebagai UPDATE -->
 
     <div>
         <label class="block text-sm font-semibold text-gray-700">Nama Ekstrakurikuler</label>

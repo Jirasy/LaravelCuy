@@ -4,9 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ $ekskul->nama_ekstrakurikuler }}</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    @include('partials.head')
 </head>
-<body class="bg-gray-100 p-6">
+<body class="app-bg p-6">
     <div class="max-w-4xl mx-auto">
         @include('partials.navbar')
 
@@ -46,7 +46,7 @@
 
         {{-- ========== TAB INFORMASI ========== --}}
         @if($tab === 'info')
-            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 space-y-5">
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 space-y-5" data-aos="fade-up">
                 <div>
                     <h2 class="text-sm font-semibold text-gray-500 uppercase">Tentang</h2>
                     <p class="text-gray-800 mt-1">{{ $ekskul->deskripsi ?? 'Belum ada deskripsi.' }}</p>
@@ -78,10 +78,7 @@
                     @if($pendaftaranSaya)
                         <p class="text-sm">
                             Status pendaftaranmu:
-                            <span class="px-2 py-1 text-xs font-semibold rounded-full
-                                {{ $pendaftaranSaya->status === 'diterima' ? 'bg-green-100 text-green-800' : ($pendaftaranSaya->status === 'ditolak' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800') }}">
-                                {{ $pendaftaranSaya->status_label }}
-                            </span>
+                            @include('partials.status-badge', ['status' => $pendaftaranSaya->status, 'label' => $pendaftaranSaya->status_label])
                         </p>
                     @elseif($ekskul->status === 'aktif')
                         <a href="{{ route('pendaftaran.create', ['ekstrakurikuler_id' => $ekskul->id]) }}"

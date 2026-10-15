@@ -4,9 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Kelola User</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    @include('partials.head')
 </head>
-<body class="bg-gray-100 p-6">
+<body class="app-bg p-6">
     <div class="max-w-6xl mx-auto">
         @include('partials.navbar')
 
@@ -28,7 +28,7 @@
             <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg mb-4">{{ session('error') }}</div>
         @endif
 
-        <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-x-auto">
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-x-auto" data-aos="fade-up">
             <table class="w-full text-sm text-left">
                 <thead class="bg-gray-50 text-gray-700">
                     <tr>
