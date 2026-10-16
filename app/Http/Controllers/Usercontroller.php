@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 
 class UserController extends Controller
@@ -28,7 +29,11 @@ class UserController extends Controller
             'nisn'     => ['nullable', 'string', 'max:30', Rule::unique('users', 'nisn')->ignore($user->id)],
             'kelas'    => 'nullable|string|max:50',
             'password' => 'nullable|string|min:6|confirmed',
+            'angkatan_sekolah' => 'nullable|string|max:20',
+            'tahun_lulus'      => 'nullable|integer|min:1990|max:' . (date('Y') + 10),
         ]);
+
+        $data['is_alumni'] = $request->boolean('is_alumni');
 
         // Password hanya diganti kalau diisi
         if (empty($data['password'])) {
@@ -76,6 +81,7 @@ class UserController extends Controller
         }
 
         $nama = $user->name;
+        Storage::disk('public')->delete(array_filter([$user->foto, $user->wallpaper])); // bersihkan file milik user
         $user->delete();
 
         return back()->with('success', "Akun {$nama} berhasil dihapus.");

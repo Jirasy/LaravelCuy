@@ -48,6 +48,24 @@
                 </div>
 
                 <div class="border-t pt-4">
+                    <p class="text-sm font-semibold text-gray-700 mb-2">Status sekolah</p>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs text-gray-500">Angkatan sekolah <span class="text-gray-400">(mis. 2023)</span></label>
+                            <input type="text" name="angkatan_sekolah" value="{{ old('angkatan_sekolah', $user->angkatan_sekolah) }}" class="w-full border p-2 rounded-lg">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-500">Tahun lulus <span class="text-gray-400">(untuk alumni)</span></label>
+                            <input type="number" name="tahun_lulus" value="{{ old('tahun_lulus', $user->tahun_lulus) }}" class="w-full border p-2 rounded-lg">
+                        </div>
+                    </div>
+                    <label class="flex items-center gap-2 mt-3 text-sm text-gray-700">
+                        <input type="checkbox" name="is_alumni" value="1" {{ old('is_alumni', $user->is_alumni) ? 'checked' : '' }}>
+                        Tandai sebagai <strong>alumni</strong> <span class="text-xs text-gray-400">(alumni tetap bisa dijadikan pembina lewat Kelola User)</span>
+                    </label>
+                </div>
+
+                <div class="border-t pt-4">
                     <p class="text-sm font-semibold text-gray-700">Reset Password <span class="text-gray-400 font-normal">(kosongkan kalau tidak ingin mengubah)</span></p>
                     <div class="grid grid-cols-2 gap-4 mt-2">
                         <div>

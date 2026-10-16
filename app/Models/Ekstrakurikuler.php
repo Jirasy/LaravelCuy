@@ -34,6 +34,16 @@ class Ekstrakurikuler extends Model
         return $this->hasMany(EkskulPengumuman::class);
     }
 
+    public function prestasi()
+    {
+        return $this->hasMany(EkskulPrestasi::class);
+    }
+
+    public function events()
+    {
+        return $this->hasMany(EkskulEvent::class);
+    }
+
     // Jadwal per hari, urut Senin -> Minggu
     public function getJadwalAttribute()
     {
@@ -44,6 +54,7 @@ class Ekstrakurikuler extends Model
             ->values();
     }
 
+    // Contoh hasil: "Rabu, Jumat"
     public function getHariLabelAttribute(): string
     {
         return $this->jadwal->map(fn ($h) => ucfirst($h->hari))->implode(', ');

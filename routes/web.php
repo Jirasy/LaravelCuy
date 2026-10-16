@@ -1,5 +1,5 @@
 <?php
-
+ 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\BeresController;
@@ -21,6 +21,11 @@ use App\Http\Controllers\UserController;
 use App\Http\Middleware\RoleMiddleware;
 use App\Http\Middleware\EnsureUserIsActive;   
 use App\Http\Controllers\EkskulPengumumanController;
+use App\Http\Controllers\PengaturanController;
+use App\Http\Controllers\EkskulPrestasiController;
+use App\Http\Controllers\EkskulEventController;
+use App\Http\Controllers\KeanggotaanController;
+use App\Http\Controllers\RiwayatController;
 use App\Http\Controllers\CarsController;
 
 Route::get('/', function () {
@@ -91,26 +96,36 @@ Route::get('/jihy', [JihyController::class, 'index']);
 Route::get('/jihy/create', [JihyController::class, 'create']);
 Route::post('/jihy/store', [JihyController::class, 'store']);
 
+ 
 // Route::get('/', function () {
 //     return redirect()->route('ekstrakurikuler.index');
 // });
-
+ 
 // ---------- Auth ----------
 Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
 Route::post('/login', [AuthController::class, 'login'])->name('login.process');
 Route::get('/register', [AuthController::class, 'showRegister'])->name('register');
 Route::post('/register', [AuthController::class, 'register'])->name('register.process');
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
-
+ 
 Route::middleware(['auth', EnsureUserIsActive::class])->group(function () {
-
+ 
+    Route::get('/pengaturan', [PengaturanController::class, 'edit'])->name('pengaturan.edit');
+    Route::put('/pengaturan/profil', [PengaturanController::class, 'updateProfil'])->name('pengaturan.profil');
+    Route::put('/pengaturan/tampilan', [PengaturanController::class, 'updateTampilan'])->name('pengaturan.tampilan');
+    Route::put('/pengaturan/password', [PengaturanController::class, 'updatePassword'])->name('pengaturan.password');
+    Route::delete('/pengaturan/foto', [PengaturanController::class, 'hapusFoto'])->name('pengaturan.foto.hapus');
+    Route::delete('/pengaturan/wallpaper', [PengaturanController::class, 'hapusWallpaper'])->name('pengaturan.wallpaper.hapus');
+ 
+    Route::get('/riwayat/{user?}', [RiwayatController::class, 'show'])->name('riwayat.show');
+ 
     // Semua user yang login
     Route::get('/ekstrakurikuler', [EkstrakurikulerController::class, 'index'])->name('ekstrakurikuler.index');
     Route::get('/ekstrakurikuler/{id}', [EkstrakurikulerController::class, 'show'])->whereNumber('id')->name('ekstrakurikuler.show');
     Route::get('/pendaftaran', [PendaftaranEkskulController::class, 'index'])->name('pendaftaran.index');
     Route::get('/pendaftaran/create', [PendaftaranEkskulController::class, 'create'])->name('pendaftaran.create');
     Route::post('/pendaftaran/store', [PendaftaranEkskulController::class, 'store'])->name('pendaftaran.store');
-
+ 
     // Admin & pembina aja
     Route::middleware(RoleMiddleware::class . ':admin,pembina')->group(function () {
         Route::get('/ekstrakurikuler/create', [EkstrakurikulerController::class, 'create'])->name('ekstrakurikuler.create');
@@ -123,8 +138,20 @@ Route::middleware(['auth', EnsureUserIsActive::class])->group(function () {
         Route::get('/ekskul-pengumuman/{pengumuman}/edit', [EkskulPengumumanController::class, 'edit'])->name('ekskul-pengumuman.edit');
         Route::put('/ekskul-pengumuman/{pengumuman}', [EkskulPengumumanController::class, 'update'])->name('ekskul-pengumuman.update');
         Route::delete('/ekskul-pengumuman/{pengumuman}', [EkskulPengumumanController::class, 'destroy'])->name('ekskul-pengumuman.destroy');
+ 
+        Route::post('/ekstrakurikuler/{ekstrakurikuler}/prestasi', [EkskulPrestasiController::class, 'store'])->name('ekskul-prestasi.store');
+        Route::get('/ekskul-prestasi/{prestasi}/edit', [EkskulPrestasiController::class, 'edit'])->name('ekskul-prestasi.edit');
+        Route::put('/ekskul-prestasi/{prestasi}', [EkskulPrestasiController::class, 'update'])->name('ekskul-prestasi.update');
+        Route::delete('/ekskul-prestasi/{prestasi}', [EkskulPrestasiController::class, 'destroy'])->name('ekskul-prestasi.destroy');
+ 
+        Route::post('/ekstrakurikuler/{ekstrakurikuler}/event', [EkskulEventController::class, 'store'])->name('ekskul-event.store');
+        Route::get('/ekskul-event/{event}/edit', [EkskulEventController::class, 'edit'])->name('ekskul-event.edit');
+        Route::put('/ekskul-event/{event}', [EkskulEventController::class, 'update'])->name('ekskul-event.update');
+        Route::delete('/ekskul-event/{event}', [EkskulEventController::class, 'destroy'])->name('ekskul-event.destroy');
+ 
+        Route::patch('/pendaftaran/{pendaftaran}/keanggotaan', [KeanggotaanController::class, 'update'])->name('keanggotaan.update');
     });
-
+ 
     // Admin aja
     Route::middleware(RoleMiddleware::class . ':admin')->group(function () {
        Route::get('/users', [UserController::class, 'index'])->name('users.index');

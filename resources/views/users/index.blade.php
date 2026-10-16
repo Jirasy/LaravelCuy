@@ -10,15 +10,16 @@
     <div class="max-w-6xl mx-auto">
         @include('partials.navbar')
 
-        <div class="flex justify-between items-center mb-6">
-            <div>
-                <h1 class="text-3xl font-bold text-gray-800">Kelola User</h1>
-                <p class="text-gray-600 text-sm">
-                    {{ $users->count() }} user &middot; {{ $users->where('is_active', true)->count() }} aktif
-                    &middot; {{ $users->where('is_active', false)->count() }} nonaktif
-                </p>
+        {{-- Banner --}}
+        <div class="relative overflow-hidden rounded-2xl mb-6 text-white shadow-lg" data-aos="fade-down">
+            <div class="absolute inset-0 hero-fallback"></div>
+            <div class="relative px-8 py-8 flex flex-wrap justify-between items-center gap-4">
+                <div>
+                    <h1 class="text-3xl font-bold">Kelola User</h1>
+                    <p class="text-white/90 text-sm mt-1">Atur role, aktifkan atau nonaktifkan akun, dan edit data pengguna.</p>
+                </div>
+                <input type="search" id="cari-user" placeholder="Cari nama, email, kelas..." class="field-glass !w-64 !mt-0 !text-white placeholder-white/70">
             </div>
-            <a href="{{ route('ekstrakurikuler.index') }}" class="text-gray-600 hover:underline text-sm">← Katalog</a>
         </div>
 
         @if(session('success'))
@@ -28,29 +29,61 @@
             <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg mb-4">{{ session('error') }}</div>
         @endif
 
+        {{-- Ringkasan --}}
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            @php
+                $stat = [
+                    ['Total user',      $users->count(),                                          '👥'],
+                    ['Admin & Pembina', $users->whereIn('role', ['admin', 'pembina'])->count(),  '🛡️'],
+                    ['Siswa',           $users->where('role', 'siswa')->count(),                  '🎓'],
+                    ['Nonaktif',        $users->where('is_active', false)->count(),               '⏸️'],
+                ];
+            @endphp
+            @foreach($stat as $i => $s)
+                <div data-aos="fade-up" data-aos-delay="{{ $i * 80 }}">
+                    <div class="card-hover h-full bg-white rounded-xl border border-gray-200 shadow-sm p-4 flex items-center gap-3">
+                        <span class="text-2xl">{{ $s[2] }}</span>
+                        <div>
+                            <p class="text-2xl font-bold text-gray-800 leading-none">{{ $s[1] }}</p>
+                            <p class="text-xs text-gray-500 mt-1">{{ $s[0] }}</p>
+                        </div>
+                    </div>
+                </div>
+            @endforeach
+        </div>
+
+        {{-- Tabel --}}
         <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-x-auto" data-aos="fade-up">
             <table class="w-full text-sm text-left">
                 <thead class="bg-gray-50 text-gray-700">
                     <tr>
-                        <th class="p-3">Nama</th>
-                        <th class="p-3">Email</th>
+                        <th class="p-3">Pengguna</th>
                         <th class="p-3">Kelas / NISN</th>
                         <th class="p-3">Role</th>
                         <th class="p-3">Status</th>
                         <th class="p-3">Aksi</th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody id="tabel-user">
                     @foreach($users as $u)
                         @php $saya = $u->id === auth()->id(); @endphp
-                        <tr class="border-t align-top {{ $u->is_active ? '' : 'bg-gray-50 text-gray-500' }}">
-                            <td class="p-3 font-semibold">{{ $u->name }}</td>
-                            <td class="p-3">{{ $u->email }}</td>
+                        <tr class="border-t align-middle {{ $u->is_active ? '' : 'opacity-60' }}"
+                            data-cari="{{ mb_strtolower($u->name . ' ' . $u->email . ' ' . $u->kelas . ' ' . $u->nisn) }}">
+                            <td class="p-3">
+                                <div class="flex items-center gap-3">
+                                    @include('partials.avatar', ['user' => $u, 'ukuran' => 40])
+                                    <div>
+                                        <p class="font-semibold text-gray-800">{{ $u->name }}@if($saya) <span class="text-xs text-gray-400">(kamu)</span>@endif</p>
+                                        <p class="text-xs text-gray-500">{{ $u->email }}</p>
+                                        @if($u->status_sekolah)<span class="inline-block mt-1 px-2 py-0.5 text-xs rounded-full {{ $u->is_alumni ? 'bg-amber-100 text-amber-800' : 'bg-gray-100 text-gray-800' }}">🎓 {{ $u->status_sekolah }}</span>@endif
+                                    </div>
+                                </div>
+                            </td>
                             <td class="p-3">{{ $u->kelas ?? '-' }}<br><span class="text-xs text-gray-500">{{ $u->nisn }}</span></td>
 
                             <td class="p-3">
                                 @if($saya)
-                                    <span class="text-xs">{{ ucfirst($u->role) }} (akunmu)</span>
+                                    <span class="text-xs">{{ ucfirst($u->role) }}</span>
                                 @else
                                     <form action="{{ route('users.updateRole', $u->id) }}" method="POST" class="flex gap-2">
                                         @csrf
@@ -66,13 +99,15 @@
                             </td>
 
                             <td class="p-3">
-                                <span class="px-2 py-1 text-xs font-semibold rounded-full {{ $u->is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800' }}">
-                                    {{ $u->is_active ? 'Aktif' : 'Nonaktif' }}
-                                </span>
+                                @include('partials.status-badge', [
+                                    'status' => $u->is_active ? 'diterima' : 'ditolak',
+                                    'label'  => $u->is_active ? 'Aktif' : 'Nonaktif',
+                                ])
                             </td>
 
                             <td class="p-3">
                                 <div class="flex flex-wrap gap-2">
+                                    <a href="{{ route('riwayat.show', $u->id) }}" class="bg-indigo-600 text-white px-3 py-1 rounded text-xs font-semibold hover:bg-indigo-700">Riwayat</a>
                                     <a href="{{ route('users.edit', $u->id) }}" class="bg-yellow-500 text-white px-3 py-1 rounded text-xs font-semibold hover:bg-yellow-600">Edit</a>
 
                                     @unless($saya)
@@ -100,5 +135,14 @@
             </table>
         </div>
     </div>
+
+    <script>
+        document.getElementById('cari-user').addEventListener('input', function () {
+            var q = this.value.trim().toLowerCase();
+            document.querySelectorAll('#tabel-user tr').forEach(function (tr) {
+                tr.style.display = tr.dataset.cari.indexOf(q) === -1 ? 'none' : '';
+            });
+        });
+    </script>
 </body>
 </html>

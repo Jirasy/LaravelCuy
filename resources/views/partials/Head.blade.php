@@ -1,6 +1,6 @@
 {{-- Dipasang di <head> setiap halaman: tema gelap/terang, Tailwind, AOS, sapaan, animasi --}}
 <script>
-    // Terapkan tema tersimpan SEBELUM halaman tampil (supaya gak kedip putih)
+    // Terapkan tema tersimpan SEBELUM halaman tampil (supaya tidak kedip putih)
     (function () {
         var t = localStorage.getItem('theme');
         if (t === 'dark' || (!t && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
@@ -12,6 +12,13 @@
         localStorage.setItem('theme', dark ? 'dark' : 'light');
     }
 </script>
+@auth
+<script>document.documentElement.dataset.palet = @json(auth()->user()->palet ?? 'aurora');</script>
+@if(auth()->user()->wallpaper_url)
+<style>:root { --wall: url("{{ auth()->user()->wallpaper_url }}"); }</style>
+<script>document.documentElement.classList.add('has-wall');</script>
+@endif
+@endauth
 <script src="https://cdn.tailwindcss.com"></script>
 <script>tailwind.config = { darkMode: 'class' }</script>
 <link rel="stylesheet" href="https://unpkg.com/aos@2.3.1/dist/aos.css">
@@ -30,6 +37,12 @@
         document.querySelectorAll('[data-sapaan]').forEach(function (el) {
             el.textContent = 'Selamat ' + w[0] + ', ' + el.dataset.nama + '! 👋';
         });
+        // Kilau cahaya pada semua tombol berwarna (jeda acak supaya tidak serempak)
+        document.querySelectorAll('button.text-white, a.text-white, .btn-glass').forEach(function (el) {
+            if (!el.classList.contains('btn-glass')) el.classList.add('shine');
+            el.style.setProperty('--shine-delay', (-Math.random() * 5).toFixed(2) + 's');
+        });
+
         document.querySelectorAll('[data-sapaan-sub]').forEach(function (el) {
             el.textContent = w[1];
         });
@@ -50,6 +63,7 @@
     --a2: rgba(244, 114, 182, .40);  /* pink */
     --a3: rgba(56, 189, 248, .45);   /* biru langit */
     --a4: rgba(196, 181, 253, .55);  /* lavender */
+    --p1-rgb: 99 102 241; --p2-rgb: 168 85 247; --p3-rgb: 56 189 248; /* warna aksen tombol/judul */
 }
 html.dark {
     --bg-base: #060816;
@@ -138,10 +152,10 @@ html.dark .field-glass:-webkit-autofill { -webkit-box-shadow: 0 0 0 100px #1e1b4
 .btn-glass {
     position: relative; overflow: hidden; isolation: isolate; width: 100%;
     padding: .85rem 1rem; border-radius: 1rem; font-weight: 700; letter-spacing: .03em; color: #fff;
-    background: linear-gradient(135deg, rgba(99, 102, 241, .78), rgba(168, 85, 247, .68) 55%, rgba(56, 189, 248, .62));
+    background: linear-gradient(135deg, rgb(var(--p1-rgb) / .78), rgb(var(--p2-rgb) / .68) 55%, rgb(var(--p3-rgb) / .62));
     border: 1px solid rgba(255, 255, 255, .55);
     backdrop-filter: blur(12px) saturate(170%);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .65), inset 0 -12px 24px rgba(30, 27, 75, .25), 0 14px 34px -10px rgba(99, 102, 241, .7);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .65), inset 0 -12px 24px rgba(30, 27, 75, .25), 0 14px 34px -10px rgb(var(--p1-rgb) / .7);
     text-shadow: 0 1px 8px rgba(30, 27, 75, .5);
     transition: transform .25s ease, box-shadow .25s ease;
 }
@@ -151,13 +165,14 @@ html.dark .field-glass:-webkit-autofill { -webkit-box-shadow: 0 0 0 100px #1e1b4
         linear-gradient(115deg, transparent 0 18%, rgba(255, 255, 255, .32) 18% 19.5%, transparent 19.5% 43%, rgba(255, 255, 255, .16) 43% 44%, transparent 44% 71%, rgba(255, 255, 255, .28) 71% 72.5%, transparent 72.5%),
         linear-gradient(200deg, rgba(255, 255, 255, .22), transparent 38%);
 }
-.btn-glass::after { /* kilau yang menyapu saat hover */
+.btn-glass::after { /* kilau yang menyapu: otomatis berkala, lebih cepat saat hover */
     content: ''; position: absolute; top: -20%; bottom: -20%; left: -60%; width: 38%; z-index: -1;
-    background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .55), transparent);
-    transform: skewX(-20deg); transition: left .7s ease;
+    background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .6), transparent);
+    transform: skewX(-20deg);
+    animation: shineSweep 5s ease-in-out infinite; animation-delay: var(--shine-delay, 0s);
 }
-.btn-glass:hover { transform: translateY(-2px); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .7), inset 0 -12px 24px rgba(30, 27, 75, .25), 0 20px 44px -10px rgba(99, 102, 241, .85); }
-.btn-glass:hover::after { left: 130%; }
+.btn-glass:hover { transform: translateY(-2px); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .7), inset 0 -12px 24px rgba(30, 27, 75, .25), 0 20px 44px -10px rgb(var(--p1-rgb) / .85); }
+.btn-glass:hover::after { animation-duration: 1.4s; }
 .btn-glass:active { transform: translateY(0) scale(.98); }
 
 /* Dekorasi: serpihan kaca, bola kaca, kilau */
@@ -180,7 +195,7 @@ html.dark .sparkle { color: #e0e7ff; }
     box-shadow: inset -20px -30px 50px rgba(30, 27, 75, .35), 0 40px 80px -20px rgba(99, 102, 241, .6);
 }
 .text-aurora {
-    background: linear-gradient(90deg, #4f46e5, #a855f7, #06b6d4, #4f46e5); background-size: 300% 100%;
+    background: linear-gradient(90deg, rgb(var(--p1-rgb)), rgb(var(--p2-rgb)), rgb(var(--p3-rgb)), rgb(var(--p1-rgb))); background-size: 300% 100%;
     -webkit-background-clip: text; background-clip: text; color: transparent; animation: gradientShift 8s linear infinite;
 }
 
@@ -228,7 +243,7 @@ html.dark .sparkle { color: #e0e7ff; }
     html.dark .glass { background: rgba(15, 23, 42, .72); border-color: rgba(148, 163, 184, .2); }
 
     .hero-fallback {
-        background: linear-gradient(135deg, #4f46e5, #7c3aed, #db2777);
+        background: linear-gradient(135deg, rgb(var(--p1-rgb)), rgb(var(--p2-rgb)), rgb(var(--p3-rgb)));
         background-size: 200% 200%;
         animation: gradientShift 12s ease infinite;
     }
@@ -272,5 +287,50 @@ html.dark .sparkle { color: #e0e7ff; }
     @media (prefers-reduced-motion: reduce) {
         * { animation: none !important; transition: none !important; }
     }
+
+    /* ============ KILAU PADA SEMUA TOMBOL (cahaya lewat) ============ */
+    .shine { position: relative; overflow: hidden; isolation: isolate; }
+    .shine::after {
+        content: ''; position: absolute; top: -30%; bottom: -30%; left: -60%; width: 35%; z-index: 1; pointer-events: none;
+        background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .55), transparent);
+        transform: skewX(-20deg);
+        animation: shineSweep 5s ease-in-out infinite; animation-delay: var(--shine-delay, 0s);
+    }
+    .shine:hover::after { animation-duration: 1.4s; }
+    @keyframes shineSweep { 0% { left: -60%; } 40%, 100% { left: 140%; } }
+
+    /* ============ PALET WARNA PILIHAN USER (Pengaturan) ============ */
+    html[data-palet="sunset"] { --bg-base: linear-gradient(135deg, #fff7ed 0%, #fdf2f8 45%, #faf5ff 100%); --a1: rgba(251,146,60,.5); --a2: rgba(244,114,182,.45); --a3: rgba(168,85,247,.4); --a4: rgba(253,224,71,.4); --p1-rgb: 249 115 22; --p2-rgb: 236 72 153; --p3-rgb: 168 85 247; }
+    html.dark[data-palet="sunset"] { --bg-base: #0c0710; --a1: rgba(234,88,12,.55); --a2: rgba(219,39,119,.5); --a3: rgba(126,34,206,.55); --a4: rgba(250,204,21,.22); }
+    html[data-palet="ocean"] { --bg-base: linear-gradient(135deg, #ecfeff 0%, #eff6ff 45%, #f0fdfa 100%); --a1: rgba(14,165,233,.5); --a2: rgba(45,212,191,.45); --a3: rgba(59,130,246,.5); --a4: rgba(165,243,252,.5); --p1-rgb: 14 165 233; --p2-rgb: 20 184 166; --p3-rgb: 59 130 246; }
+    html.dark[data-palet="ocean"] { --bg-base: #04101a; --a1: rgba(2,132,199,.6); --a2: rgba(13,148,136,.5); --a3: rgba(37,99,235,.55); --a4: rgba(34,211,238,.28); }
+    html[data-palet="sakura"] { --bg-base: linear-gradient(135deg, #fdf2f8 0%, #fff1f2 45%, #faf5ff 100%); --a1: rgba(244,114,182,.5); --a2: rgba(251,113,133,.4); --a3: rgba(192,132,252,.45); --a4: rgba(251,207,232,.6); --p1-rgb: 236 72 153; --p2-rgb: 244 114 182; --p3-rgb: 192 132 252; }
+    html.dark[data-palet="sakura"] { --bg-base: #12070f; --a1: rgba(219,39,119,.55); --a2: rgba(225,29,72,.4); --a3: rgba(147,51,234,.5); --a4: rgba(244,114,182,.25); }
+    html[data-palet="forest"] { --bg-base: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 45%, #f7fee7 100%); --a1: rgba(52,211,153,.5); --a2: rgba(163,230,53,.4); --a3: rgba(45,212,191,.45); --a4: rgba(187,247,208,.6); --p1-rgb: 16 185 129; --p2-rgb: 20 184 166; --p3-rgb: 132 204 22; }
+    html.dark[data-palet="forest"] { --bg-base: #04100a; --a1: rgba(5,150,105,.6); --a2: rgba(101,163,13,.4); --a3: rgba(13,148,136,.5); --a4: rgba(52,211,153,.25); }
+
+    /* ============ WALLPAPER FOTO SENDIRI ============ */
+    html.has-wall .app-bg { background: var(--wall) center / cover no-repeat fixed; }
+    html.has-wall .app-bg::before { display: none; }
+    html.has-wall .app-bg::after,
+    html.dark.has-wall .app-bg::after {
+        content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none; animation: none;
+        background: rgba(255, 255, 255, .35); backdrop-filter: blur(3px);
+    }
+    html.dark.has-wall .app-bg::after { background: rgba(6, 8, 22, .55); }
+
+    /* ============ NAVBAR: tenggelam ke atas di halaman non-utama ============ */
+    .nav-sunk {
+        position: fixed; top: 0; left: 0; right: 0; z-index: 40; padding: .75rem 1.5rem 0; pointer-events: none;
+        transform: translateY(-100%); transition: transform .35s cubic-bezier(.2, .8, .2, 1);
+    }
+    .nav-sunk .nav-bar { pointer-events: auto; max-width: 72rem; margin: 0 auto; }
+    .nav-sunk .nav-handle {
+        pointer-events: auto; position: absolute; left: 50%; bottom: -1.5rem; transform: translateX(-50%);
+        width: 3.2rem; height: 1.5rem; border-radius: 0 0 1rem 1rem; border: 1px solid rgba(148, 163, 184, .4); border-top: none;
+        background: rgba(255, 255, 255, .8); backdrop-filter: blur(10px); color: #475569; font-size: .85rem; line-height: 1; cursor: pointer;
+    }
+    html.dark .nav-sunk .nav-handle { background: rgba(30, 41, 59, .8); color: #cbd5e1; }
+    .nav-sunk:hover, .nav-sunk:focus-within, .nav-sunk.open { transform: translateY(0); }
 </style>
 @endverbatim

@@ -94,6 +94,11 @@ class PendaftaranEkskulController extends Controller
             'alasan' => $data['alasan'],
         ]);
 
+        // Saat pertama kali disetujui, catat tahun mulai keanggotaan
+        if ($data['status'] === 'diterima' && !$pendaftaran->tahun_mulai) {
+            $pendaftaran->update(['tahun_mulai' => now()->year]);
+        }
+
         return redirect()->route('pendaftaran.index')->with('success', 'Status pendaftaran berhasil disimpan!');
     }
 }

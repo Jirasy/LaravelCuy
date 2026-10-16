@@ -19,7 +19,7 @@ class EkstrakurikulerController extends Controller
         return view('ekstrakurikuler.index', compact('ekskuls'));
     }
 
-    // Halaman detail satu ekskul: tab Informasi / Pengumuman / Anggota
+    // Halaman detail satu ekskul: tab Informasi / Prestasi / Event / Pengumuman / Anggota
     public function show(Request $request, $id)
     {
         $user = Auth::user();
@@ -29,21 +29,25 @@ class EkstrakurikulerController extends Controller
             ->withCount(['pendaftaran as anggota_count' => fn ($q) => $q->where('status', 'diterima')])
             ->findOrFail($id);
 
-        // Pendaftaran milik user yang lagi login (kalo ada)
+        // Pendaftaran milik user yang sedang login (kalau ada)
         $pendaftaranSaya = PendaftaranEkskul::where('ekstrakurikuler_id', $ekskul->id)
             ->where('user_id', $user->id)
             ->latest()
             ->first();
 
-        // Pengumuman & daftar anggota: cuma admin/pembina dan anggota yang udah disetujuin
+        // Pengumuman & daftar anggota: hanya admin/pembina dan anggota yang sudah disetujui.
+        // Prestasi & event terbuka untuk semua user yang login.
         $bolehLihat = $staff || ($pendaftaranSaya && $pendaftaranSaya->status === 'diterima');
 
-        $tab = in_array($request->query('tab'), ['info', 'pengumuman', 'anggota'], true)
+        $tab = in_array($request->query('tab'), ['info', 'prestasi', 'event', 'pengumuman', 'anggota'], true)
             ? $request->query('tab')
             : 'info';
 
         $pengumumans = collect();
         $anggota = collect();
+        $prestasis = collect();
+        $events = collect();
+        $anggotaOpsi = collect();
 
         if ($bolehLihat && $tab === 'pengumuman') {
             $pengumumans = $ekskul->pengumuman()->with('penulis')->latest()->get();
@@ -56,8 +60,24 @@ class EkstrakurikulerController extends Controller
                 ->get();
         }
 
+        if ($tab === 'prestasi') {
+            $prestasis = $ekskul->prestasi()->with('anggota')->orderByDesc('tahun')->latest()->get();
+
+            if ($staff) {
+                $anggotaOpsi = PendaftaranEkskul::where('ekstrakurikuler_id', $ekskul->id)
+                    ->where('status', 'diterima')
+                    ->orderBy('nama_pendaftar')
+                    ->get();
+            }
+        }
+
+        if ($tab === 'event') {
+            $events = $ekskul->events()->orderBy('tanggal_mulai')->get();
+        }
+
         return view('ekstrakurikuler.show', compact(
-            'ekskul', 'tab', 'staff', 'bolehLihat', 'pendaftaranSaya', 'pengumumans', 'anggota'
+            'ekskul', 'tab', 'staff', 'bolehLihat', 'pendaftaranSaya',
+            'pengumumans', 'anggota', 'prestasis', 'events', 'anggotaOpsi'
         ));
     }
 
@@ -112,7 +132,7 @@ class EkstrakurikulerController extends Controller
                          ->with('success', 'Ekstrakurikuler berhasil dihapus!');
     }
 
-    // Ubah input form (hari[] + jadwal[hari][jam_*]) jadi daftar jadwal
+    // Ubah input form (hari[] + jadwal[hari][jam_*]) menjadi daftar jadwal
     private function susunJadwal(array $data): array
     {
         return collect($data['hari'])
@@ -139,7 +159,7 @@ class EkstrakurikulerController extends Controller
             'status'    => ($statusWajib ? 'required' : 'nullable') . '|in:aktif,nonaktif',
         ];
 
-        // Jam wajib diisi buat SETIAP hari yang dipilih
+        // Jam wajib diisi untuk SETIAP hari yang dipilih
         $dipilih = array_intersect(array_filter((array) $request->input('hari', []), 'is_string'), $valid);
 
         foreach ($dipilih as $h) {

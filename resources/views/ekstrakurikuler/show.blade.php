@@ -34,11 +34,11 @@
         @endif
 
         {{-- Tab --}}
-        @php $tabs = ['info' => 'Informasi', 'pengumuman' => 'Pengumuman', 'anggota' => 'Anggota']; @endphp
-        <div class="flex gap-1 border-b border-gray-200 mb-6">
+        @php $tabs = ['info' => 'Informasi', 'prestasi' => 'Prestasi', 'event' => 'Event', 'pengumuman' => 'Pengumuman', 'anggota' => 'Anggota']; @endphp
+        <div class="flex gap-1 border-b border-gray-200 mb-6 overflow-x-auto">
             @foreach($tabs as $key => $label)
                 <a href="{{ route('ekstrakurikuler.show', ['id' => $ekskul->id, 'tab' => $key]) }}"
-                   class="px-4 py-2 text-sm font-semibold border-b-2 {{ $tab === $key ? 'border-indigo-600 text-indigo-700' : 'border-transparent text-gray-500 hover:text-gray-700' }}">
+                   class="px-4 py-2 text-sm font-semibold border-b-2 whitespace-nowrap {{ $tab === $key ? 'border-indigo-600 text-indigo-700' : 'border-transparent text-gray-500 hover:text-gray-700' }}">
                     {{ $label }}@if($key === 'anggota') ({{ $ekskul->anggota_count }})@endif
                 </a>
             @endforeach
@@ -88,6 +88,13 @@
                     @endif
                 </div>
             </div>
+
+        {{-- ========== TAB PRESTASI & EVENT: terbuka untuk semua user ========== --}}
+        @elseif($tab === 'prestasi')
+            @include('ekstrakurikuler._tab_prestasi')
+
+        @elseif($tab === 'event')
+            @include('ekstrakurikuler._tab_event')
 
         {{-- ========== TAB PENGUMUMAN & ANGGOTA: khusus anggota / pengelola ========== --}}
         @elseif(!$bolehLihat)
@@ -151,40 +158,7 @@
 
         {{-- ========== TAB ANGGOTA ========== --}}
         @elseif($tab === 'anggota')
-            <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-x-auto">
-                <table class="w-full text-sm text-left">
-                    <thead class="bg-gray-50 text-gray-700">
-                        <tr>
-                            <th class="p-3 w-12">#</th>
-                            <th class="p-3">Nama</th>
-                            <th class="p-3">Kelas</th>
-                            <th class="p-3">Peran</th>
-                            @if($staff)<th class="p-3">NISN</th>@endif
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @forelse($anggota as $a)
-                            <tr class="border-t">
-                                <td class="p-3 text-gray-500">{{ $loop->iteration }}</td>
-                                <td class="p-3 font-semibold">{{ $a->nama_pendaftar }}</td>
-                                <td class="p-3">{{ $a->kelas ?? '-' }}</td>
-                                <td class="p-3">
-                                    <span class="px-2 py-0.5 text-xs rounded-full
-                                        {{ $a->peran === 'admin' ? 'bg-purple-100 text-purple-800' : ($a->peran === 'pembina' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800') }}">
-                                        {{ ucfirst($a->peran) }}
-                                    </span>
-                                </td>
-                                @if($staff)<td class="p-3 text-gray-500">{{ $a->nisn ?? '-' }}</td>@endif
-                            </tr>
-                        @empty
-                            <tr><td colspan="{{ $staff ? 5 : 4 }}" class="p-6 text-center text-gray-500">Belum ada anggota yang disetujui.</td></tr>
-                        @endforelse
-                    </tbody>
-                </table>
-            </div>
-            @if($staff)
-                <p class="text-xs text-gray-500 mt-3">Setujui atau tolak pendaftar di halaman <a href="{{ route('pendaftaran.index') }}" class="underline">Data Pendaftaran</a>.</p>
-            @endif
+            @include('ekstrakurikuler._tab_anggota')
         @endif
     </div>
 </body>
