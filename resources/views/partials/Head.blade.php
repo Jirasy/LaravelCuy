@@ -332,5 +332,22 @@ html.dark .sparkle { color: #e0e7ff; }
     }
     html.dark .nav-sunk .nav-handle { background: rgba(30, 41, 59, .8); color: #cbd5e1; }
     .nav-sunk:hover, .nav-sunk:focus-within, .nav-sunk.open { transform: translateY(0); }
+
+    /* ============ HERO / BANNER: kaca bening yang menyatu dengan wallpaper ============ */
+    .hero-glass {
+        color: #1e1b4b;
+        background: linear-gradient(135deg, rgb(var(--p1-rgb) / .26), rgb(var(--p2-rgb) / .20), rgb(var(--p3-rgb) / .26));
+        background-size: 200% 200%; animation: gradientShift 14s ease infinite;
+        backdrop-filter: blur(16px) saturate(150%);
+        border: 1px solid rgba(255, 255, 255, .65);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, .7), 0 18px 40px -18px rgb(var(--p1-rgb) / .45);
+    }
+    html.dark .hero-glass {
+        color: #f1f5f9;
+        background: linear-gradient(135deg, rgb(var(--p1-rgb) / .34), rgb(var(--p2-rgb) / .26), rgb(var(--p3-rgb) / .34));
+        background-size: 200% 200%;
+        border-color: rgba(255, 255, 255, .14);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, .10), 0 18px 40px -18px rgba(0, 0, 0, .6);
+    }
 </style>
 @endverbatim

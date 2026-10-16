@@ -59,7 +59,7 @@
             </div>
 
             <div>
-                <label class="block text-sm font-semibold text-gray-700">Angkatan sekolah <span class="font-normal text-gray-400">(mis. 2025)</span></label>
+                <label class="block text-sm font-semibold text-gray-700">Angkatan sekolah <span class="font-normal text-gray-400">(mis. 2025 Angkatan 10)</span></label>
                 <input type="text" name="angkatan_sekolah" value="{{ old('angkatan_sekolah', $user->angkatan_sekolah) }}" class="w-full border p-2 rounded-lg mt-1">
                 @if($user->is_alumni)
                     <p class="text-xs text-amber-700 mt-1">

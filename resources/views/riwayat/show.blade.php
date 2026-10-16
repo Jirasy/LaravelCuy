@@ -11,17 +11,16 @@
         @include('partials.navbar')
 
         {{-- Kartu profil --}}
-        <div class="relative overflow-hidden rounded-2xl mb-6 text-white shadow-lg" data-aos="fade-down">
-            <div class="absolute inset-0 hero-fallback"></div>
+        <div class="relative overflow-hidden rounded-2xl mb-6 shadow-lg hero-glass" data-aos="fade-down">
             <div class="relative px-8 py-8 flex flex-wrap items-center gap-5">
                 @include('partials.avatar', ['user' => $user, 'ukuran' => 80])
                 <div>
                     <h1 class="text-3xl font-bold">{{ $user->name }}</h1>
                     <div class="flex flex-wrap items-center gap-2 mt-2 text-sm">
-                        <span class="px-2.5 py-0.5 rounded-full bg-white/20">{{ ucfirst($user->role) }}</span>
-                        @if($user->status_sekolah)<span class="px-2.5 py-0.5 rounded-full bg-white/20">🎓 {{ $user->status_sekolah }}</span>@endif
-                        @if($user->kelas)<span class="px-2.5 py-0.5 rounded-full bg-white/20">{{ $user->kelas }}</span>@endif
-                        @if($user->is_alumni && $user->tahun_lulus)<span class="px-2.5 py-0.5 rounded-full bg-white/20">Lulus {{ $user->tahun_lulus }}</span>@endif
+                        <span class="px-2.5 py-0.5 rounded-full bg-white/60 dark:bg-white/15">{{ ucfirst($user->role) }}</span>
+                        @if($user->status_sekolah)<span class="px-2.5 py-0.5 rounded-full bg-white/60 dark:bg-white/15">🎓 {{ $user->status_sekolah }}</span>@endif
+                        @if($user->kelas)<span class="px-2.5 py-0.5 rounded-full bg-white/60 dark:bg-white/15">{{ $user->kelas }}</span>@endif
+                        @if($user->is_alumni && $user->tahun_lulus)<span class="px-2.5 py-0.5 rounded-full bg-white/60 dark:bg-white/15">Lulus {{ $user->tahun_lulus }}</span>@endif
                     </div>
                 </div>
             </div>

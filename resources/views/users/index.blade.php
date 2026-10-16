@@ -11,14 +11,13 @@
         @include('partials.navbar')
 
         {{-- Banner --}}
-        <div class="relative overflow-hidden rounded-2xl mb-6 text-white shadow-lg" data-aos="fade-down">
-            <div class="absolute inset-0 hero-fallback"></div>
+        <div class="relative overflow-hidden rounded-2xl mb-6 shadow-lg hero-glass" data-aos="fade-down">
             <div class="relative px-8 py-8 flex flex-wrap justify-between items-center gap-4">
                 <div>
                     <h1 class="text-3xl font-bold">Kelola User</h1>
-                    <p class="text-white/90 text-sm mt-1">Atur role, aktifkan atau nonaktifkan akun, dan edit data pengguna.</p>
+                    <p class="opacity-80 text-sm mt-1">Atur role, aktifkan atau nonaktifkan akun, dan edit data pengguna.</p>
                 </div>
-                <input type="search" id="cari-user" placeholder="Cari nama, email, kelas..." class="field-glass !w-64 !mt-0 !text-white placeholder-white/70">
+                <input type="search" id="cari-user" placeholder="Cari nama, email, kelas..." class="field-glass w-64! mt-0!">
             </div>
         </div>
 

@@ -10,15 +10,17 @@
     <div class="max-w-6xl mx-auto">
         @include('partials.navbar')
 
-        {{-- Hero: pakai public/images/hero.jpg kalo ada, kalo tidak pakai gradient --}}
+        {{-- Hero: pakai public/images/hero.jpg kalau ada, kalau tidak pakai gradient --}}
         @php $heroFoto = file_exists(public_path('images/hero.jpg')) ? asset('images/hero.jpg') : null; @endphp
-        <div class="relative overflow-hidden rounded-2xl mb-8 text-white shadow-lg" data-aos="fade-down">
-            <div class="absolute inset-0 {{ $heroFoto ? 'bg-cover bg-center' : 'hero-fallback' }}"
+        <div class="relative overflow-hidden rounded-2xl mb-8 shadow-lg {{ $heroFoto ? 'text-white' : 'hero-glass' }}" data-aos="fade-down">
+            <div class="absolute inset-0 {{ $heroFoto ? 'bg-cover bg-center' : '' }}"
                  @if($heroFoto) style="background-image:url('{{ $heroFoto }}')" @endif></div>
+            @if($heroFoto)
             <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-[2px]"></div>
+            @endif
             <div class="relative px-8 py-10 md:py-14">
                 <h1 class="text-3xl md:text-4xl font-bold" data-sapaan data-nama="{{ explode(' ', trim(auth()->user()->name))[0] }}">Halo, {{ explode(' ', trim(auth()->user()->name))[0] }}! 👋</h1>
-                <p class="mt-2 text-white/90" data-sapaan-sub>Siap untuk jadwal ekskul hari ini?</p>
+                <p class="mt-2 {{ $heroFoto ? 'text-white/90' : 'opacity-80' }}" data-sapaan-sub>Siap untuk jadwal ekskul hari ini?</p>
             </div>
         </div>
         
