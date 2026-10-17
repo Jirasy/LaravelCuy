@@ -2,6 +2,7 @@
 
 namespace App\Policies;
 
+use App\Models\PendaftaranEkskul;
 use App\Models\User;
 
 class UserPolicy
@@ -21,5 +22,37 @@ class UserPolicy
     public function ubahRole(User $actor, User $target): bool
     {
         return $actor->isAdmin() && $actor->id !== $target->id;
+    }
+
+    // Melihat nomor HP seseorang sesuai pilihan pemiliknya (default: hanya admin & pembina).
+    public function lihatNoHp(User $viewer, User $target): bool
+    {
+        if (blank($target->no_hp)) {
+            return false;
+        }
+
+        if ($viewer->id === $target->id || $viewer->isStaff()) {
+            return true;
+        }
+
+        return match ($target->no_hp_tampil) {
+            'semua'          => true,
+            'anggota_ekskul' => $this->satuEkskul($viewer, $target),
+            default          => false,
+        };
+    }
+
+    private function satuEkskul(User $a, User $b): bool
+    {
+        $milikA = PendaftaranEkskul::where('user_id', $a->id)->where('status', 'diterima')->pluck('ekstrakurikuler_id');
+
+        if ($milikA->isEmpty()) {
+            return false;
+        }
+
+        return PendaftaranEkskul::where('user_id', $b->id)
+            ->where('status', 'diterima')
+            ->whereIn('ekstrakurikuler_id', $milikA)
+            ->exists();
     }
 }

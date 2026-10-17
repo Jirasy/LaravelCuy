@@ -16,8 +16,8 @@
                 <tr class="border-t align-top">
                     <td class="p-3 text-gray-500">{{ $loop->iteration }}</td>
                     <td class="p-3">
-                        @if($a->user_id && ($staff || $a->user_id === auth()->id()))
-                            <a href="{{ route('riwayat.show', $a->user_id) }}" class="font-semibold hover:underline" title="Lihat riwayat">{{ $a->nama_pendaftar }}</a>
+                        @if($a->user_id)
+                            <a href="{{ route('profil.show', $a->user_id) }}" class="font-semibold hover:underline" title="Lihat profil">{{ $a->nama_pendaftar }}</a>
                         @else
                             <span class="font-semibold">{{ $a->nama_pendaftar }}</span>
                         @endif

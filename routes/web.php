@@ -27,6 +27,7 @@ use App\Http\Controllers\EkskulEventController;
 use App\Http\Controllers\KeanggotaanController;
 use App\Http\Controllers\RiwayatController;
 use App\Http\Controllers\EkskulPembinaController;
+use App\Http\Controllers\ProfilPenggunaController;
 use App\Http\Middleware\PaksaGantiPassword;
 use App\Http\Controllers\CarsController;
 
@@ -112,13 +113,17 @@ Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 Route::middleware(['auth', EnsureUserIsActive::class, PaksaGantiPassword::class])->group(function () {
 
     Route::get('/pengaturan', [PengaturanController::class, 'edit'])->name('pengaturan.edit');
-    Route::put('/pengaturan/profil', [PengaturanController::class, 'updateProfil'])->name('pengaturan.profil');
     Route::put('/pengaturan/tampilan', [PengaturanController::class, 'updateTampilan'])->name('pengaturan.tampilan');
     Route::put('/pengaturan/password', [PengaturanController::class, 'updatePassword'])->name('pengaturan.password');
-    Route::delete('/pengaturan/foto', [PengaturanController::class, 'hapusFoto'])->name('pengaturan.foto.hapus');
     Route::delete('/pengaturan/wallpaper', [PengaturanController::class, 'hapusWallpaper'])->name('pengaturan.wallpaper.hapus');
 
     Route::get('/riwayat/{user?}', [RiwayatController::class, 'show'])->name('riwayat.show');
+
+    // Profil publik (semua user login) dan edit profil milik sendiri
+    Route::get('/profil/edit', [ProfilPenggunaController::class, 'edit'])->name('profil.edit');
+    Route::put('/profil', [ProfilPenggunaController::class, 'update'])->name('profil.update');
+    Route::delete('/profil/foto', [ProfilPenggunaController::class, 'hapusFoto'])->name('profil.foto.hapus');
+    Route::get('/profil/{user?}', [ProfilPenggunaController::class, 'show'])->whereNumber('user')->name('profil.show');
 
     // Semua user yang login
     Route::get('/ekstrakurikuler', [EkstrakurikulerController::class, 'index'])->name('ekstrakurikuler.index');

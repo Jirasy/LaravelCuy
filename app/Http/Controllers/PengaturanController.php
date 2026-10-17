@@ -2,12 +2,15 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
+use App\Models\User;
 use App\Rules\PasswordKuat;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 
-// Pengaturan pribadi: bisa dipakai SEMUA user. Role TIDAK bisa diubah di sini.
+// Pengaturan akun: tampilan (wallpaper, navbar, kartu profil) dan keamanan (password).
+// Data profil (foto, nama, nomor HP, bio) ada di ProfilPenggunaController.
+// Role TIDAK bisa diubah di sini.
 class PengaturanController extends Controller
 {
     public const PALET = ['aurora', 'sunset', 'ocean', 'sakura', 'forest'];
@@ -17,37 +20,14 @@ class PengaturanController extends Controller
         return view('pengaturan.edit', ['user' => $request->user()]);
     }
 
-    public function updateProfil(Request $request)
-    {
-        $data = $request->validate([
-            'name' => 'required|string|max:255',
-            'foto' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
-            'angkatan_sekolah' => 'nullable|string|max:20',
-        ], [
-            'foto.image' => 'File foto harus berupa gambar.',
-            'foto.mimes' => 'Foto harus berformat JPG, PNG, atau WEBP.',
-            'foto.max'   => 'Ukuran foto maksimal 2 MB.',
-        ]);
-
-        $user = $request->user();
-        $user->name = $data['name'];
-        $user->angkatan_sekolah = $data['angkatan_sekolah'] ?? null;
-
-        if ($request->hasFile('foto')) {
-            $this->hapusFile($user->foto);
-            $user->foto = $request->file('foto')->store('avatars', 'public');
-        }
-
-        $user->save();
-
-        return back()->with('success', 'Profil berhasil diperbarui.');
-    }
-
     public function updateTampilan(Request $request)
     {
         $data = $request->validate([
-            'palet'     => ['required', Rule::in(self::PALET)],
-            'wallpaper' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:4096',
+            'palet'       => ['required', Rule::in(self::PALET)],
+            'navbar_gaya' => ['required', Rule::in(User::NAVBAR_GAYA)],
+            'kartu_gaya'  => ['required', Rule::in(User::KARTU_GAYA)],
+            'kartu_aksen' => ['required', Rule::in(array_merge(['ikut_palet'], array_keys(User::AKSEN_RGB)))],
+            'wallpaper'   => 'nullable|image|mimes:jpg,jpeg,png,webp|max:4096',
         ], [
             'wallpaper.image' => 'File wallpaper harus berupa gambar.',
             'wallpaper.mimes' => 'Wallpaper harus berformat JPG, PNG, atau WEBP.',
@@ -55,7 +35,10 @@ class PengaturanController extends Controller
         ]);
 
         $user = $request->user();
-        $user->palet = $data['palet'];
+        $user->palet       = $data['palet'];
+        $user->navbar_gaya = $data['navbar_gaya'];
+        $user->kartu_gaya  = $data['kartu_gaya'];
+        $user->kartu_aksen = $data['kartu_aksen'];
 
         if ($request->hasFile('wallpaper')) {
             $this->hapusFile($user->wallpaper);
@@ -83,16 +66,6 @@ class PengaturanController extends Controller
         $request->user()->update(['password' => $request->password, 'must_change_password' => false]);
 
         return back()->with('success', 'Password berhasil diganti.');
-    }
-
-    public function hapusFoto(Request $request)
-    {
-        $user = $request->user();
-        $this->hapusFile($user->foto);
-        $user->foto = null;
-        $user->save();
-
-        return back()->with('success', 'Foto profil dihapus.');
     }
 
     public function hapusWallpaper(Request $request)

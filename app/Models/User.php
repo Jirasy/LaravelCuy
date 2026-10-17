@@ -26,6 +26,12 @@ class User extends Authenticatable
         'angkatan_sekolah',
         'tahun_lulus',
         'must_change_password',
+        'no_hp',
+        'no_hp_tampil',
+        'bio',
+        'navbar_gaya',
+        'kartu_gaya',
+        'kartu_aksen',
     ];
 
     protected $hidden = [
@@ -92,6 +98,44 @@ class User extends Authenticatable
             ->pluck('ekstrakurikulers.id')
             ->map(fn ($id) => (int) $id)
             ->all();
+    }
+
+    // Pilihan tampilan yang diizinkan (dipakai validasi dan view)
+    public const NAVBAR_GAYA = ['melayang', 'kaca', 'solid', 'ringkas'];
+    public const KARTU_GAYA  = ['kaca', 'gradasi', 'polos'];
+
+    // Warna aksen kartu profil. "ikut_palet" mengikuti palet wallpaper pilihan user.
+    public const AKSEN_RGB = [
+        'indigo'  => '99 102 241',
+        'rose'    => '244 63 94',
+        'emerald' => '16 185 129',
+        'amber'   => '245 158 11',
+        'sky'     => '14 165 233',
+    ];
+
+    public const NO_HP_TAMPIL = [
+        'staff'          => 'Hanya admin & pembina',
+        'anggota_ekskul' => 'Teman satu ekskul + admin & pembina',
+        'semua'          => 'Semua pengguna',
+    ];
+
+    // Tautan WhatsApp, contoh: https://wa.me/6281234567890
+    public function getWaLinkAttribute(): ?string
+    {
+        $digit = preg_replace('/\D+/', '', (string) $this->no_hp);
+
+        return $digit ? 'https://wa.me/' . $digit : null;
+    }
+
+    // Nomor untuk dibaca manusia, contoh: 081234567890
+    public function getNoHpTampilanAttribute(): ?string
+    {
+        $digit = preg_replace('/\D+/', '', (string) $this->no_hp);
+        if ($digit === '') {
+            return null;
+        }
+
+        return str_starts_with($digit, '62') ? '0' . substr($digit, 2) : $digit;
     }
 
     public function isAdmin(): bool

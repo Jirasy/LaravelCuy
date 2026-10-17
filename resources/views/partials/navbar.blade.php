@@ -3,16 +3,17 @@
     // Halaman utama: navbar tampil penuh. Halaman lain: navbar tenggelam ke atas.
     $utama = request()->routeIs('ekstrakurikuler.index', 'pendaftaran.index', 'users.index');
     $aktif = 'font-semibold text-indigo-600 underline underline-offset-4';
+    $gayaNav = in_array($me->navbar_gaya, \App\Models\User::NAVBAR_GAYA, true) ? $me->navbar_gaya : 'melayang';
 @endphp
 <div class="nav-wrap {{ $utama ? '' : 'nav-sunk' }}">
-    <div class="nav-bar flex flex-wrap justify-between items-center gap-3 bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm shadow-sm {{ $utama ? 'mb-6' : '' }}"
+    <div class="nav-bar nav-{{ $gayaNav }} flex flex-wrap justify-between items-center gap-3 {{ $utama ? 'mb-6' : '' }}"
          @if($utama) data-aos="fade-down" @endif>
 
-        <a href="{{ route('pengaturan.edit') }}" class="flex items-center gap-3" title="Pengaturan akun">
-            @include('partials.avatar', ['user' => $me, 'ukuran' => 36])
+        <a href="{{ route('profil.show') }}" class="flex items-center gap-3" title="Profilku">
+            @include('partials.avatar', ['user' => $me, 'ukuran' => $gayaNav === 'ringkas' ? 28 : 36])
             <span>
                 <strong>{{ $me->name }}</strong>
-                <span class="ml-1 px-2 py-0.5 text-xs rounded-full
+                <span class="nav-role ml-1 px-2 py-0.5 text-xs rounded-full
                     {{ $me->isAdmin() ? 'bg-purple-100 text-purple-800' : ($me->isPembina() ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800') }}">
                     {{ ucfirst($me->role) }}
                 </span>
@@ -22,10 +23,10 @@
         <nav class="flex flex-wrap items-center gap-4">
             <a href="{{ route('ekstrakurikuler.index') }}" class="text-gray-700 hover:underline {{ request()->routeIs('ekstrakurikuler.*') ? $aktif : '' }}">Katalog</a>
             <a href="{{ route('pendaftaran.index') }}" class="text-gray-700 hover:underline {{ request()->routeIs('pendaftaran.*') ? $aktif : '' }}">Pendaftaran</a>
-            <a href="{{ route('riwayat.show') }}" class="text-gray-700 hover:underline {{ request()->routeIs('riwayat.*') ? $aktif : '' }}">Riwayatku</a>
             @if($me->isStaff())
                 <a href="{{ route('users.index') }}" class="text-gray-700 hover:underline {{ request()->routeIs('users.*') ? $aktif : '' }}">Kelola User</a>
             @endif
+            <a href="{{ route('profil.show') }}" class="text-gray-700 hover:underline {{ request()->routeIs('profil.*') || request()->routeIs('riwayat.*') ? $aktif : '' }}">Profil</a>
             <a href="{{ route('pengaturan.edit') }}" title="Pengaturan" aria-label="Pengaturan" class="theme-btn">⚙️</a>
             @include('partials.theme-toggle')
             <form action="{{ route('logout') }}" method="POST">
