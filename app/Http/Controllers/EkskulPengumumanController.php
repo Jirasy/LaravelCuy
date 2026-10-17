@@ -5,13 +5,15 @@ namespace App\Http\Controllers;
 use App\Models\EkskulPengumuman;
 use App\Models\Ekstrakurikuler;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Auth;
 
-// Semua method di sini cuma buat admin & pembina (dijaga di route)
+// Semua method di sini hanya untuk admin & pembina (dijaga di route)
 class EkskulPengumumanController extends Controller
 {
     public function store(Request $request, Ekstrakurikuler $ekstrakurikuler)
     {
+        Gate::authorize('kelola', $ekstrakurikuler);
         $data = $request->validate([
             'judul' => 'required|string|max:255',
             'isi'   => 'required|string',
@@ -24,11 +26,13 @@ class EkskulPengumumanController extends Controller
 
     public function edit(EkskulPengumuman $pengumuman)
     {
+        Gate::authorize('kelola', $pengumuman->ekstrakurikuler);
         return view('ekskul_pengumuman.edit', compact('pengumuman'));
     }
 
     public function update(Request $request, EkskulPengumuman $pengumuman)
     {
+        Gate::authorize('kelola', $pengumuman->ekstrakurikuler);
         $data = $request->validate([
             'judul' => 'required|string|max:255',
             'isi'   => 'required|string',
@@ -41,6 +45,7 @@ class EkskulPengumumanController extends Controller
 
     public function destroy(EkskulPengumuman $pengumuman)
     {
+        Gate::authorize('kelola', $pengumuman->ekstrakurikuler);
         $ekskulId = $pengumuman->ekstrakurikuler_id;
         $pengumuman->delete();
 

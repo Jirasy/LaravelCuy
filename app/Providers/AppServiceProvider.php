@@ -2,23 +2,29 @@
 
 namespace App\Providers;
 
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
 {
-    /**
-     * Register any application services.
-     */
     public function register(): void
     {
         //
     }
 
-    /**
-     * Bootstrap any application services.
-     */
     public function boot(): void
     {
-        //
+        // Maksimal 5 percobaan login per menit untuk tiap kombinasi email + IP
+        RateLimiter::for('login', function (Request $request) {
+            return Limit::perMinute(5)
+                ->by(mb_strtolower((string) $request->input('email')) . '|' . $request->ip())
+                ->response(function (Request $request, array $headers) {
+                    return redirect()->route('login')
+                        ->withErrors(['email' => 'Terlalu banyak percobaan login. Coba lagi dalam 1 menit.'])
+                        ->withInput($request->only('email'));
+                });
+        });
     }
 }

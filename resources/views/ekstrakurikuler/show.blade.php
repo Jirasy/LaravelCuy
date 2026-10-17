@@ -17,7 +17,7 @@
                     {{ ucfirst($ekskul->status) }}
                 </span>
                 <h1 class="text-3xl font-bold text-gray-800 mt-2">{{ $ekskul->nama_ekstrakurikuler }}</h1>
-                <p class="text-gray-600 text-sm">Pembina: <strong>{{ $ekskul->pembina }}</strong></p>
+                <p class="text-gray-600 text-sm">Pembina: <strong>{{ $ekskul->pembina_tampil }}</strong></p>
             </div>
             <a href="{{ route('ekstrakurikuler.index') }}" class="text-gray-600 hover:underline text-sm">← Katalog</a>
         </div>
@@ -66,7 +66,7 @@
                 <div class="grid grid-cols-2 gap-4">
                     <div>
                         <h2 class="text-sm font-semibold text-gray-500 uppercase">Pembina</h2>
-                        <p class="text-gray-800 mt-1">{{ $ekskul->pembina }}</p>
+                        <p class="text-gray-800 mt-1">{{ $ekskul->pembina_tampil }}</p>
                     </div>
                     <div>
                         <h2 class="text-sm font-semibold text-gray-500 uppercase">Jumlah Anggota</h2>

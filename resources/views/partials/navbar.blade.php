@@ -23,7 +23,7 @@
             <a href="{{ route('ekstrakurikuler.index') }}" class="text-gray-700 hover:underline {{ request()->routeIs('ekstrakurikuler.*') ? $aktif : '' }}">Katalog</a>
             <a href="{{ route('pendaftaran.index') }}" class="text-gray-700 hover:underline {{ request()->routeIs('pendaftaran.*') ? $aktif : '' }}">Pendaftaran</a>
             <a href="{{ route('riwayat.show') }}" class="text-gray-700 hover:underline {{ request()->routeIs('riwayat.*') ? $aktif : '' }}">Riwayatku</a>
-            @if($me->isAdmin())
+            @if($me->isStaff())
                 <a href="{{ route('users.index') }}" class="text-gray-700 hover:underline {{ request()->routeIs('users.*') ? $aktif : '' }}">Kelola User</a>
             @endif
             <a href="{{ route('pengaturan.edit') }}" title="Pengaturan" aria-label="Pengaturan" class="theme-btn">⚙️</a>

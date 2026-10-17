@@ -5,17 +5,19 @@ namespace App\Http\Controllers;
 use App\Enums\Hari;
 use App\Models\Ekstrakurikuler;
 use App\Models\PendaftaranEkskul;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 
 class EkstrakurikulerController extends Controller
 {
     public function index()
     {
-        $ekskuls = Ekstrakurikuler::with('haris')->latest()->get();
+        $ekskuls = Ekstrakurikuler::with(['haris', 'pembinaAktif'])->latest()->get();
         return view('ekstrakurikuler.index', compact('ekskuls'));
     }
 
@@ -23,11 +25,14 @@ class EkstrakurikulerController extends Controller
     public function show(Request $request, $id)
     {
         $user = Auth::user();
-        $staff = $user->isStaff();
 
-        $ekskul = Ekstrakurikuler::with('haris')
+        $ekskul = Ekstrakurikuler::with(['haris', 'pembinaAktif'])
             ->withCount(['pendaftaran as anggota_count' => fn ($q) => $q->where('status', 'diterima')])
             ->findOrFail($id);
+
+        // Hak kelola per ekskul: admin, atau pembina yang ditugaskan di ekskul ini.
+        // (variabel $staff dipakai view untuk menampilkan form/tombol kelola)
+        $staff = $user->can('kelola', $ekskul);
 
         // Pendaftaran milik user yang sedang login (kalau ada)
         $pendaftaranSaya = PendaftaranEkskul::where('ekstrakurikuler_id', $ekskul->id)
@@ -95,6 +100,11 @@ class EkstrakurikulerController extends Controller
             $ekskul = Ekstrakurikuler::create(
                 Arr::only($data, ['nama_ekstrakurikuler', 'pembina', 'deskripsi', 'status'])
             );
+
+            // Pembina yang membuat ekskul otomatis ditugaskan sebagai pembinanya
+            if (Auth::user()->isPembina()) {
+                $ekskul->pembinas()->attach(Auth::id(), ['mulai' => now()->toDateString()]);
+            }
             $ekskul->syncJadwal($this->susunJadwal($data));
         });
 
@@ -104,14 +114,26 @@ class EkstrakurikulerController extends Controller
 
     public function edit($id)
     {
-        $ekstrakurikuler = Ekstrakurikuler::with('haris')->findOrFail($id);
-        return view('ekstrakurikuler.edit', compact('ekstrakurikuler'));
+        $ekstrakurikuler = Ekstrakurikuler::with(['haris', 'pembinaAktif'])->findOrFail($id);
+        Gate::authorize('kelola', $ekstrakurikuler);
+
+        // Hanya admin yang menugaskan pembina: daftar calon = user pembina aktif yang belum bertugas di ekskul ini
+        $calonPembina = Auth::user()->isAdmin()
+            ? User::where('role', 'pembina')
+                ->where('is_active', true)
+                ->whereNotIn('id', $ekstrakurikuler->pembinaAktif->pluck('id'))
+                ->orderBy('name')
+                ->get()
+            : collect();
+
+        return view('ekstrakurikuler.edit', compact('ekstrakurikuler', 'calonPembina'));
     }
 
     public function update(Request $request, $id)
     {
         $data = $request->validate($this->rules($request, true), $this->messages());
         $ekskul = Ekstrakurikuler::findOrFail($id);
+        Gate::authorize('kelola', $ekskul);
 
         DB::transaction(function () use ($ekskul, $data) {
             $ekskul->update(
@@ -126,7 +148,10 @@ class EkstrakurikulerController extends Controller
 
     public function destroy($id)
     {
-        Ekstrakurikuler::findOrFail($id)->delete(); // jadwal ikut terhapus (cascade)
+        // Menghapus ekskul = menghapus semua data turunannya (anggota, prestasi, event, ...). Hanya admin.
+        abort_unless(Auth::user()->isAdmin(), 403, 'Hanya admin yang boleh menghapus ekskul.');
+
+        Ekstrakurikuler::findOrFail($id)->delete(); // semua data turunan ikut terhapus (cascade)
 
         return redirect()->route('ekstrakurikuler.index')
                          ->with('success', 'Ekstrakurikuler berhasil dihapus!');

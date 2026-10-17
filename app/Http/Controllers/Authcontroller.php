@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Rules\PasswordKuat;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -57,7 +58,7 @@ class AuthController extends Controller
             'email'    => 'required|email|unique:users,email',
             'nisn'     => 'required|string|max:30|unique:users,nisn',
             'kelas'    => 'required|string|max:50',
-            'password' => 'required|string|min:6|confirmed',
+            'password' => ['required', 'string', 'confirmed', new PasswordKuat($request->input('name'), $request->input('email'))],
         ]);
 
         // Role SELALU siswa saat daftar sendiri. Admin/pembina diatur oleh admin.

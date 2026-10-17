@@ -17,7 +17,7 @@
                     <h1 class="text-3xl font-bold">Kelola User</h1>
                     <p class="opacity-80 text-sm mt-1">Atur role, aktifkan atau nonaktifkan akun, dan edit data pengguna.</p>
                 </div>
-                <input type="search" id="cari-user" placeholder="Cari nama, email, kelas..." class="field-glass w-64! mt-0!">
+                <input type="search" id="cari-user" placeholder="Cari nama, email, kelas..." class="field-glass !w-64 !mt-0">
             </div>
         </div>
 
@@ -81,7 +81,7 @@
                             <td class="p-3">{{ $u->kelas ?? '-' }}<br><span class="text-xs text-gray-500">{{ $u->nisn }}</span></td>
 
                             <td class="p-3">
-                                @if($saya)
+                                @cannot('ubahRole', $u)
                                     <span class="text-xs">{{ ucfirst($u->role) }}</span>
                                 @else
                                     <form action="{{ route('users.updateRole', $u->id) }}" method="POST" class="flex gap-2">
@@ -94,7 +94,7 @@
                                         </select>
                                         <button type="submit" class="bg-gray-800 text-white px-3 py-1 rounded text-xs hover:bg-gray-900">Simpan</button>
                                     </form>
-                                @endif
+                                @endcannot
                             </td>
 
                             <td class="p-3">
@@ -107,9 +107,12 @@
                             <td class="p-3">
                                 <div class="flex flex-wrap gap-2">
                                     <a href="{{ route('riwayat.show', $u->id) }}" class="bg-indigo-600 text-white px-3 py-1 rounded text-xs font-semibold hover:bg-indigo-700">Riwayat</a>
-                                    <a href="{{ route('users.edit', $u->id) }}" class="bg-yellow-500 text-white px-3 py-1 rounded text-xs font-semibold hover:bg-yellow-600">Edit</a>
+                                    @can('kelola', $u)
+                                        <a href="{{ route('users.edit', $u->id) }}" class="bg-yellow-500 text-white px-3 py-1 rounded text-xs font-semibold hover:bg-yellow-600">Edit</a>
+                                    @endcan
 
-                                    @unless($saya)
+                                    @can('kelola', $u)
+                                        @unless($saya)
                                         <form action="{{ route('users.toggle', $u->id) }}" method="POST"
                                               onsubmit="return confirm('{{ $u->is_active ? 'Nonaktifkan akun ini? User tidak bisa login sampai diaktifkan lagi.' : 'Aktifkan kembali akun ini?' }}')">
                                             @csrf
@@ -126,6 +129,7 @@
                                             <button type="submit" class="bg-red-600 text-white px-3 py-1 rounded text-xs font-semibold hover:bg-red-700">Hapus</button>
                                         </form>
                                     @endunless
+                                    @endcan
                                 </div>
                             </td>
                         </tr>

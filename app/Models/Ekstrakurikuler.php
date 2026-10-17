@@ -44,6 +44,28 @@ class Ekstrakurikuler extends Model
         return $this->hasMany(EkskulEvent::class);
     }
 
+    // Semua pembina (termasuk yang sudah selesai), lengkap dengan tanggal mulai/selesai
+    public function pembinas()
+    {
+        return $this->belongsToMany(User::class, 'ekskul_pembinas', 'ekstrakurikuler_id', 'user_id')
+            ->withPivot('mulai', 'selesai')
+            ->withTimestamps();
+    }
+
+    // Pembina yang masih bertugas
+    public function pembinaAktif()
+    {
+        return $this->pembinas()->wherePivotNull('selesai');
+    }
+
+    // Nama pembina untuk ditampilkan; cadangannya teks lama kalau belum ada pembina terhubung
+    public function getPembinaTampilAttribute(): string
+    {
+        $nama = $this->pembinaAktif->pluck('name');
+
+        return $nama->isNotEmpty() ? $nama->implode(', ') : (string) $this->pembina;
+    }
+
     // Jadwal per hari, urut Senin -> Minggu
     public function getJadwalAttribute()
     {

@@ -70,13 +70,15 @@
                     <div class="grid grid-cols-2 gap-4 mt-2">
                         <div>
                             <label class="block text-xs text-gray-500">Password baru</label>
-                            <input type="password" name="password" minlength="6" autocomplete="new-password" class="w-full border p-2 rounded-lg">
+                            <input type="password" name="password" minlength="10" autocomplete="new-password" class="w-full border p-2 rounded-lg">
                         </div>
                         <div>
                             <label class="block text-xs text-gray-500">Ulangi password baru</label>
                             <input type="password" name="password_confirmation" autocomplete="new-password" class="w-full border p-2 rounded-lg">
                         </div>
                     </div>
+                    @include('partials.password-hint')
+                    <p class="text-xs text-gray-500 mt-2">Password yang diisi di sini bersifat sementara: user wajib menggantinya saat login berikutnya.</p>
                 </div>
 
                 <div class="flex justify-end space-x-2 pt-4">

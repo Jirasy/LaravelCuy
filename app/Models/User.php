@@ -25,6 +25,7 @@ class User extends Authenticatable
         'is_alumni',
         'angkatan_sekolah',
         'tahun_lulus',
+        'must_change_password',
     ];
 
     protected $hidden = [
@@ -39,6 +40,7 @@ class User extends Authenticatable
             'password' => 'hashed',
             'is_active' => 'boolean',
             'is_alumni' => 'boolean',
+            'must_change_password' => 'boolean',
         ];
     }
 
@@ -72,6 +74,24 @@ class User extends Authenticatable
             return 'Alumni' . ($this->angkatan_sekolah ? ' angkatan ' . $this->angkatan_sekolah : '');
         }
         return $this->angkatan_sekolah ? 'Angkatan ' . $this->angkatan_sekolah : null;
+    }
+
+    // Ekskul yang sedang dibina user ini (relevan untuk role pembina)
+    public function ekskulDikelola()
+    {
+        return $this->belongsToMany(Ekstrakurikuler::class, 'ekskul_pembinas', 'user_id', 'ekstrakurikuler_id')
+            ->wherePivotNull('selesai');
+    }
+
+    private ?array $cacheIdKelola = null;
+
+    // Daftar id ekskul yang dikelola (di-cache selama satu request)
+    public function idEkskulDikelola(): array
+    {
+        return $this->cacheIdKelola ??= $this->ekskulDikelola()
+            ->pluck('ekstrakurikulers.id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
     }
 
     public function isAdmin(): bool

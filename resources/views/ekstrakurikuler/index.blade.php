@@ -65,9 +65,12 @@
                         <span class="inline-block px-3 py-1 text-xs font-semibold rounded-full {{ $ekskul->status === 'aktif' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800' }}">
                             {{ ucfirst($ekskul->status) }}
                         </span>
+                        @if(auth()->user()->isAdmin() && $ekskul->pembinaAktif->isEmpty())
+                            <span class="inline-block px-2 py-0.5 ml-1 text-xs rounded-full bg-red-100 text-red-700">Belum ada pembina</span>
+                        @endif
 
                         <h2 class="text-xl font-bold text-gray-900 mt-2">{{ $ekskul->nama_ekstrakurikuler }}</h2>
-                        <p class="text-sm text-gray-600 mt-1">Pembina: <strong>{{ $ekskul->pembina }}</strong></p>
+                        <p class="text-sm text-gray-600 mt-1">Pembina: <strong>{{ $ekskul->pembina_tampil }}</strong></p>
                         <div class="text-sm text-gray-600">
                             <p class="font-semibold">Jadwal:</p>
                             @forelse($ekskul->jadwal as $j)
@@ -88,20 +91,20 @@
                             Daftar Sekarang
                         </a>
 
-                        @if(auth()->user()->isStaff())
+                        @can('kelola', $ekskul)
                         <div class="flex space-x-2 pt-1">
-                            <a href="{{ route('ekstrakurikuler.edit', $ekskul->id) }}" class="w-1/2 text-center bg-yellow-500 text-white py-1.5 rounded-lg text-sm font-semibold hover:bg-yellow-600">
+                            <a href="{{ route('ekstrakurikuler.edit', $ekskul->id) }}" class="{{ auth()->user()->isAdmin() ? 'w-1/2' : 'w-full' }} text-center bg-yellow-500 text-white py-1.5 rounded-lg text-sm font-semibold hover:bg-yellow-600">
                                 Edit
                             </a>
-                            <form action="{{ route('ekstrakurikuler.destroy', $ekskul->id) }}" method="POST" class="w-1/2" onsubmit="return confirm('Yakin hapus ekskul ini?')">
+                            @if(auth()->user()->isAdmin())<form action="{{ route('ekstrakurikuler.destroy', $ekskul->id) }}" method="POST" class="w-1/2" onsubmit="return confirm('Yakin hapus ekskul ini?')">
                                 @csrf
                                 @method('DELETE')
                                 <button type="submit" class="w-full bg-red-600 text-white py-1.5 rounded-lg text-sm font-semibold hover:bg-red-700">
                                     Hapus
                                 </button>
-                            </form>
+                            </form>@endif
                         </div>
-                        @endif
+                        @endcan
                     </div>
                 </div>
                 </div>

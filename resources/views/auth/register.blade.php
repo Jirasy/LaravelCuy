@@ -45,8 +45,9 @@
                 </div>
                 <div>
                     <label class="block text-xs font-semibold tracking-wide uppercase text-gray-700">Password</label>
-                    <input type="password" name="password" required minlength="6" class="field-glass">
+                    <input type="password" name="password" required minlength="10" class="field-glass">
                 </div>
+                @include('partials.password-hint')
                 <div>
                     <label class="block text-xs font-semibold tracking-wide uppercase text-gray-700">Ulangi Password</label>
                     <input type="password" name="password_confirmation" required class="field-glass">

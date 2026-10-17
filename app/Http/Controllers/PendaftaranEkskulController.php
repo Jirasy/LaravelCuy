@@ -6,16 +6,23 @@ use App\Models\Ekstrakurikuler;
 use App\Models\PendaftaranEkskul;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Gate;
 
 class PendaftaranEkskulController extends Controller
 {
-    // Admin/pembina: semua pendaftaran. Siswa: hanya miliknya sendiri.
+    // Admin: semua pendaftaran. Pembina: pendaftaran di ekskul yang ia bina + miliknya sendiri.
+    // Siswa: hanya miliknya sendiri.
     public function index()
     {
         $user  = Auth::user();
         $query = PendaftaranEkskul::with(['user', 'ekstrakurikuler'])->latest();
 
-        if (!$user->isStaff()) {
+        if ($user->isPembina()) {
+            $query->where(function ($q) use ($user) {
+                $q->whereIn('ekstrakurikuler_id', $user->idEkskulDikelola())
+                  ->orWhere('user_id', $user->id);
+            });
+        } elseif (!$user->isAdmin()) {
             $query->where('user_id', $user->id);
         }
 
@@ -25,18 +32,26 @@ class PendaftaranEkskulController extends Controller
 
     public function create(Request $request)
     {
-        $ekskuls  = Ekstrakurikuler::with('haris')->where('status', 'aktif')->orderBy('nama_ekstrakurikuler')->get();
+        $user  = Auth::user();
+        $query = Ekstrakurikuler::with('haris')->where('status', 'aktif')->orderBy('nama_ekstrakurikuler');
+
+        // Pembina mendaftarkan orang lain hanya ke ekskul yang ia bina
+        if ($user->isPembina()) {
+            $query->whereIn('id', $user->idEkskulDikelola());
+        }
+
+        $ekskuls  = $query->get();
         $terpilih = $request->query('ekstrakurikuler_id', $request->query('ekskul'));
         return view('pendaftaran.create', compact('ekskuls', 'terpilih'));
     }
 
     public function store(Request $request)
     {
-        $user = Auth::user();
+        $user  = Auth::user();
         $pesan = ['ekstrakurikuler_id.exists' => 'Ekskul tidak ditemukan atau sedang nonaktif.'];
 
         if ($user->isStaff()) {
-            // Admin/pembina boleh mendaftarkan orang lain secara manual
+            // Admin/pembina mendaftarkan orang lain secara manual
             $data = $request->validate([
                 'ekstrakurikuler_id' => 'required|exists:ekstrakurikulers,id,status,aktif',
                 'nama_pendaftar'     => 'required|string|max:255',
@@ -45,6 +60,8 @@ class PendaftaranEkskulController extends Controller
                 'nisn'               => 'nullable|string|max:30',
                 'alasan_mendaftar'   => 'nullable|string',
             ], $pesan);
+
+            Gate::authorize('kelola', Ekstrakurikuler::findOrFail($data['ekstrakurikuler_id']));
 
             $data['user_id'] = null;
 
@@ -81,9 +98,11 @@ class PendaftaranEkskulController extends Controller
         return redirect()->route('pendaftaran.index')->with('success', 'Pendaftaran berhasil dikirim!');
     }
 
-    // Hanya admin/pembina (dijaga di route)
+    // Hanya admin atau pembina ekskul yang bersangkutan
     public function updateStatus(Request $request, PendaftaranEkskul $pendaftaran)
     {
+        Gate::authorize('kelola', $pendaftaran->ekstrakurikuler);
+
         $data = $request->validate([
             'status' => 'required|in:pending,diterima,ditolak',
             'alasan' => 'nullable|string',

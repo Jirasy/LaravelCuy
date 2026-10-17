@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use App\Rules\PasswordKuat;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 
@@ -70,15 +71,16 @@ class PengaturanController extends Controller
     {
         $request->validate([
             'current_password' => 'required|current_password',
-            'password'         => 'required|string|min:6|confirmed',
+            'password'         => ['required', 'string', 'confirmed', 'different:current_password', new PasswordKuat($request->user()->name, $request->user()->email)],
         ], [
             'current_password.required'         => 'Password saat ini wajib diisi.',
             'current_password.current_password' => 'Password saat ini salah.',
-            'password.min'                      => 'Password baru minimal 6 karakter.',
+            'password.different'                => 'Password baru harus berbeda dari password saat ini.',
             'password.confirmed'                => 'Konfirmasi password baru tidak cocok.',
         ]);
 
-        $request->user()->update(['password' => $request->password]); // di-hash oleh cast
+        // di-hash oleh cast; password sementara dianggap sudah diganti
+        $request->user()->update(['password' => $request->password, 'must_change_password' => false]);
 
         return back()->with('success', 'Password berhasil diganti.');
     }

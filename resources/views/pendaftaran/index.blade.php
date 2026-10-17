@@ -57,7 +57,7 @@
                             <td class="p-3">{{ $p->ekstrakurikuler->nama_ekstrakurikuler ?? '-' }}</td>
                             <td class="p-3 max-w-xs">{{ $p->alasan_mendaftar ?? '-' }}</td>
                             <td class="p-3">
-                                @if(auth()->user()->isStaff())
+                                @can('kelola', $p->ekstrakurikuler)
                                 <form action="{{ route('pendaftaran.updateStatus', $p->id) }}" method="POST" class="space-y-2">
                                     @csrf
                                     @method('PATCH')
@@ -75,7 +75,7 @@
                                 @if($p->alasan)
                                     <p class="text-xs text-gray-600 mt-2">Catatan: {{ $p->alasan }}</p>
                                 @endif
-                                @endif
+                                @endcan
                             </td>
                         </tr>
                     @empty

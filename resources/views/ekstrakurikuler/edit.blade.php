@@ -13,7 +13,7 @@
             <a href="{{ route('ekstrakurikuler.index') }}" class="text-gray-600 hover:underline text-sm">← Batal</a>
         </div>
 
-        <!-- Action yang arahnya ke route manual update -->
+        <!-- Action mengarah ke route manual update -->
         @if($errors->any())
             <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg mb-4">
                 <ul class="list-disc pl-5 text-sm">
@@ -24,7 +24,7 @@
 
         <form action="{{ route('ekstrakurikuler.update', $ekstrakurikuler->id) }}" method="POST" class="space-y-4">
     @csrf
-    @method('PUT') <!-- 🔴 WAJIB ADA biar Laravel kenal request ini sebagai UPDATE -->
+    @method('PUT') <!-- 🔴 WAJIB ADA agar Laravel mengenali request ini sebagai UPDATE -->
 
     <div>
         <label class="block text-sm font-semibold text-gray-700">Nama Ekstrakurikuler</label>
@@ -62,5 +62,7 @@
     </div>
 </form>
     </div>
+
+    @include('ekstrakurikuler._pembina')
 </body>
 </html>

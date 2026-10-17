@@ -6,6 +6,7 @@ use App\Models\EkskulPrestasi;
 use App\Models\Ekstrakurikuler;
 use App\Models\PendaftaranEkskul;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 
 // Hanya admin & pembina (dijaga di route)
@@ -13,6 +14,7 @@ class EkskulPrestasiController extends Controller
 {
     public function store(Request $request, Ekstrakurikuler $ekstrakurikuler)
     {
+        Gate::authorize('kelola', $ekstrakurikuler);
         $data = $this->validasi($request, $ekstrakurikuler->id);
         $anggota = $data['anggota'] ?? [];
         unset($data['anggota']);
@@ -25,6 +27,7 @@ class EkskulPrestasiController extends Controller
 
     public function edit(EkskulPrestasi $prestasi)
     {
+        Gate::authorize('kelola', $prestasi->ekstrakurikuler);
         $prestasi->load('anggota');
         $anggotaOpsi = PendaftaranEkskul::where('ekstrakurikuler_id', $prestasi->ekstrakurikuler_id)
             ->where('status', 'diterima')
@@ -36,6 +39,7 @@ class EkskulPrestasiController extends Controller
 
     public function update(Request $request, EkskulPrestasi $prestasi)
     {
+        Gate::authorize('kelola', $prestasi->ekstrakurikuler);
         $data = $this->validasi($request, $prestasi->ekstrakurikuler_id);
         $anggota = $data['anggota'] ?? [];
         unset($data['anggota']);
@@ -48,6 +52,7 @@ class EkskulPrestasiController extends Controller
 
     public function destroy(EkskulPrestasi $prestasi)
     {
+        Gate::authorize('kelola', $prestasi->ekstrakurikuler);
         $ekskulId = $prestasi->ekstrakurikuler_id;
         $prestasi->delete();
 

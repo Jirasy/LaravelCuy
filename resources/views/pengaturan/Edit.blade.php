@@ -28,6 +28,14 @@
         @if(session('success'))
             <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-lg mb-4">{{ session('success') }}</div>
         @endif
+        @if(session('error'))
+            <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg mb-4">{{ session('error') }}</div>
+        @endif
+        @if($user->must_change_password)
+            <div class="bg-amber-100 border border-amber-400 text-amber-800 px-4 py-3 rounded-lg mb-4 text-sm">
+                <strong>Password sementara.</strong> Ganti password di bagian "Ganti Password" di bawah sebelum memakai fitur lain.
+            </div>
+        @endif
         @if($errors->any())
             <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg mb-4 text-sm">
                 <ul class="list-disc pl-5">@foreach($errors->all() as $e)<li>{{ $e }}</li>@endforeach</ul>
@@ -59,7 +67,7 @@
             </div>
 
             <div>
-                <label class="block text-sm font-semibold text-gray-700">Angkatan sekolah <span class="font-normal text-gray-400">(mis. 2025 Angkatan 10)</span></label>
+                <label class="block text-sm font-semibold text-gray-700">Angkatan sekolah <span class="font-normal text-gray-400">(mis. 2025)</span></label>
                 <input type="text" name="angkatan_sekolah" value="{{ old('angkatan_sekolah', $user->angkatan_sekolah) }}" class="w-full border p-2 rounded-lg mt-1">
                 @if($user->is_alumni)
                     <p class="text-xs text-amber-700 mt-1">
@@ -131,13 +139,14 @@
             <div class="grid grid-cols-2 gap-4">
                 <div>
                     <label class="block text-sm font-semibold text-gray-700">Password baru</label>
-                    <input type="password" name="password" required minlength="6" autocomplete="new-password" class="w-full border p-2 rounded-lg mt-1">
+                    <input type="password" name="password" required minlength="10" autocomplete="new-password" class="w-full border p-2 rounded-lg mt-1">
                 </div>
                 <div>
                     <label class="block text-sm font-semibold text-gray-700">Ulangi password baru</label>
                     <input type="password" name="password_confirmation" required autocomplete="new-password" class="w-full border p-2 rounded-lg mt-1">
                 </div>
             </div>
+            @include('partials.password-hint')
             <div class="text-right">
                 <button type="submit" class="bg-gray-800 text-white px-5 py-2 rounded-lg font-semibold hover:bg-gray-900">Ganti Password</button>
             </div>

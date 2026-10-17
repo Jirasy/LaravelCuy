@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\EkskulEvent;
 use App\Models\Ekstrakurikuler;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 
 // Hanya admin & pembina (dijaga di route)
@@ -12,6 +13,7 @@ class EkskulEventController extends Controller
 {
     public function store(Request $request, Ekstrakurikuler $ekstrakurikuler)
     {
+        Gate::authorize('kelola', $ekstrakurikuler);
         $ekstrakurikuler->events()->create($this->validasi($request));
 
         return $this->kembali($ekstrakurikuler->id, 'Event berhasil ditambahkan!');
@@ -19,11 +21,13 @@ class EkskulEventController extends Controller
 
     public function edit(EkskulEvent $event)
     {
+        Gate::authorize('kelola', $event->ekstrakurikuler);
         return view('ekskul_event.edit', compact('event'));
     }
 
     public function update(Request $request, EkskulEvent $event)
     {
+        Gate::authorize('kelola', $event->ekstrakurikuler);
         $event->update($this->validasi($request));
 
         return $this->kembali($event->ekstrakurikuler_id, 'Event berhasil diperbarui!');
@@ -31,6 +35,7 @@ class EkskulEventController extends Controller
 
     public function destroy(EkskulEvent $event)
     {
+        Gate::authorize('kelola', $event->ekstrakurikuler);
         $ekskulId = $event->ekstrakurikuler_id;
         $event->delete();
 
