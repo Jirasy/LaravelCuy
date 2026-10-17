@@ -19,7 +19,7 @@ class RiwayatController extends Controller
             abort(403, 'Kamu hanya bisa melihat riwayatmu sendiri.');
         }
 
-        $riwayat = PendaftaranEkskul::with('ekstrakurikuler')
+        $riwayat = PendaftaranEkskul::with(['ekstrakurikuler', 'jabatanAktif', 'penetapanJabatans.jabatan'])
             ->where('user_id', $user->id)
             ->orderByDesc('tahun_mulai')
             ->orderByDesc('created_at')

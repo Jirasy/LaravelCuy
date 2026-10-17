@@ -28,6 +28,8 @@ use App\Http\Controllers\KeanggotaanController;
 use App\Http\Controllers\RiwayatController;
 use App\Http\Controllers\EkskulPembinaController;
 use App\Http\Controllers\ProfilPenggunaController;
+use App\Http\Controllers\EkskulJabatanController;
+use App\Http\Controllers\AnggotaJabatanController;
 use App\Http\Middleware\PaksaGantiPassword;
 use App\Http\Controllers\CarsController;
 
@@ -156,6 +158,14 @@ Route::middleware(['auth', EnsureUserIsActive::class, PaksaGantiPassword::class]
         Route::delete('/ekskul-event/{event}', [EkskulEventController::class, 'destroy'])->name('ekskul-event.destroy');
 
         Route::patch('/pendaftaran/{pendaftaran}/keanggotaan', [KeanggotaanController::class, 'update'])->name('keanggotaan.update');
+
+        // Struktur jabatan kustom per ekskul + penetapannya ke anggota
+        Route::post('/ekstrakurikuler/{ekstrakurikuler}/jabatan', [EkskulJabatanController::class, 'store'])->name('ekskul-jabatan.store');
+        Route::get('/ekskul-jabatan/{jabatan}/edit', [EkskulJabatanController::class, 'edit'])->name('ekskul-jabatan.edit');
+        Route::put('/ekskul-jabatan/{jabatan}', [EkskulJabatanController::class, 'update'])->name('ekskul-jabatan.update');
+        Route::delete('/ekskul-jabatan/{jabatan}', [EkskulJabatanController::class, 'destroy'])->name('ekskul-jabatan.destroy');
+        Route::post('/pendaftaran/{pendaftaran}/jabatan', [AnggotaJabatanController::class, 'store'])->name('anggota-jabatan.store');
+        Route::delete('/anggota-jabatan/{penetapan}', [AnggotaJabatanController::class, 'destroy'])->name('anggota-jabatan.destroy');
 
         // Kelola User: admin & pembina (batasan per akun diatur UserPolicy)
         Route::get('/users', [UserController::class, 'index'])->name('users.index');

@@ -16,7 +16,6 @@ class PendaftaranEkskul extends Model
         'ekstrakurikuler_id',
         'nama_pendaftar',
         'peran',
-        'jabatan',
         'angkatan_ekskul',
         'tahun_mulai',
         'tahun_selesai',
@@ -37,26 +36,31 @@ class PendaftaranEkskul extends Model
         return $this->belongsTo(Ekstrakurikuler::class);
     }
 
-    // Jabatan di ekskul ini (bukan role akun)
-    public const JABATAN = [
-        'anggota'            => 'Anggota',
-        'ketua'              => 'Ketua',
-        'wakil_ketua'        => 'Wakil Ketua',
-        'sekretaris'         => 'Sekretaris',
-        'bendahara'          => 'Bendahara',
-        'koordinator'        => 'Koordinator',
-        'pelatih'            => 'Pelatih',
-        'pembina_pendamping' => 'Pembina Pendamping',
-    ];
+    // Semua penetapan jabatan (termasuk yang sudah selesai) = riwayat jabatan
+    public function penetapanJabatans()
+    {
+        return $this->hasMany(EkskulAnggotaJabatan::class, 'pendaftaran_id');
+    }
+
+    // Jabatan yang sedang dipegang (boleh lebih dari satu)
+    public function jabatanAktif()
+    {
+        return $this->belongsToMany(EkskulJabatan::class, 'ekskul_anggota_jabatans', 'pendaftaran_id', 'jabatan_id')
+            ->withPivot('id', 'periode_mulai', 'periode_selesai')
+            ->wherePivotNull('periode_selesai');
+    }
+
+    // Contoh: "Sekretaris 1, Koordinator Humas" atau "Anggota" kalau tidak punya jabatan
+    public function getJabatanLabelAttribute(): string
+    {
+        $daftar = $this->jabatanAktif->map(fn ($j) => $j->label_lengkap);
+
+        return $daftar->isNotEmpty() ? $daftar->implode(', ') : 'Anggota';
+    }
 
     public function prestasis()
     {
         return $this->belongsToMany(EkskulPrestasi::class, 'ekskul_prestasi_anggota', 'pendaftaran_id', 'prestasi_id');
-    }
-
-    public function getJabatanLabelAttribute(): string
-    {
-        return self::JABATAN[$this->jabatan] ?? 'Anggota';
     }
 
     // Contoh: "2024 – sekarang" atau "2023 – 2025"

@@ -28,9 +28,13 @@
                     </td>
                     <td class="p-3">{{ $a->kelas ?? '-' }}</td>
                     <td class="p-3">
-                        <span class="px-2.5 py-0.5 text-xs font-semibold rounded-full {{ $a->jabatan === 'anggota' ? 'bg-gray-100 text-gray-800' : 'bg-amber-100 text-amber-800' }}">
-                            {{ $a->jabatan_label }}
-                        </span>
+                        <div class="flex flex-wrap gap-1">
+                            @forelse($a->jabatanAktif as $jb)
+                                <span class="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-amber-100 text-amber-800">{{ $jb->label_lengkap }}</span>
+                            @empty
+                                <span class="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-gray-100 text-gray-800">Anggota</span>
+                            @endforelse
+                        </div>
                     </td>
                     <td class="p-3">{{ $a->angkatan_ekskul ?? '-' }}</td>
                     <td class="p-3">{{ $a->periode }}</td>
@@ -39,21 +43,53 @@
                         <td class="p-3">
                             <details>
                                 <summary class="cursor-pointer text-xs text-indigo-600">Atur</summary>
-                                <form action="{{ route('keanggotaan.update', $a->id) }}" method="POST" class="mt-2 space-y-2 min-w-[14rem]">
-                                    @csrf
-                                    @method('PATCH')
-                                    <select name="jabatan" class="border p-1 rounded text-xs w-full">
-                                        @foreach(\App\Models\PendaftaranEkskul::JABATAN as $k => $label)
-                                            <option value="{{ $k }}" {{ $a->jabatan === $k ? 'selected' : '' }}>{{ $label }}</option>
-                                        @endforeach
-                                    </select>
-                                    <input type="text" name="angkatan_ekskul" value="{{ $a->angkatan_ekskul }}" placeholder="Angkatan ekskul" class="border p-1 rounded text-xs w-full">
-                                    <div class="grid grid-cols-2 gap-2">
-                                        <input type="number" name="tahun_mulai" value="{{ $a->tahun_mulai }}" placeholder="Mulai" class="border p-1 rounded text-xs">
-                                        <input type="number" name="tahun_selesai" value="{{ $a->tahun_selesai }}" placeholder="Selesai" class="border p-1 rounded text-xs">
-                                    </div>
-                                    <button type="submit" class="bg-gray-800 text-white px-3 py-1 rounded text-xs hover:bg-gray-900">Simpan</button>
-                                </form>
+                                <div class="mt-2 space-y-3 min-w-[16rem]">
+
+                                    {{-- Jabatan yang sedang dipegang --}}
+                                    @foreach($a->jabatanAktif as $jb)
+                                        <div class="flex items-center justify-between gap-2 text-xs">
+                                            <span>{{ $jb->label_lengkap }} <span class="text-gray-400">sejak {{ $jb->pivot->periode_mulai }}</span></span>
+                                            <form action="{{ route('anggota-jabatan.destroy', $jb->pivot->id) }}" method="POST" onsubmit="return confirm('Cabut jabatan {{ e($jb->label_lengkap) }} dari {{ e($a->nama_pendaftar) }}?')">
+                                                @csrf
+                                                @method('DELETE')
+                                                <button type="submit" class="text-red-600 hover:underline">Cabut</button>
+                                            </form>
+                                        </div>
+                                    @endforeach
+
+                                    {{-- Beri jabatan baru --}}
+                                    @if($jabatans->isEmpty())
+                                        <p class="text-xs text-gray-500">Belum ada jabatan. Buat dulu di tab <strong>Struktur</strong>.</p>
+                                    @else
+                                        <form action="{{ route('anggota-jabatan.store', $a->id) }}" method="POST" class="space-y-1">
+                                            @csrf
+                                            <select name="jabatan_id" required class="border p-1 rounded text-xs w-full">
+                                                <option value="">-- Beri jabatan --</option>
+                                                @foreach($jabatans->whereNotIn('id', $a->jabatanAktif->pluck('id')) as $opsi)
+                                                    <option value="{{ $opsi->id }}" {{ $opsi->kuota_penuh ? 'disabled' : '' }}>
+                                                        {{ $opsi->label_lengkap }}{{ $opsi->kuota_penuh ? ' (penuh)' : '' }}
+                                                    </option>
+                                                @endforeach
+                                            </select>
+                                            <div class="flex gap-2">
+                                                <input type="number" name="periode_mulai" value="{{ date('Y') }}" min="1990" max="{{ date('Y') + 1 }}" title="Tahun mulai menjabat" class="border p-1 rounded text-xs w-24">
+                                                <button type="submit" class="bg-indigo-600 text-white px-3 py-1 rounded text-xs hover:bg-indigo-700">Beri</button>
+                                            </div>
+                                        </form>
+                                    @endif
+
+                                    {{-- Angkatan & periode keanggotaan --}}
+                                    <form action="{{ route('keanggotaan.update', $a->id) }}" method="POST" class="space-y-1 border-t pt-2">
+                                        @csrf
+                                        @method('PATCH')
+                                        <input type="text" name="angkatan_ekskul" value="{{ $a->angkatan_ekskul }}" placeholder="Angkatan ekskul" class="border p-1 rounded text-xs w-full">
+                                        <div class="grid grid-cols-2 gap-2">
+                                            <input type="number" name="tahun_mulai" value="{{ $a->tahun_mulai }}" placeholder="Mulai" class="border p-1 rounded text-xs">
+                                            <input type="number" name="tahun_selesai" value="{{ $a->tahun_selesai }}" placeholder="Selesai" class="border p-1 rounded text-xs">
+                                        </div>
+                                        <button type="submit" class="bg-gray-800 text-white px-3 py-1 rounded text-xs hover:bg-gray-900">Simpan</button>
+                                    </form>
+                                </div>
                             </details>
                         </td>
                     @endif

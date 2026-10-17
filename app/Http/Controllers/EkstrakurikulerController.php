@@ -44,7 +44,7 @@ class EkstrakurikulerController extends Controller
         // Prestasi & event terbuka untuk semua user yang login.
         $bolehLihat = $staff || ($pendaftaranSaya && $pendaftaranSaya->status === 'diterima');
 
-        $tab = in_array($request->query('tab'), ['info', 'prestasi', 'event', 'pengumuman', 'anggota'], true)
+        $tab = in_array($request->query('tab'), ['info', 'struktur', 'prestasi', 'event', 'pengumuman', 'anggota'], true)
             ? $request->query('tab')
             : 'info';
 
@@ -59,7 +59,7 @@ class EkstrakurikulerController extends Controller
         }
 
         if ($bolehLihat && $tab === 'anggota') {
-            $anggota = PendaftaranEkskul::where('ekstrakurikuler_id', $ekskul->id)
+            $anggota = PendaftaranEkskul::with('jabatanAktif')->where('ekstrakurikuler_id', $ekskul->id)
                 ->where('status', 'diterima')
                 ->orderBy('nama_pendaftar')
                 ->get();
@@ -80,9 +80,15 @@ class EkstrakurikulerController extends Controller
             $events = $ekskul->events()->orderBy('tanggal_mulai')->get();
         }
 
+        // Daftar jabatan: untuk tab Struktur, dan untuk form "beri jabatan" di tab Anggota (khusus pengelola)
+        $jabatans = collect();
+        if ($tab === 'struktur' || ($tab === 'anggota' && $staff)) {
+            $jabatans = $ekskul->jabatans()->with('pemegangAktif')->get();
+        }
+
         return view('ekstrakurikuler.show', compact(
             'ekskul', 'tab', 'staff', 'bolehLihat', 'pendaftaranSaya',
-            'pengumumans', 'anggota', 'prestasis', 'events', 'anggotaOpsi'
+            'pengumumans', 'anggota', 'prestasis', 'events', 'anggotaOpsi', 'jabatans'
         ));
     }
 

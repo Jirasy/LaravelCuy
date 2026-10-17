@@ -44,6 +44,12 @@ class Ekstrakurikuler extends Model
         return $this->hasMany(EkskulEvent::class);
     }
 
+    // Struktur jabatan milik ekskul ini, urut sesuai pengaturan
+    public function jabatans()
+    {
+        return $this->hasMany(EkskulJabatan::class)->orderBy('urutan')->orderBy('nama')->orderBy('varian');
+    }
+
     // Semua pembina (termasuk yang sudah selesai), lengkap dengan tanggal mulai/selesai
     public function pembinas()
     {

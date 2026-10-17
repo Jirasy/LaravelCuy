@@ -25,6 +25,9 @@
         @if(session('success'))
             <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-lg mb-4">{{ session('success') }}</div>
         @endif
+        @if(session('error'))
+            <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg mb-4">{{ session('error') }}</div>
+        @endif
         @if($errors->any())
             <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg mb-4 text-sm">
                 <ul class="list-disc pl-5">
@@ -34,7 +37,7 @@
         @endif
 
         {{-- Tab --}}
-        @php $tabs = ['info' => 'Informasi', 'prestasi' => 'Prestasi', 'event' => 'Event', 'pengumuman' => 'Pengumuman', 'anggota' => 'Anggota']; @endphp
+        @php $tabs = ['info' => 'Informasi', 'struktur' => 'Struktur', 'prestasi' => 'Prestasi', 'event' => 'Event', 'pengumuman' => 'Pengumuman', 'anggota' => 'Anggota']; @endphp
         <div class="flex gap-1 border-b border-gray-200 mb-6 overflow-x-auto">
             @foreach($tabs as $key => $label)
                 <a href="{{ route('ekstrakurikuler.show', ['id' => $ekskul->id, 'tab' => $key]) }}"
@@ -95,6 +98,9 @@
 
         @elseif($tab === 'event')
             @include('ekstrakurikuler._tab_event')
+
+        @elseif($tab === 'struktur')
+            @include('ekstrakurikuler._tab_struktur')
 
         {{-- ========== TAB PENGUMUMAN & ANGGOTA: khusus anggota / pengelola ========== --}}
         @elseif(!$bolehLihat)

@@ -23,7 +23,7 @@ class ProfilPenggunaController extends Controller
         abort_if(!$user->is_active && !$isSelf && !$viewer->isStaff(), 404);
 
         // Keanggotaan aktif (disetujui dan belum selesai) + ekskul yang dibina
-        $keanggotaan = PendaftaranEkskul::with('ekstrakurikuler.haris')
+        $keanggotaan = PendaftaranEkskul::with(['ekstrakurikuler.haris', 'jabatanAktif'])
             ->where('user_id', $user->id)
             ->where('status', 'diterima')
             ->whereNull('tahun_selesai')
@@ -40,7 +40,7 @@ class ProfilPenggunaController extends Controller
         foreach ($keanggotaan as $p) {
             $badges->push([
                 'ekskul'  => $p->ekstrakurikuler->nama_ekstrakurikuler,
-                'jabatan' => $p->jabatan === 'anggota' ? null : $p->jabatan_label,
+                'jabatan' => $p->jabatanAktif->isEmpty() ? null : $p->jabatan_label,
             ]);
         }
 

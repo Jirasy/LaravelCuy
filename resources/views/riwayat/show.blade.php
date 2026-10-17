@@ -31,7 +31,7 @@
             @foreach([
                 ['Ekskul diikuti', $riwayat->where('status', 'diterima')->count(), '🏫'],
                 ['Prestasi', $prestasis->count(), '🏆'],
-                ['Jabatan dipegang', $riwayat->where('status', 'diterima')->where('jabatan', '!=', 'anggota')->count(), '⭐'],
+                ['Jabatan dipegang', $riwayat->filter(fn ($r) => $r->status === 'diterima' && $r->jabatanAktif->isNotEmpty())->count(), '⭐'],
             ] as $i => $s)
                 <div data-aos="fade-up" data-aos-delay="{{ $i * 80 }}">
                     <div class="card-hover h-full bg-white rounded-xl border border-gray-200 shadow-sm p-4 text-center">
@@ -58,6 +58,14 @@
                                 @if($r->angkatan_ekskul) &middot; Angkatan ekskul {{ $r->angkatan_ekskul }} @endif
                                 &middot; {{ $r->periode }}
                             </p>
+                            @if($r->penetapanJabatans->isNotEmpty())
+                                <p class="text-xs text-gray-500 mt-1">
+                                    Riwayat jabatan:
+                                    @foreach($r->penetapanJabatans->sortBy('periode_mulai') as $t)
+                                        {{ $t->jabatan->label_lengkap ?? '-' }} ({{ $t->periode }}){{ $loop->last ? '' : ',' }}
+                                    @endforeach
+                                </p>
+                            @endif
                         </div>
                         @include('partials.status-badge', ['status' => $r->status, 'label' => $r->status_label])
                     </div>

@@ -5,9 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\PendaftaranEkskul;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
-use Illuminate\Validation\Rule;
 
-// Atur jabatan, angkatan ekskul, dan periode keanggotaan. Hanya admin & pembina.
+// Atur angkatan ekskul dan periode keanggotaan. Jabatan diatur lewat AnggotaJabatanController.
 class KeanggotaanController extends Controller
 {
     public function update(Request $request, PendaftaranEkskul $pendaftaran)
@@ -15,7 +14,6 @@ class KeanggotaanController extends Controller
         Gate::authorize('kelola', $pendaftaran->ekstrakurikuler);
 
         $rules = [
-            'jabatan'         => ['required', Rule::in(array_keys(PendaftaranEkskul::JABATAN))],
             'angkatan_ekskul' => 'nullable|string|max:20',
             'tahun_mulai'     => 'nullable|integer|min:1990|max:' . (date('Y') + 1),
             'tahun_selesai'   => ['nullable', 'integer', 'min:1990', 'max:' . (date('Y') + 10)],
