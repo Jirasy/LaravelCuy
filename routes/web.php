@@ -30,6 +30,7 @@ use App\Http\Controllers\EkskulPembinaController;
 use App\Http\Controllers\ProfilPenggunaController;
 use App\Http\Controllers\EkskulJabatanController;
 use App\Http\Controllers\AnggotaJabatanController;
+use App\Http\Controllers\PengunduranDiriController;
 use App\Http\Middleware\PaksaGantiPassword;
 use App\Http\Controllers\CarsController;
 
@@ -121,6 +122,10 @@ Route::middleware(['auth', EnsureUserIsActive::class, PaksaGantiPassword::class]
 
     Route::get('/riwayat/{user?}', [RiwayatController::class, 'show'])->name('riwayat.show');
 
+    // Pengunduran diri: siswa mengajukan keluar dan membatalkan pengajuannya sendiri
+    Route::post('/ekstrakurikuler/{ekstrakurikuler}/keluar', [PengunduranDiriController::class, 'ajukanAnggota'])->name('pengunduran.anggota');
+    Route::delete('/pengunduran-diri/{pengunduran}', [PengunduranDiriController::class, 'batalkan'])->name('pengunduran.batal');
+
     // Profil publik (semua user login) dan edit profil milik sendiri
     Route::get('/profil/edit', [ProfilPenggunaController::class, 'edit'])->name('profil.edit');
     Route::put('/profil', [ProfilPenggunaController::class, 'update'])->name('profil.update');
@@ -166,6 +171,12 @@ Route::middleware(['auth', EnsureUserIsActive::class, PaksaGantiPassword::class]
         Route::delete('/ekskul-jabatan/{jabatan}', [EkskulJabatanController::class, 'destroy'])->name('ekskul-jabatan.destroy');
         Route::post('/pendaftaran/{pendaftaran}/jabatan', [AnggotaJabatanController::class, 'store'])->name('anggota-jabatan.store');
         Route::delete('/anggota-jabatan/{penetapan}', [AnggotaJabatanController::class, 'destroy'])->name('anggota-jabatan.destroy');
+
+        // Pengunduran diri: panel keputusan, pembina mengajukan keluar, mengeluarkan anggota
+        Route::get('/pengunduran-diri', [PengunduranDiriController::class, 'index'])->name('pengunduran.index');
+        Route::patch('/pengunduran-diri/{pengunduran}', [PengunduranDiriController::class, 'putuskan'])->name('pengunduran.putuskan');
+        Route::post('/ekstrakurikuler/{ekstrakurikuler}/pembina/keluar', [PengunduranDiriController::class, 'ajukanPembina'])->name('pengunduran.pembina');
+        Route::post('/pendaftaran/{pendaftaran}/keluarkan', [PengunduranDiriController::class, 'keluarkan'])->name('pengunduran.keluarkan');
 
         // Kelola User: admin & pembina (batasan per akun diatur UserPolicy)
         Route::get('/users', [UserController::class, 'index'])->name('users.index');

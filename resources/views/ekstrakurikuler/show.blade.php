@@ -78,17 +78,33 @@
                 </div>
 
                 <div class="pt-4 border-t">
-                    @if($pendaftaranSaya)
+                    @if($pendaftaranSaya && $pendaftaranSaya->status_anggota === 'aktif')
                         <p class="text-sm">
                             Status pendaftaranmu:
                             @include('partials.status-badge', ['status' => $pendaftaranSaya->status, 'label' => $pendaftaranSaya->status_label])
                         </p>
+                    @elseif($pendaftaranSaya && $pendaftaranSaya->status_anggota === 'dikeluarkan')
+                        <p class="text-sm text-red-600">
+                            Kamu dikeluarkan dari ekskul ini
+                            @if($pendaftaranSaya->tanggal_keluar) pada {{ $pendaftaranSaya->tanggal_keluar->format('d-m-Y') }} @endif
+                        </p>
+                    @elseif($pendaftaranSaya)
+                        <p class="text-sm text-gray-600 mb-3">
+                            Kamu sudah keluar dari ekskul ini
+                            @if($pendaftaranSaya->tanggal_keluar) pada {{ $pendaftaranSaya->tanggal_keluar->format('d-m-Y') }} @endif
+                        </p>
+                        @if($ekskul->status === 'aktif')
+                            <a href="{{ route('pendaftaran.create', ['ekstrakurikuler_id' => $ekskul->id]) }}"
+                               class="inline-block bg-indigo-600 text-white px-5 py-2 rounded-lg font-semibold hover:bg-indigo-700">Daftar Lagi</a>
+                        @endif
                     @elseif($ekskul->status === 'aktif')
                         <a href="{{ route('pendaftaran.create', ['ekstrakurikuler_id' => $ekskul->id]) }}"
                            class="inline-block bg-indigo-600 text-white px-5 py-2 rounded-lg font-semibold hover:bg-indigo-700">Daftar Sekarang</a>
                     @else
                         <p class="text-sm text-gray-500">Ekskul ini sedang nonaktif, pendaftaran ditutup.</p>
                     @endif
+
+                    @include('ekstrakurikuler._keluar')
                 </div>
             </div>
 

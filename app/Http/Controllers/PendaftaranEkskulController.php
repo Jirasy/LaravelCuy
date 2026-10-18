@@ -67,6 +67,7 @@ class PendaftaranEkskulController extends Controller
 
             $sudah = PendaftaranEkskul::where('ekstrakurikuler_id', $data['ekstrakurikuler_id'])
                 ->whereRaw('LOWER(nama_pendaftar) = ?', [mb_strtolower($data['nama_pendaftar'])])
+                ->where('status_anggota', 'aktif')   // yang sudah keluar boleh didaftarkan lagi
                 ->exists();
         } else {
             // Siswa: identitas diambil dari akun yang login, bukan dari input form
@@ -85,6 +86,7 @@ class PendaftaranEkskulController extends Controller
 
             $sudah = PendaftaranEkskul::where('ekstrakurikuler_id', $data['ekstrakurikuler_id'])
                 ->where('user_id', $user->id)
+                ->where('status_anggota', 'aktif')   // yang sudah keluar boleh mendaftar lagi
                 ->exists();
         }
 

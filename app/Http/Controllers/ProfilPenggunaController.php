@@ -26,7 +26,7 @@ class ProfilPenggunaController extends Controller
         $keanggotaan = PendaftaranEkskul::with(['ekstrakurikuler.haris', 'jabatanAktif'])
             ->where('user_id', $user->id)
             ->where('status', 'diterima')
-            ->whereNull('tahun_selesai')
+            ->where('status_anggota', 'aktif')
             ->get()
             ->filter(fn ($p) => $p->ekstrakurikuler);
 

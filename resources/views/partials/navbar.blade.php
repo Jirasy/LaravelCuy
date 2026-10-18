@@ -25,6 +25,13 @@
             <a href="{{ route('pendaftaran.index') }}" class="text-gray-700 hover:underline {{ request()->routeIs('pendaftaran.*') ? $aktif : '' }}">Pendaftaran</a>
             @if($me->isStaff())
                 <a href="{{ route('users.index') }}" class="text-gray-700 hover:underline {{ request()->routeIs('users.*') ? $aktif : '' }}">Kelola User</a>
+                @php $menungguKeputusan = \App\Models\EkskulPengunduranDiri::menungguUntuk($me)->count(); @endphp
+                <a href="{{ route('pengunduran.index') }}" class="text-gray-700 hover:underline {{ request()->routeIs('pengunduran.*') ? $aktif : '' }}">
+                    Pengunduran
+                    @if($menungguKeputusan > 0)
+                        <span class="ml-0.5 px-1.5 py-0.5 text-xs rounded-full bg-red-600 text-white">{{ $menungguKeputusan }}</span>
+                    @endif
+                </a>
             @endif
             <a href="{{ route('profil.show') }}" class="text-gray-700 hover:underline {{ request()->routeIs('profil.*') || request()->routeIs('riwayat.*') ? $aktif : '' }}">Profil</a>
             <a href="{{ route('pengaturan.edit') }}" title="Pengaturan" aria-label="Pengaturan" class="theme-btn">⚙️</a>

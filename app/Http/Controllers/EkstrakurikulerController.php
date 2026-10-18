@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Enums\Hari;
+use App\Models\EkskulPengunduranDiri;
 use App\Models\Ekstrakurikuler;
 use App\Models\PendaftaranEkskul;
 use App\Models\User;
@@ -27,7 +28,7 @@ class EkstrakurikulerController extends Controller
         $user = Auth::user();
 
         $ekskul = Ekstrakurikuler::with(['haris', 'pembinaAktif'])
-            ->withCount(['pendaftaran as anggota_count' => fn ($q) => $q->where('status', 'diterima')])
+            ->withCount(['pendaftaran as anggota_count' => fn ($q) => $q->where('status', 'diterima')->where('status_anggota', 'aktif')])
             ->findOrFail($id);
 
         // Hak kelola per ekskul: admin, atau pembina yang ditugaskan di ekskul ini.
@@ -42,7 +43,7 @@ class EkstrakurikulerController extends Controller
 
         // Pengumuman & daftar anggota: hanya admin/pembina dan anggota yang sudah disetujui.
         // Prestasi & event terbuka untuk semua user yang login.
-        $bolehLihat = $staff || ($pendaftaranSaya && $pendaftaranSaya->status === 'diterima');
+        $bolehLihat = $staff || ($pendaftaranSaya && $pendaftaranSaya->status === 'diterima' && $pendaftaranSaya->status_anggota === 'aktif');
 
         $tab = in_array($request->query('tab'), ['info', 'struktur', 'prestasi', 'event', 'pengumuman', 'anggota'], true)
             ? $request->query('tab')
@@ -61,6 +62,7 @@ class EkstrakurikulerController extends Controller
         if ($bolehLihat && $tab === 'anggota') {
             $anggota = PendaftaranEkskul::with('jabatanAktif')->where('ekstrakurikuler_id', $ekskul->id)
                 ->where('status', 'diterima')
+                ->where('status_anggota', 'aktif')
                 ->orderBy('nama_pendaftar')
                 ->get();
         }
@@ -80,6 +82,13 @@ class EkstrakurikulerController extends Controller
             $events = $ekskul->events()->orderBy('tanggal_mulai')->get();
         }
 
+        // Untuk blok "keluar dari ekskul" di tab Informasi
+        $pengajuanTerakhir = EkskulPengunduranDiri::where('ekstrakurikuler_id', $ekskul->id)
+            ->where('user_id', $user->id)
+            ->latest()
+            ->first();
+        $sayaPembina = $user->isPembina() && in_array((int) $ekskul->id, $user->idEkskulDikelola(), true);
+
         // Daftar jabatan: untuk tab Struktur, dan untuk form "beri jabatan" di tab Anggota (khusus pengelola)
         $jabatans = collect();
         if ($tab === 'struktur' || ($tab === 'anggota' && $staff)) {
@@ -88,7 +97,8 @@ class EkstrakurikulerController extends Controller
 
         return view('ekstrakurikuler.show', compact(
             'ekskul', 'tab', 'staff', 'bolehLihat', 'pendaftaranSaya',
-            'pengumumans', 'anggota', 'prestasis', 'events', 'anggotaOpsi', 'jabatans'
+            'pengumumans', 'anggota', 'prestasis', 'events', 'anggotaOpsi', 'jabatans',
+            'pengajuanTerakhir', 'sayaPembina'
         ));
     }
 

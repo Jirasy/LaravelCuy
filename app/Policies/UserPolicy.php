@@ -44,14 +44,14 @@ class UserPolicy
 
     private function satuEkskul(User $a, User $b): bool
     {
-        $milikA = PendaftaranEkskul::where('user_id', $a->id)->where('status', 'diterima')->pluck('ekstrakurikuler_id');
+        $milikA = PendaftaranEkskul::anggotaAktif()->where('user_id', $a->id)->pluck('ekstrakurikuler_id');
 
         if ($milikA->isEmpty()) {
             return false;
         }
 
-        return PendaftaranEkskul::where('user_id', $b->id)
-            ->where('status', 'diterima')
+        return PendaftaranEkskul::anggotaAktif()
+            ->where('user_id', $b->id)
             ->whereIn('ekstrakurikuler_id', $milikA)
             ->exists();
     }

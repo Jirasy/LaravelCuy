@@ -29,7 +29,7 @@
         {{-- Ringkasan --}}
         <div class="grid grid-cols-3 gap-4 mb-6">
             @foreach([
-                ['Ekskul diikuti', $riwayat->where('status', 'diterima')->count(), '🏫'],
+                ['Ekskul diikuti', $riwayat->where('status', 'diterima')->where('status_anggota', 'aktif')->count(), '🏫'],
                 ['Prestasi', $prestasis->count(), '🏆'],
                 ['Jabatan dipegang', $riwayat->filter(fn ($r) => $r->status === 'diterima' && $r->jabatanAktif->isNotEmpty())->count(), '⭐'],
             ] as $i => $s)
@@ -67,7 +67,13 @@
                                 </p>
                             @endif
                         </div>
-                        @include('partials.status-badge', ['status' => $r->status, 'label' => $r->status_label])
+                        @if($r->status === 'diterima' && $r->status_anggota !== 'aktif')
+                            <span class="px-2.5 py-0.5 text-xs font-semibold rounded-full {{ $r->status_anggota === 'dikeluarkan' ? 'bg-red-100 text-red-800' : 'bg-gray-200 text-gray-700' }}">
+                                {{ $r->status_anggota === 'dikeluarkan' ? 'Dikeluarkan' : 'Sudah keluar' }}@if($r->tanggal_keluar) · {{ $r->tanggal_keluar->format('d-m-Y') }}@endif
+                            </span>
+                        @else
+                            @include('partials.status-badge', ['status' => $r->status, 'label' => $r->status_label])
+                        @endif
                     </div>
                 </div>
             @empty

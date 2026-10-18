@@ -23,6 +23,8 @@ class PendaftaranEkskul extends Model
         'nisn',
         'alasan_mendaftar',
         'status',
+        'status_anggota',
+        'tanggal_keluar',
         'alasan',
     ];
 
@@ -56,6 +58,16 @@ class PendaftaranEkskul extends Model
         $daftar = $this->jabatanAktif->map(fn ($j) => $j->label_lengkap);
 
         return $daftar->isNotEmpty() ? $daftar->implode(', ') : 'Anggota';
+    }
+
+    protected $casts = [
+        'tanggal_keluar' => 'date',
+    ];
+
+    // Anggota yang disetujui DAN masih aktif (belum keluar / dikeluarkan)
+    public function scopeAnggotaAktif($query)
+    {
+        return $query->where('status', 'diterima')->where('status_anggota', 'aktif');
     }
 
     public function prestasis()

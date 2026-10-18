@@ -89,6 +89,16 @@
                                         </div>
                                         <button type="submit" class="bg-gray-800 text-white px-3 py-1 rounded text-xs hover:bg-gray-900">Simpan</button>
                                     </form>
+
+                                    {{-- Keluarkan dari ekskul (alasan wajib) --}}
+                                    @if($a->user_id !== auth()->id())
+                                        <form action="{{ route('pengunduran.keluarkan', $a->id) }}" method="POST" class="space-y-1 border-t pt-2"
+                                              onsubmit="return confirm('Keluarkan {{ e($a->nama_pendaftar) }} dari ekskul ini? Jabatannya ikut diakhiri.')">
+                                            @csrf
+                                            <textarea name="alasan" rows="2" required minlength="10" maxlength="1000" placeholder="Alasan mengeluarkan (wajib, min. 10 karakter)" class="border p-1 rounded text-xs w-full"></textarea>
+                                            <button type="submit" class="bg-red-600 text-white px-3 py-1 rounded text-xs hover:bg-red-700">Keluarkan</button>
+                                        </form>
+                                    @endif
                                 </div>
                             </details>
                         </td>
@@ -101,5 +111,5 @@
     </table>
 </div>
 @if($staff)
-    <p class="text-xs text-gray-500 mt-3">Setujui atau tolak pendaftar di halaman <a href="{{ route('pendaftaran.index') }}" class="underline">Data Pendaftaran</a>. Kosongkan "Selesai" kalau anggota masih aktif.</p>
+    <p class="text-xs text-gray-500 mt-3">Setujui atau tolak pendaftar di halaman <a href="{{ route('pendaftaran.index') }}" class="underline">Data Pendaftaran</a>. Tahun "Selesai" hanya catatan periode. Untuk mengeluarkan anggota, pakai tombol <strong>Keluarkan</strong> di menu Atur.</p>
 @endif
