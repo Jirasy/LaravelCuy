@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\EkskulPembina;
 use App\Models\Ekstrakurikuler;
 use App\Models\User;
+use App\Support\Pemberitahuan;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
@@ -34,6 +35,15 @@ class EkskulPembinaController extends Controller
             'user_id'            => $data['user_id'],
             'mulai'              => now()->toDateString(),
         ]);
+
+        Pemberitahuan::kirim(
+            [User::find($data['user_id'])],
+            'Penugasan pembina',
+            "Kamu ditugaskan sebagai pembina {$ekstrakurikuler->nama_ekstrakurikuler}.",
+            route('ekstrakurikuler.show', $ekstrakurikuler->id, false),
+            '🛡️',
+            $request->user()->id
+        );
 
         return back()->with('success', 'Pembina berhasil ditugaskan.');
     }

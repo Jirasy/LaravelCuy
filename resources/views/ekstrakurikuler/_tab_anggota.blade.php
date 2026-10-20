@@ -111,5 +111,8 @@
     </table>
 </div>
 @if($staff)
+    <div class="mt-4">
+        @include('ekstrakurikuler._laporan_tombol', ['jenis' => 'anggota'])
+    </div>
     <p class="text-xs text-gray-500 mt-3">Setujui atau tolak pendaftar di halaman <a href="{{ route('pendaftaran.index') }}" class="underline">Data Pendaftaran</a>. Tahun "Selesai" hanya catatan periode. Untuk mengeluarkan anggota, pakai tombol <strong>Keluarkan</strong> di menu Atur.</p>
 @endif

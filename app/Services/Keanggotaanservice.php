@@ -8,6 +8,7 @@ use App\Models\EkskulPengunduranDiri;
 use App\Models\Ekstrakurikuler;
 use App\Models\PendaftaranEkskul;
 use App\Models\User;
+use App\Support\Pemberitahuan;
 use DomainException;
 use Illuminate\Support\Facades\DB;
 
@@ -25,7 +26,7 @@ class KeanggotaanService
         $this->pastikanAnggotaAktif($p);
         $this->pastikanBelumAdaPengajuan($p->ekstrakurikuler_id, $pengaju->id);
 
-        return EkskulPengunduranDiri::create([
+        $pengajuan = EkskulPengunduranDiri::create([
             'ekstrakurikuler_id' => $p->ekstrakurikuler_id,
             'user_id'            => $pengaju->id,
             'pendaftaran_id'     => $p->id,
@@ -34,6 +35,18 @@ class KeanggotaanService
             'alasan'             => $alasan,
             'diajukan_oleh'      => $pengaju->id,
         ]);
+
+        $ekskul = $p->ekstrakurikuler;
+        Pemberitahuan::kirim(
+            Pemberitahuan::pengelola($ekskul),
+            'Pengajuan keluar ekskul',
+            "{$pengaju->name} mengajukan keluar dari {$ekskul->nama_ekstrakurikuler}.",
+            route('pengunduran.index', [], false),
+            '📤',
+            $pengaju->id
+        );
+
+        return $pengajuan;
     }
 
     // Pembina mengajukan keluar -> menunggu persetujuan ADMIN
@@ -50,7 +63,7 @@ class KeanggotaanService
 
         $this->pastikanBelumAdaPengajuan($ekskul->id, $pembina->id);
 
-        return EkskulPengunduranDiri::create([
+        $pengajuan = EkskulPengunduranDiri::create([
             'ekstrakurikuler_id' => $ekskul->id,
             'user_id'            => $pembina->id,
             'peran'              => 'pembina',
@@ -58,6 +71,17 @@ class KeanggotaanService
             'alasan'             => $alasan,
             'diajukan_oleh'      => $pembina->id,
         ]);
+
+        Pemberitahuan::kirim(
+            Pemberitahuan::admin(),
+            'Pembina mengajukan keluar',
+            "{$pembina->name} mengajukan keluar sebagai pembina {$ekskul->nama_ekstrakurikuler}.",
+            route('pengunduran.index', [], false),
+            '📤',
+            $pembina->id
+        );
+
+        return $pengajuan;
     }
 
     // Admin/pembina mengeluarkan anggota: langsung sah, alasan tercatat
@@ -69,7 +93,7 @@ class KeanggotaanService
 
         $this->pastikanAnggotaAktif($p);
 
-        return DB::transaction(function () use ($p, $pelaku, $alasan) {
+        $catatan = DB::transaction(function () use ($p, $pelaku, $alasan) {
             $catatan = EkskulPengunduranDiri::create([
                 'ekstrakurikuler_id' => $p->ekstrakurikuler_id,
                 'user_id'            => $p->user_id,
@@ -87,6 +111,19 @@ class KeanggotaanService
 
             return $catatan;
         });
+
+        if ($p->user) {
+            Pemberitahuan::kirim(
+                [$p->user],
+                'Dikeluarkan dari ekskul',
+                "Kamu dikeluarkan dari {$p->ekstrakurikuler->nama_ekstrakurikuler}. Alasan: {$alasan}",
+                route('ekstrakurikuler.show', $p->ekstrakurikuler_id, false),
+                '⛔',
+                $pelaku->id
+            );
+        }
+
+        return $catatan;
     }
 
     // Memutuskan pengajuan (hak akses sudah dicek di Policy)
@@ -122,6 +159,34 @@ class KeanggotaanService
                 $this->terapkanKeluarAnggota($p, 'keluar');
             }
         });
+
+        $ekskul = $pengajuan->ekstrakurikuler;
+
+        // Beri tahu yang mengajukan
+        if ($pengajuan->user) {
+            Pemberitahuan::kirim(
+                [$pengajuan->user],
+                $setuju ? 'Pengunduran diri disetujui' : 'Pengunduran diri ditolak',
+                'Pengajuanmu keluar dari ' . $ekskul->nama_ekstrakurikuler . ($setuju ? ' disetujui.' : ' ditolak.')
+                    . (!$setuju && $catatan ? " Catatan: {$catatan}" : ''),
+                route('ekstrakurikuler.show', $ekskul->id, false),
+                $setuju ? '✅' : '❌',
+                $pemutus->id
+            );
+        }
+
+        // Pembina terakhir keluar -> tugas untuk semua admin: cari pengganti
+        if ($setuju && $pengajuan->peran === 'pembina'
+            && !EkskulPembina::where('ekstrakurikuler_id', $ekskul->id)->whereNull('selesai')->exists()) {
+            Pemberitahuan::kirim(
+                Pemberitahuan::admin(),
+                'Butuh pembina pengganti',
+                "{$ekskul->nama_ekstrakurikuler} sekarang belum punya pembina. Tugaskan pengganti.",
+                route('ekstrakurikuler.edit', $ekskul->id, false),
+                '🛡️',
+                $pemutus->id
+            );
+        }
     }
 
     private function terapkanKeluarAnggota(PendaftaranEkskul $p, string $status): void

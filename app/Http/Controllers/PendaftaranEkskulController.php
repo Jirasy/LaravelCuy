@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Ekstrakurikuler;
 use App\Models\PendaftaranEkskul;
+use App\Support\Pemberitahuan;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
@@ -33,7 +34,10 @@ class PendaftaranEkskulController extends Controller
     public function create(Request $request)
     {
         $user  = Auth::user();
-        $query = Ekstrakurikuler::with('haris')->where('status', 'aktif')->orderBy('nama_ekstrakurikuler');
+        $query = Ekstrakurikuler::with('haris')
+            ->withCount(['pendaftaran as anggota_count' => fn ($q) => $q->where('status', 'diterima')->where('status_anggota', 'aktif')])
+            ->where('status', 'aktif')
+            ->orderBy('nama_ekstrakurikuler');
 
         // Pembina mendaftarkan orang lain hanya ke ekskul yang ia bina
         if ($user->isPembina()) {
@@ -42,6 +46,19 @@ class PendaftaranEkskulController extends Controller
 
         $ekskuls  = $query->get();
         $terpilih = $request->query('ekstrakurikuler_id', $request->query('ekskul'));
+
+        // Siswa tidak bisa memilih ekskul yang pendaftarannya ditutup / kuotanya penuh
+        if (!$user->isStaff()) {
+            $ekskuls = $ekskuls->filter(fn ($e) => $e->pendaftaran_terbuka)->values();
+
+            if ($terpilih && !$ekskuls->contains('id', (int) $terpilih)) {
+                $tutup = Ekstrakurikuler::find($terpilih);
+
+                return redirect()->route('ekstrakurikuler.index')
+                    ->with('error', ($tutup ? $tutup->label_pendaftaran . ': ' . $tutup->nama_ekstrakurikuler : 'Ekskul tidak tersedia') . '.');
+            }
+        }
+
         return view('pendaftaran.create', compact('ekskuls', 'terpilih'));
     }
 
@@ -51,7 +68,7 @@ class PendaftaranEkskulController extends Controller
         $pesan = ['ekstrakurikuler_id.exists' => 'Ekskul tidak ditemukan atau sedang nonaktif.'];
 
         if ($user->isStaff()) {
-            // Admin/pembina mendaftarkan orang lain secara manual
+            // Admin/pembina mendaftarkan orang lain secara manual (boleh walau pendaftaran umum ditutup)
             $data = $request->validate([
                 'ekstrakurikuler_id' => 'required|exists:ekstrakurikulers,id,status,aktif',
                 'nama_pendaftar'     => 'required|string|max:255',
@@ -61,7 +78,8 @@ class PendaftaranEkskulController extends Controller
                 'alasan_mendaftar'   => 'nullable|string',
             ], $pesan);
 
-            Gate::authorize('kelola', Ekstrakurikuler::findOrFail($data['ekstrakurikuler_id']));
+            $ekskul = Ekstrakurikuler::findOrFail($data['ekstrakurikuler_id']);
+            Gate::authorize('kelola', $ekskul);
 
             $data['user_id'] = null;
 
@@ -75,6 +93,15 @@ class PendaftaranEkskulController extends Controller
                 'ekstrakurikuler_id' => 'required|exists:ekstrakurikulers,id,status,aktif',
                 'alasan_mendaftar'   => 'nullable|string',
             ], $pesan);
+
+            $ekskul = Ekstrakurikuler::withCount(['pendaftaran as anggota_count' => fn ($q) => $q->where('status', 'diterima')->where('status_anggota', 'aktif')])
+                ->findOrFail($data['ekstrakurikuler_id']);
+
+            // Aturan buka/tutup dan kuota dicek di SERVER, bukan hanya lewat teks tombol
+            if (!$ekskul->pendaftaran_terbuka) {
+                return redirect()->route('ekstrakurikuler.show', $ekskul->id)
+                    ->with('error', $ekskul->label_pendaftaran . '. Hubungi pembina kalau kamu perlu didaftarkan.');
+            }
 
             $data += [
                 'user_id'        => $user->id,
@@ -97,6 +124,16 @@ class PendaftaranEkskulController extends Controller
         $data['status'] = 'pending';
         PendaftaranEkskul::create($data);
 
+        // Beri tahu admin & pembina ekskul itu
+        Pemberitahuan::kirim(
+            Pemberitahuan::pengelola($ekskul),
+            'Pendaftaran baru',
+            "{$data['nama_pendaftar']} mendaftar ke {$ekskul->nama_ekstrakurikuler}.",
+            route('pendaftaran.index', [], false),
+            '📥',
+            $user->id
+        );
+
         return redirect()->route('pendaftaran.index')->with('success', 'Pendaftaran berhasil dikirim!');
     }
 
@@ -110,6 +147,8 @@ class PendaftaranEkskulController extends Controller
             'alasan' => 'nullable|string',
         ]);
 
+        $sebelumnya = $pendaftaran->status;
+
         $pendaftaran->update([
             'status' => $data['status'],
             'alasan' => $data['alasan'],
@@ -118,6 +157,21 @@ class PendaftaranEkskulController extends Controller
         // Saat pertama kali disetujui, catat tahun mulai keanggotaan
         if ($data['status'] === 'diterima' && !$pendaftaran->tahun_mulai) {
             $pendaftaran->update(['tahun_mulai' => now()->year]);
+        }
+
+        // Beri tahu pendaftar kalau statusnya berubah jadi disetujui/ditolak
+        if ($pendaftaran->user && $data['status'] !== $sebelumnya && in_array($data['status'], ['diterima', 'ditolak'], true)) {
+            $setuju = $data['status'] === 'diterima';
+
+            Pemberitahuan::kirim(
+                [$pendaftaran->user],
+                $setuju ? 'Pendaftaran disetujui' : 'Pendaftaran ditolak',
+                'Pendaftaranmu ke ' . $pendaftaran->ekstrakurikuler->nama_ekstrakurikuler . ($setuju ? ' disetujui. Selamat bergabung!' : ' tidak disetujui.')
+                    . (!$setuju && $data['alasan'] ? ' Catatan: ' . $data['alasan'] : ''),
+                route('ekstrakurikuler.show', $pendaftaran->ekstrakurikuler_id, false),
+                $setuju ? '🎉' : '❌',
+                $request->user()->id
+            );
         }
 
         return redirect()->route('pendaftaran.index')->with('success', 'Status pendaftaran berhasil disimpan!');

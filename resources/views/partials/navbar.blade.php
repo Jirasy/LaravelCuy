@@ -35,6 +35,7 @@
             @endif
             <a href="{{ route('profil.show') }}" class="text-gray-700 hover:underline {{ request()->routeIs('profil.*') || request()->routeIs('riwayat.*') ? $aktif : '' }}">Profil</a>
             <a href="{{ route('pengaturan.edit') }}" title="Pengaturan" aria-label="Pengaturan" class="theme-btn">⚙️</a>
+            @include('partials.pesan-task')
             @include('partials.theme-toggle')
             <form action="{{ route('logout') }}" method="POST">
                 @csrf

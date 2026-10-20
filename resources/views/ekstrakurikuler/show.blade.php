@@ -37,7 +37,7 @@
         @endif
 
         {{-- Tab --}}
-        @php $tabs = ['info' => 'Informasi', 'struktur' => 'Struktur', 'prestasi' => 'Prestasi', 'event' => 'Event', 'pengumuman' => 'Pengumuman', 'anggota' => 'Anggota']; @endphp
+        @php $tabs = ['info' => 'Informasi', 'struktur' => 'Struktur', 'prestasi' => 'Prestasi', 'event' => 'Event', 'pengumuman' => 'Pengumuman', 'anggota' => 'Anggota', 'absensi' => 'Absensi', 'nilai' => 'Nilai']; @endphp
         <div class="flex gap-1 border-b border-gray-200 mb-6 overflow-x-auto">
             @foreach($tabs as $key => $label)
                 <a href="{{ route('ekstrakurikuler.show', ['id' => $ekskul->id, 'tab' => $key]) }}"
@@ -93,18 +93,25 @@
                             Kamu sudah keluar dari ekskul ini
                             @if($pendaftaranSaya->tanggal_keluar) pada {{ $pendaftaranSaya->tanggal_keluar->format('d-m-Y') }} @endif
                         </p>
-                        @if($ekskul->status === 'aktif')
+                        @if($ekskul->pendaftaran_terbuka)
                             <a href="{{ route('pendaftaran.create', ['ekstrakurikuler_id' => $ekskul->id]) }}"
                                class="inline-block bg-indigo-600 text-white px-5 py-2 rounded-lg font-semibold hover:bg-indigo-700">Daftar Lagi</a>
                         @endif
-                    @elseif($ekskul->status === 'aktif')
+                    @elseif($ekskul->pendaftaran_terbuka)
                         <a href="{{ route('pendaftaran.create', ['ekstrakurikuler_id' => $ekskul->id]) }}"
                            class="inline-block bg-indigo-600 text-white px-5 py-2 rounded-lg font-semibold hover:bg-indigo-700">Daftar Sekarang</a>
                     @else
-                        <p class="text-sm text-gray-500">Ekskul ini sedang nonaktif, pendaftaran ditutup.</p>
+                        <span class="inline-block bg-gray-200 text-gray-500 px-5 py-2 rounded-lg font-semibold cursor-not-allowed select-none">{{ $ekskul->label_pendaftaran }}</span>
                     @endif
 
                     @include('ekstrakurikuler._keluar')
+
+                    @include('ekstrakurikuler._tautan')
+
+                    @if($staff)
+                        @include('ekstrakurikuler._kontrol_pendaftaran')
+                        @include('ekstrakurikuler._beri_tugas')
+                    @endif
                 </div>
             </div>
 
@@ -123,8 +130,8 @@
             <div class="bg-white p-8 rounded-xl shadow-sm border border-gray-200 text-center text-gray-600">
                 <p class="font-semibold text-gray-800 mb-1">Khusus anggota ekskul ini</p>
                 @if(!$pendaftaranSaya)
-                    <p class="text-sm mb-4">Daftar dan tunggu persetujuan untuk melihat {{ $tab === 'pengumuman' ? 'pengumuman' : 'daftar anggota' }}.</p>
-                    @if($ekskul->status === 'aktif')
+                    <p class="text-sm mb-4">Daftar dan tunggu persetujuan untuk melihat {{ ['pengumuman' => 'pengumuman', 'absensi' => 'absensi', 'nilai' => 'nilai'][$tab] ?? 'daftar anggota' }}.</p>
+                    @if($ekskul->pendaftaran_terbuka)
                         <a href="{{ route('pendaftaran.create', ['ekstrakurikuler_id' => $ekskul->id]) }}"
                            class="inline-block bg-indigo-600 text-white px-5 py-2 rounded-lg font-semibold hover:bg-indigo-700">Daftar Sekarang</a>
                     @endif
@@ -181,6 +188,10 @@
         {{-- ========== TAB ANGGOTA ========== --}}
         @elseif($tab === 'anggota')
             @include('ekstrakurikuler._tab_anggota')
+        @elseif($tab === 'absensi')
+            @include('ekstrakurikuler._tab_absensi')
+        @elseif($tab === 'nilai')
+            @include('ekstrakurikuler._tab_nilai')
         @endif
     </div>
 </body>

@@ -31,6 +31,13 @@ use App\Http\Controllers\ProfilPenggunaController;
 use App\Http\Controllers\EkskulJabatanController;
 use App\Http\Controllers\AnggotaJabatanController;
 use App\Http\Controllers\PengunduranDiriController;
+use App\Http\Controllers\EkskulTugasController;
+use App\Http\Controllers\NotifikasiController;
+use App\Http\Controllers\EkskulTautanController;
+use App\Http\Controllers\PendaftaranKontrolController;
+use App\Http\Controllers\AbsensiController;
+use App\Http\Controllers\NilaiController;
+use App\Http\Controllers\LaporanController;
 use App\Http\Middleware\PaksaGantiPassword;
 use App\Http\Controllers\CarsController;
 
@@ -126,6 +133,17 @@ Route::middleware(['auth', EnsureUserIsActive::class, PaksaGantiPassword::class]
     Route::post('/ekstrakurikuler/{ekstrakurikuler}/keluar', [PengunduranDiriController::class, 'ajukanAnggota'])->name('pengunduran.anggota');
     Route::delete('/pengunduran-diri/{pengunduran}', [PengunduranDiriController::class, 'batalkan'])->name('pengunduran.batal');
 
+    // Notifikasi in-app
+    Route::get('/notifikasi', [NotifikasiController::class, 'index'])->name('notifikasi.index');
+    Route::post('/notifikasi/baca-semua', [NotifikasiController::class, 'bacaSemua'])->name('notifikasi.bacaSemua');
+    Route::get('/notifikasi/{id}', [NotifikasiController::class, 'buka'])->where('id', '[0-9a-fA-F\-]{36}')->name('notifikasi.buka');
+
+    // Task: semua user bisa membuat task pribadi; admin & pembina juga bisa memberi task ke orang lain
+    Route::get('/tugas', [EkskulTugasController::class, 'index'])->name('tugas.index');
+    Route::post('/tugas', [EkskulTugasController::class, 'store'])->name('tugas.store');
+    Route::patch('/tugas/penerima/{penerima}', [EkskulTugasController::class, 'status'])->name('tugas.status');
+    Route::delete('/tugas/{tugas}', [EkskulTugasController::class, 'destroy'])->name('tugas.destroy');
+
     // Profil publik (semua user login) dan edit profil milik sendiri
     Route::get('/profil/edit', [ProfilPenggunaController::class, 'edit'])->name('profil.edit');
     Route::put('/profil', [ProfilPenggunaController::class, 'update'])->name('profil.update');
@@ -178,6 +196,26 @@ Route::middleware(['auth', EnsureUserIsActive::class, PaksaGantiPassword::class]
         Route::post('/ekstrakurikuler/{ekstrakurikuler}/pembina/keluar', [PengunduranDiriController::class, 'ajukanPembina'])->name('pengunduran.pembina');
         Route::post('/pendaftaran/{pendaftaran}/keluarkan', [PengunduranDiriController::class, 'keluarkan'])->name('pengunduran.keluarkan');
 
+        // Buka/tutup pendaftaran dan tautan ekskul
+        Route::patch('/ekstrakurikuler/{ekstrakurikuler}/pendaftaran-kontrol', [PendaftaranKontrolController::class, 'update'])->name('pendaftaran-kontrol.update');
+        Route::post('/tautan', [EkskulTautanController::class, 'store'])->name('tautan.store');
+        Route::delete('/tautan/{tautan}', [EkskulTautanController::class, 'destroy'])->name('tautan.destroy');
+
+        // Absensi, nilai (hanya admin & pembina ekskul itu, dijaga Policy), dan laporan
+        Route::post('/ekstrakurikuler/{ekstrakurikuler}/pertemuan', [AbsensiController::class, 'store'])->name('pertemuan.store');
+        Route::get('/pertemuan/{pertemuan}', [AbsensiController::class, 'edit'])->name('absensi.edit');
+        Route::put('/pertemuan/{pertemuan}', [AbsensiController::class, 'update'])->name('absensi.update');
+        Route::delete('/pertemuan/{pertemuan}', [AbsensiController::class, 'destroy'])->name('pertemuan.destroy');
+
+        Route::get('/pendaftaran/{pendaftaran}/nilai', [NilaiController::class, 'edit'])->name('nilai.edit');
+        Route::post('/pendaftaran/{pendaftaran}/nilai', [NilaiController::class, 'store'])->name('nilai.store');
+        Route::delete('/nilai/{nilai}', [NilaiController::class, 'destroy'])->name('nilai.destroy');
+
+        Route::get('/ekstrakurikuler/{ekstrakurikuler}/laporan/{jenis}/{format}', [LaporanController::class, 'unduh'])
+            ->whereIn('jenis', ['anggota', 'absensi', 'nilai'])
+            ->whereIn('format', ['cetak', 'pdf', 'excel'])
+            ->name('laporan.unduh');
+
         // Kelola User: admin & pembina (batasan per akun diatur UserPolicy)
         Route::get('/users', [UserController::class, 'index'])->name('users.index');
         Route::get('/users/{user}/edit', [UserController::class, 'edit'])->name('users.edit');
@@ -189,6 +227,7 @@ Route::middleware(['auth', EnsureUserIsActive::class, PaksaGantiPassword::class]
     // Admin aja
     Route::middleware(RoleMiddleware::class . ':admin')->group(function () {
         Route::patch('/users/{user}/role', [UserController::class, 'updateRole'])->name('users.updateRole');
+        Route::get('/tautan', [EkskulTautanController::class, 'index'])->name('tautan.index');
 
         Route::post('/ekstrakurikuler/{ekstrakurikuler}/pembina', [EkskulPembinaController::class, 'store'])->name('ekskul-pembina.store');
         Route::delete('/ekstrakurikuler/{ekstrakurikuler}/pembina/{user}', [EkskulPembinaController::class, 'destroy'])->name('ekskul-pembina.destroy');

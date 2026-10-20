@@ -70,6 +70,16 @@ class PendaftaranEkskul extends Model
         return $query->where('status', 'diterima')->where('status_anggota', 'aktif');
     }
 
+    public function kehadirans()
+    {
+        return $this->hasMany(EkskulKehadiran::class, 'pendaftaran_id');
+    }
+
+    public function nilais()
+    {
+        return $this->hasMany(EkskulNilai::class, 'pendaftaran_id');
+    }
+
     public function prestasis()
     {
         return $this->belongsToMany(EkskulPrestasi::class, 'ekskul_prestasi_anggota', 'pendaftaran_id', 'prestasi_id');

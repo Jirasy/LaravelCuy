@@ -58,6 +58,14 @@
                                 @if($r->angkatan_ekskul) &middot; Angkatan ekskul {{ $r->angkatan_ekskul }} @endif
                                 &middot; {{ $r->periode }}
                             </p>
+                            @if($r->nilais->isNotEmpty())
+                                <p class="text-xs text-gray-500 mt-1">
+                                    Nilai:
+                                    @foreach($r->nilais->sortBy('created_at') as $nl)
+                                        {{ $nl->periode }}: {{ number_format($nl->rata_rata, 1) }} ({{ $nl->predikat }}){{ $loop->last ? '' : ';' }}
+                                    @endforeach
+                                </p>
+                            @endif
                             @if($r->penetapanJabatans->isNotEmpty())
                                 <p class="text-xs text-gray-500 mt-1">
                                     Riwayat jabatan:

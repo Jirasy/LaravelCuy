@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Enums\Hari;
+use App\Models\EkskulKehadiran;
+use App\Models\EkskulNilai;
 use App\Models\EkskulPengunduranDiri;
 use App\Models\Ekstrakurikuler;
 use App\Models\PendaftaranEkskul;
@@ -18,7 +20,10 @@ class EkstrakurikulerController extends Controller
 {
     public function index()
     {
-        $ekskuls = Ekstrakurikuler::with(['haris', 'pembinaAktif'])->latest()->get();
+        $ekskuls = Ekstrakurikuler::with(['haris', 'pembinaAktif'])
+            ->withCount(['pendaftaran as anggota_count' => fn ($q) => $q->where('status', 'diterima')->where('status_anggota', 'aktif')])
+            ->latest()
+            ->get();
         return view('ekstrakurikuler.index', compact('ekskuls'));
     }
 
@@ -45,7 +50,7 @@ class EkstrakurikulerController extends Controller
         // Prestasi & event terbuka untuk semua user yang login.
         $bolehLihat = $staff || ($pendaftaranSaya && $pendaftaranSaya->status === 'diterima' && $pendaftaranSaya->status_anggota === 'aktif');
 
-        $tab = in_array($request->query('tab'), ['info', 'struktur', 'prestasi', 'event', 'pengumuman', 'anggota'], true)
+        $tab = in_array($request->query('tab'), ['info', 'struktur', 'prestasi', 'event', 'pengumuman', 'anggota', 'absensi', 'nilai'], true)
             ? $request->query('tab')
             : 'info';
 
@@ -82,6 +87,66 @@ class EkstrakurikulerController extends Controller
             $events = $ekskul->events()->orderBy('tanggal_mulai')->get();
         }
 
+        // Tab Absensi & Nilai (khusus anggota dan pengelola)
+        $pertemuans = collect();
+        $kehadiranSaya = collect();
+        $anggotaNilai = collect();
+        $persenHadir = [];
+        $daftarPeriode = collect();
+        $nilaiSaya = collect();
+
+        if ($bolehLihat && $tab === 'absensi') {
+            if ($staff) {
+                $pertemuans = $ekskul->pertemuans()
+                    ->withCount([
+                        'kehadirans as hadir_count' => fn ($q) => $q->where('status', 'hadir'),
+                        'kehadirans as total_count',
+                    ])
+                    ->orderByDesc('tanggal')
+                    ->orderByDesc('id')
+                    ->get();
+            } elseif ($pendaftaranSaya) {
+                $kehadiranSaya = EkskulKehadiran::with('pertemuan')
+                    ->where('pendaftaran_id', $pendaftaranSaya->id)
+                    ->get()
+                    ->sortByDesc(fn ($k) => $k->pertemuan->tanggal)
+                    ->values();
+            }
+        }
+
+        if ($bolehLihat && $tab === 'nilai') {
+            if ($staff) {
+                $anggotaNilai = PendaftaranEkskul::anggotaAktif()
+                    ->where('ekstrakurikuler_id', $ekskul->id)
+                    ->with('nilais')
+                    ->orderBy('nama_pendaftar')
+                    ->get();
+
+                $persenHadir = $this->persenHadir($anggotaNilai->pluck('id')->all());
+
+                $daftarPeriode = EkskulNilai::whereIn('pendaftaran_id', PendaftaranEkskul::where('ekstrakurikuler_id', $ekskul->id)->select('id'))
+                    ->distinct()->orderBy('periode')->pluck('periode');
+            } elseif ($pendaftaranSaya) {
+                // Siswa hanya melihat nilainya sendiri
+                $nilaiSaya = $pendaftaranSaya->nilais()->with('penilai')->latest()->get();
+            }
+        }
+
+        // Tab Informasi: tautan ekskul, dan (khusus pengelola) daftar anggota untuk pemberian task
+        $tautans = collect();
+        $anggotaTugas = collect();
+        if ($tab === 'info') {
+            $tautans = $ekskul->tautans;
+
+            if ($staff) {
+                $anggotaTugas = PendaftaranEkskul::anggotaAktif()
+                    ->where('ekstrakurikuler_id', $ekskul->id)
+                    ->whereNotNull('user_id')
+                    ->orderBy('nama_pendaftar')
+                    ->get();
+            }
+        }
+
         // Untuk blok "keluar dari ekskul" di tab Informasi
         $pengajuanTerakhir = EkskulPengunduranDiri::where('ekstrakurikuler_id', $ekskul->id)
             ->where('user_id', $user->id)
@@ -98,7 +163,8 @@ class EkstrakurikulerController extends Controller
         return view('ekstrakurikuler.show', compact(
             'ekskul', 'tab', 'staff', 'bolehLihat', 'pendaftaranSaya',
             'pengumumans', 'anggota', 'prestasis', 'events', 'anggotaOpsi', 'jabatans',
-            'pengajuanTerakhir', 'sayaPembina'
+            'pengajuanTerakhir', 'sayaPembina', 'tautans', 'anggotaTugas',
+            'pertemuans', 'kehadiranSaya', 'anggotaNilai', 'persenHadir', 'daftarPeriode', 'nilaiSaya'
         ));
     }
 
@@ -171,6 +237,31 @@ class EkstrakurikulerController extends Controller
 
         return redirect()->route('ekstrakurikuler.index')
                          ->with('success', 'Ekstrakurikuler berhasil dihapus!');
+    }
+
+    // Persentase hadir tiap anggota dari absensi yang sudah tercatat: [pendaftaran_id => persen]
+    private function persenHadir(array $ids): array
+    {
+        if (empty($ids)) {
+            return [];
+        }
+
+        $kelompok = EkskulKehadiran::whereIn('pendaftaran_id', $ids)
+            ->selectRaw('pendaftaran_id, status, COUNT(*) as jumlah')
+            ->groupBy('pendaftaran_id', 'status')
+            ->get()
+            ->groupBy('pendaftaran_id');
+
+        $hasil = [];
+        foreach ($kelompok as $id => $baris) {
+            $total = (int) $baris->sum('jumlah');
+            $hadir = (int) $baris->where('status', 'hadir')->sum('jumlah');
+            if ($total > 0) {
+                $hasil[$id] = (int) round($hadir / $total * 100);
+            }
+        }
+
+        return $hasil;
     }
 
     // Ubah input form (hari[] + jadwal[hari][jam_*]) menjadi daftar jadwal

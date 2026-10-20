@@ -107,6 +107,15 @@
                             <td class="p-3">
                                 <div class="flex flex-wrap gap-2">
                                     <a href="{{ route('riwayat.show', $u->id) }}" class="bg-indigo-600 text-white px-3 py-1 rounded text-xs font-semibold hover:bg-indigo-700">Riwayat</a>
+
+                                    @if($u->is_active)
+                                        <details class="w-full">
+                                            <summary class="cursor-pointer inline-block bg-teal-600 text-white px-3 py-1 rounded text-xs font-semibold hover:bg-teal-700 list-none">Beri task</summary>
+                                            <div class="mt-2 w-64">
+                                                @include('tugas._form', ['mode' => 'user', 'userTarget' => $u])
+                                            </div>
+                                        </details>
+                                    @endif
                                     @can('kelola', $u)
                                         <a href="{{ route('users.edit', $u->id) }}" class="bg-yellow-500 text-white px-3 py-1 rounded text-xs font-semibold hover:bg-yellow-600">Edit</a>
                                     @endcan

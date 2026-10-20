@@ -17,6 +17,14 @@ class Ekstrakurikuler extends Model
         'pembina',
         'deskripsi',
         'status',
+        'pendaftaran_dibuka',
+        'pendaftaran_tutup_pada',
+        'kuota',
+    ];
+
+    protected $casts = [
+        'pendaftaran_dibuka'     => 'boolean',
+        'pendaftaran_tutup_pada' => 'datetime',
     ];
 
     public function pendaftaran()
@@ -42,6 +50,62 @@ class Ekstrakurikuler extends Model
     public function events()
     {
         return $this->hasMany(EkskulEvent::class);
+    }
+
+    public function pertemuans()
+    {
+        return $this->hasMany(EkskulPertemuan::class);
+    }
+
+    public function tautans()
+    {
+        return $this->hasMany(EkskulTautan::class)->orderBy('urutan')->orderBy('id');
+    }
+
+    // ---- Buka/tutup pendaftaran ----
+
+    // null = pendaftaran terbuka; selain itu berisi alasan: nonaktif | ditutup | kuota
+    public function alasanPendaftaranTutup(): ?string
+    {
+        if ($this->status !== 'aktif') {
+            return 'nonaktif';
+        }
+
+        if (!$this->pendaftaran_dibuka) {
+            return 'ditutup';
+        }
+
+        if ($this->pendaftaran_tutup_pada && $this->pendaftaran_tutup_pada->isPast()) {
+            return 'ditutup';
+        }
+
+        if ($this->kuota !== null && $this->jumlahAnggotaAktif() >= $this->kuota) {
+            return 'kuota';
+        }
+
+        return null;
+    }
+
+    public function getPendaftaranTerbukaAttribute(): bool
+    {
+        return $this->alasanPendaftaranTutup() === null;
+    }
+
+    // Teks tombol daftar di sisi siswa
+    public function getLabelPendaftaranAttribute(): string
+    {
+        return match ($this->alasanPendaftaranTutup()) {
+            null       => 'Daftar Sekarang',
+            'nonaktif' => 'Ekskul Nonaktif',
+            'kuota'    => 'Kuota Penuh',
+            default    => 'Pendaftaran Ditutup',
+        };
+    }
+
+    // Pakai hasil withCount('... as anggota_count') kalau tersedia, supaya tidak query berulang
+    public function jumlahAnggotaAktif(): int
+    {
+        return $this->anggota_count ?? $this->pendaftaran()->anggotaAktif()->count();
     }
 
     // Struktur jabatan milik ekskul ini, urut sesuai pengaturan
