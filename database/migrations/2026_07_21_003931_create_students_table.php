@@ -11,12 +11,13 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('siswas', function (Blueprint $table) {
+        Schema::create('students', function (Blueprint $table) {
             $table->id();
-            $table->string('ssw_name');
-            $table->string('ssw_nisn')->unique();
-            $table->string('ssw_class');
-            $table->string('ssw_major');
+            $table->string('std_name');
+            $table->bigInteger('std_nis')->unique();
+            $table->integer('std_status')->default(1);
+            $table->unsignedBigInteger('std_class_id')->nullable();
+            $table->foreign('std_class_id')->references('id')->on('classes')->nullOnDelete();
             $table->timestamps();
         });
     }
@@ -26,6 +27,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('siswas');
+        Schema::dropIfExists('students');
     }
 };

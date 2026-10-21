@@ -14,6 +14,7 @@ use App\Http\Controllers\HealthController;
 use App\Http\Controllers\EmployeController;
 use App\Http\Controllers\ViolationController;
 use App\Http\Controllers\JihyController;
+use App\Http\Controllers\StudentController;
 use App\Http\Controllers\EkstrakurikulerController;
 use App\Http\Controllers\PendaftaranEkskulController;
 use App\Http\Controllers\AuthController;
@@ -76,6 +77,13 @@ Route::post('/Tree/store', [TreeController::class, 'store']);
 Route::get('/Tree/{id}/edit', [TreeController::class, 'edit']);
 Route::post('/Tree/{id}/edit', [TreeController::class, 'update']);
 Route::get('/Tree/{id}/destroy', [TreeController::class, 'destroy']);
+
+Route::get('/Student', [StudentController::class, 'index']);
+Route::get('/Student/create', [StudentController::class, 'create']);
+Route::post('/Student/store', [StudentController::class, 'store']);
+Route::get('/Student/{id}/edit', [StudentController::class, 'edit']);
+Route::post('/Student/{id}/edit', [StudentController::class, 'update']);
+Route::get('/Student/{id}/destroy', [StudentController::class, 'destroy']);
 
 Route::get('/Health', [HealthController::class, 'index']);
 

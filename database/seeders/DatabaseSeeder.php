@@ -25,12 +25,13 @@ class DatabaseSeeder extends Seeder
         // $this->call(HealthSeeder::class);
         // // $this->call(EmployeSeeder::class);
         // $this->call(ViolationSeeder::class);
-        $this->call(CarSeeder::class);
-        $this->call([
-            UserSeeder::class,
-            EkstrakurikulerSeeder::class,
-            PendaftaranEkskulSeeder::class,
-        ]);// $this->call(JIHYSeeder::class);
+        // $this->call(CarSeeder::class);
+        // $this->call([
+        //     UserSeeder::class,
+        //     EkstrakurikulerSeeder::class,
+        //     PendaftaranEkskulSeeder::class,
+        // ]);// $this->call(JIHYSeeder::class);
+        $this->call(StudentSeeder::class);
       
     }
 }
