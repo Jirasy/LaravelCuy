@@ -57,6 +57,16 @@ class Ekstrakurikuler extends Model
         return $this->hasMany(EkskulPertemuan::class);
     }
 
+    public function materis()
+    {
+        return $this->hasMany(EkskulMateri::class)->latest();
+    }
+
+    public function prs()
+    {
+        return $this->hasMany(EkskulPr::class)->latest();
+    }
+
     public function tautans()
     {
         return $this->hasMany(EkskulTautan::class)->orderBy('urutan')->orderBy('id');

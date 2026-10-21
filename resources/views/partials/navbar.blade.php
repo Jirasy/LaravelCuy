@@ -24,6 +24,17 @@
             <a href="{{ route('ekstrakurikuler.index') }}" class="text-gray-700 hover:underline {{ request()->routeIs('ekstrakurikuler.*') ? $aktif : '' }}">Katalog</a>
             <a href="{{ route('pendaftaran.index') }}" class="text-gray-700 hover:underline {{ request()->routeIs('pendaftaran.*') ? $aktif : '' }}">Pendaftaran</a>
             @if($me->isStaff())
+                @php $saranBaru = \App\Models\EkskulSaran::untukPengelola($me)->where('status', 'baru')->count(); @endphp
+                <a href="{{ route('saran.masuk') }}" class="text-gray-700 hover:underline {{ request()->routeIs('saran.*') ? $aktif : '' }}">
+                    Kritik &amp; Saran
+                    @if($saranBaru > 0)
+                        <span class="ml-0.5 px-1.5 py-0.5 text-xs rounded-full bg-red-600 text-white">{{ $saranBaru }}</span>
+                    @endif
+                </a>
+            @else
+                <a href="{{ route('saran.index') }}" class="text-gray-700 hover:underline {{ request()->routeIs('saran.*') ? $aktif : '' }}">Kritik &amp; Saran</a>
+            @endif
+            @if($me->isStaff())
                 <a href="{{ route('users.index') }}" class="text-gray-700 hover:underline {{ request()->routeIs('users.*') ? $aktif : '' }}">Kelola User</a>
                 @php $menungguKeputusan = \App\Models\EkskulPengunduranDiri::menungguUntuk($me)->count(); @endphp
                 <a href="{{ route('pengunduran.index') }}" class="text-gray-700 hover:underline {{ request()->routeIs('pengunduran.*') ? $aktif : '' }}">

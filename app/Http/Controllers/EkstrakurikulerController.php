@@ -6,6 +6,7 @@ use App\Enums\Hari;
 use App\Models\EkskulKehadiran;
 use App\Models\EkskulNilai;
 use App\Models\EkskulPengunduranDiri;
+use App\Models\EkskulPrPengumpulan;
 use App\Models\Ekstrakurikuler;
 use App\Models\PendaftaranEkskul;
 use App\Models\User;
@@ -50,7 +51,7 @@ class EkstrakurikulerController extends Controller
         // Prestasi & event terbuka untuk semua user yang login.
         $bolehLihat = $staff || ($pendaftaranSaya && $pendaftaranSaya->status === 'diterima' && $pendaftaranSaya->status_anggota === 'aktif');
 
-        $tab = in_array($request->query('tab'), ['info', 'struktur', 'prestasi', 'event', 'pengumuman', 'anggota', 'absensi', 'nilai'], true)
+        $tab = in_array($request->query('tab'), ['info', 'struktur', 'prestasi', 'event', 'pengumuman', 'anggota', 'absensi', 'nilai', 'materi'], true)
             ? $request->query('tab')
             : 'info';
 
@@ -132,6 +133,31 @@ class EkstrakurikulerController extends Controller
             }
         }
 
+        // Tab Materi & PR: pengelola, dan anggota aktif yang DIIZINKAN pembina/admin
+        $bolehMateri = false;
+        $materis = collect();
+        $prs = collect();
+        $anggotaAkses = collect();
+        $pengumpulanSaya = collect();
+
+        if ($bolehLihat && $tab === 'materi') {
+            $bolehMateri = $user->can('lihatMateri', $ekskul);
+
+            if ($bolehMateri) {
+                $materis = $ekskul->materis()->with('pengunggah')->get();
+                $prs = $ekskul->prs()->withCount('pengumpulans')->with('pembuat')->get();
+
+                if ($staff) {
+                    $anggotaAkses = PendaftaranEkskul::anggotaAktif()
+                        ->where('ekstrakurikuler_id', $ekskul->id)
+                        ->orderBy('nama_pendaftar')
+                        ->get();
+                } elseif ($pendaftaranSaya) {
+                    $pengumpulanSaya = EkskulPrPengumpulan::where('pendaftaran_id', $pendaftaranSaya->id)->get()->keyBy('pr_id');
+                }
+            }
+        }
+
         // Tab Informasi: tautan ekskul, dan (khusus pengelola) daftar anggota untuk pemberian task
         $tautans = collect();
         $anggotaTugas = collect();
@@ -164,7 +190,8 @@ class EkstrakurikulerController extends Controller
             'ekskul', 'tab', 'staff', 'bolehLihat', 'pendaftaranSaya',
             'pengumumans', 'anggota', 'prestasis', 'events', 'anggotaOpsi', 'jabatans',
             'pengajuanTerakhir', 'sayaPembina', 'tautans', 'anggotaTugas',
-            'pertemuans', 'kehadiranSaya', 'anggotaNilai', 'persenHadir', 'daftarPeriode', 'nilaiSaya'
+            'pertemuans', 'kehadiranSaya', 'anggotaNilai', 'persenHadir', 'daftarPeriode', 'nilaiSaya',
+            'bolehMateri', 'materis', 'prs', 'anggotaAkses', 'pengumpulanSaya'
         ));
     }
 

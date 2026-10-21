@@ -37,7 +37,7 @@
         @endif
 
         {{-- Tab --}}
-        @php $tabs = ['info' => 'Informasi', 'struktur' => 'Struktur', 'prestasi' => 'Prestasi', 'event' => 'Event', 'pengumuman' => 'Pengumuman', 'anggota' => 'Anggota', 'absensi' => 'Absensi', 'nilai' => 'Nilai']; @endphp
+        @php $tabs = ['info' => 'Informasi', 'struktur' => 'Struktur', 'prestasi' => 'Prestasi', 'event' => 'Event', 'pengumuman' => 'Pengumuman', 'anggota' => 'Anggota', 'absensi' => 'Absensi', 'nilai' => 'Nilai', 'materi' => 'Materi']; @endphp
         <div class="flex gap-1 border-b border-gray-200 mb-6 overflow-x-auto">
             @foreach($tabs as $key => $label)
                 <a href="{{ route('ekstrakurikuler.show', ['id' => $ekskul->id, 'tab' => $key]) }}"
@@ -108,6 +108,10 @@
 
                     @include('ekstrakurikuler._tautan')
 
+                    <div class="mt-4 pt-4 border-t border-gray-200">
+                        <a href="{{ route('saran.index', ['ekskul' => $ekskul->id]) }}" class="text-sm text-indigo-600 font-semibold hover:underline">💬 Kirim kritik &amp; saran untuk ekskul ini</a>
+                    </div>
+
                     @if($staff)
                         @include('ekstrakurikuler._kontrol_pendaftaran')
                         @include('ekstrakurikuler._beri_tugas')
@@ -130,7 +134,7 @@
             <div class="bg-white p-8 rounded-xl shadow-sm border border-gray-200 text-center text-gray-600">
                 <p class="font-semibold text-gray-800 mb-1">Khusus anggota ekskul ini</p>
                 @if(!$pendaftaranSaya)
-                    <p class="text-sm mb-4">Daftar dan tunggu persetujuan untuk melihat {{ ['pengumuman' => 'pengumuman', 'absensi' => 'absensi', 'nilai' => 'nilai'][$tab] ?? 'daftar anggota' }}.</p>
+                    <p class="text-sm mb-4">Daftar dan tunggu persetujuan untuk melihat {{ ['pengumuman' => 'pengumuman', 'absensi' => 'absensi', 'nilai' => 'nilai', 'materi' => 'materi dan PR'][$tab] ?? 'daftar anggota' }}.</p>
                     @if($ekskul->pendaftaran_terbuka)
                         <a href="{{ route('pendaftaran.create', ['ekstrakurikuler_id' => $ekskul->id]) }}"
                            class="inline-block bg-indigo-600 text-white px-5 py-2 rounded-lg font-semibold hover:bg-indigo-700">Daftar Sekarang</a>
@@ -192,6 +196,8 @@
             @include('ekstrakurikuler._tab_absensi')
         @elseif($tab === 'nilai')
             @include('ekstrakurikuler._tab_nilai')
+        @elseif($tab === 'materi')
+            @include('ekstrakurikuler._tab_materi')
         @endif
     </div>
 </body>

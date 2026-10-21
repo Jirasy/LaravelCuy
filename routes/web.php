@@ -38,7 +38,10 @@ use App\Http\Controllers\PendaftaranKontrolController;
 use App\Http\Controllers\AbsensiController;
 use App\Http\Controllers\NilaiController;
 use App\Http\Controllers\LaporanController;
-use App\Http\Controllers\MateriaksesController;
+use App\Http\Controllers\EkskulMateriController;
+use App\Http\Controllers\MateriAksesController;
+use App\Http\Controllers\EkskulPrController;
+use App\Http\Controllers\EkskulSaranController;
 use App\Http\Middleware\PaksaGantiPassword;
 use App\Http\Controllers\CarsController;
 
@@ -145,6 +148,16 @@ Route::middleware(['auth', EnsureUserIsActive::class, PaksaGantiPassword::class]
     Route::patch('/tugas/penerima/{penerima}', [EkskulTugasController::class, 'status'])->name('tugas.status');
     Route::delete('/tugas/{tugas}', [EkskulTugasController::class, 'destroy'])->name('tugas.destroy');
 
+    // Materi & PR: akses berkas dicek di controller (Policy lihatMateri); anggota mengumpulkan PR
+    Route::get('/materi/{materi}/berkas', [EkskulMateriController::class, 'berkas'])->name('materi.berkas');
+    Route::post('/ekstrakurikuler/{ekstrakurikuler}/minta-akses', [MateriAksesController::class, 'mintaAkses'])->middleware('throttle:3,10')->name('materi.minta-akses');
+    Route::post('/pr/{pr}/kumpul', [EkskulPrController::class, 'kumpul'])->name('pr.kumpul');
+    Route::get('/pr/pengumpulan/{pengumpulan}/berkas', [EkskulPrController::class, 'berkas'])->name('pr.berkas');
+
+    // Kritik & saran: semua pengguna boleh mengirim (dibatasi 10 kiriman per jam)
+    Route::get('/kritik-saran', [EkskulSaranController::class, 'index'])->name('saran.index');
+    Route::post('/kritik-saran', [EkskulSaranController::class, 'store'])->middleware('throttle:10,60')->name('saran.store');
+
     // Profil publik (semua user login) dan edit profil milik sendiri
     Route::get('/profil/edit', [ProfilPenggunaController::class, 'edit'])->name('profil.edit');
     Route::put('/profil', [ProfilPenggunaController::class, 'update'])->name('profil.update');
@@ -211,6 +224,18 @@ Route::middleware(['auth', EnsureUserIsActive::class, PaksaGantiPassword::class]
         Route::get('/pendaftaran/{pendaftaran}/nilai', [NilaiController::class, 'edit'])->name('nilai.edit');
         Route::post('/pendaftaran/{pendaftaran}/nilai', [NilaiController::class, 'store'])->name('nilai.store');
         Route::delete('/nilai/{nilai}', [NilaiController::class, 'destroy'])->name('nilai.destroy');
+
+        // Materi, akses materi, PR, dan kotak masuk kritik/saran (pengelola)
+        Route::post('/ekstrakurikuler/{ekstrakurikuler}/materi', [EkskulMateriController::class, 'store'])->name('materi.store');
+        Route::delete('/materi/{materi}', [EkskulMateriController::class, 'destroy'])->name('materi.destroy');
+        Route::patch('/pendaftaran/{pendaftaran}/akses-materi', [MateriAksesController::class, 'toggle'])->name('materi.akses');
+        Route::post('/ekstrakurikuler/{ekstrakurikuler}/akses-materi', [MateriAksesController::class, 'semua'])->name('materi.akses-semua');
+        Route::post('/ekstrakurikuler/{ekstrakurikuler}/pr', [EkskulPrController::class, 'store'])->name('pr.store');
+        Route::get('/pr/{pr}', [EkskulPrController::class, 'show'])->name('pr.show');
+        Route::delete('/pr/{pr}', [EkskulPrController::class, 'destroy'])->name('pr.destroy');
+        Route::patch('/pr/pengumpulan/{pengumpulan}', [EkskulPrController::class, 'nilai'])->name('pr.nilai');
+        Route::get('/kritik-saran/masuk', [EkskulSaranController::class, 'masuk'])->name('saran.masuk');
+        Route::patch('/kritik-saran/{saran}', [EkskulSaranController::class, 'tanggapi'])->name('saran.tanggapi');
 
         Route::get('/ekstrakurikuler/{ekstrakurikuler}/laporan/{jenis}/{format}', [LaporanController::class, 'unduh'])
             ->whereIn('jenis', ['anggota', 'absensi', 'nilai'])

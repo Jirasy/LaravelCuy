@@ -24,6 +24,7 @@ class PendaftaranEkskul extends Model
         'alasan_mendaftar',
         'status',
         'status_anggota',
+        'akses_materi',
         'tanggal_keluar',
         'alasan',
     ];
@@ -62,6 +63,7 @@ class PendaftaranEkskul extends Model
 
     protected $casts = [
         'tanggal_keluar' => 'date',
+        'akses_materi'   => 'boolean',
     ];
 
     // Anggota yang disetujui DAN masih aktif (belum keluar / dikeluarkan)

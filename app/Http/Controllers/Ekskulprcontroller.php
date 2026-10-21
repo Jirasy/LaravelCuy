@@ -74,7 +74,7 @@ class EkskulPrController extends Controller
             ->orderBy('nama_pendaftar')
             ->get();
 
-        return view('pr.show', compact('pr', 'ekskul', 'anggota', 'pengumpulans'));
+        return view('tugas.show', compact('pr', 'ekskul', 'anggota', 'pengumpulans'));
     }
 
     public function destroy(EkskulPr $pr)
@@ -176,7 +176,7 @@ class EkskulPrController extends Controller
             Pemberitahuan::pengelola($ekskul),
             'PR dikumpulkan',
             "{$user->name} mengumpulkan PR: {$pr->judul}.",
-            route('pr.show', $pr->id, false),
+            route('tugas.show', $pr->id, false),
             '📥',
             $user->id
         );

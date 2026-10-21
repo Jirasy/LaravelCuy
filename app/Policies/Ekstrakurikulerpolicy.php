@@ -3,6 +3,7 @@
 namespace App\Policies;
 
 use App\Models\Ekstrakurikuler;
+use App\Models\PendaftaranEkskul;
 use App\Models\User;
 
 class EkstrakurikulerPolicy
@@ -15,5 +16,19 @@ class EkstrakurikulerPolicy
         }
 
         return $user->isPembina() && in_array((int) $ekskul->id, $user->idEkskulDikelola(), true);
+    }
+
+    // Membuka Materi & PR: pengelola ekskul, atau anggota aktif yang DIIZINKAN pembina/admin.
+    public function lihatMateri(User $user, Ekstrakurikuler $ekskul): bool
+    {
+        if ($this->kelola($user, $ekskul)) {
+            return true;
+        }
+
+        return PendaftaranEkskul::anggotaAktif()
+            ->where('ekstrakurikuler_id', $ekskul->id)
+            ->where('user_id', $user->id)
+            ->where('akses_materi', true)
+            ->exists();
     }
 }
