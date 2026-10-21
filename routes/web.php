@@ -38,6 +38,7 @@ use App\Http\Controllers\PendaftaranKontrolController;
 use App\Http\Controllers\AbsensiController;
 use App\Http\Controllers\NilaiController;
 use App\Http\Controllers\LaporanController;
+use App\Http\Controllers\MateriaksesController;
 use App\Http\Middleware\PaksaGantiPassword;
 use App\Http\Controllers\CarsController;
 
