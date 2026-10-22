@@ -12,7 +12,7 @@ class UserSeeder extends Seeder
         User::create([
             'name'     => 'Admin Sekolah',
             'email'    => 'admin@gmail.com',
-            'password' => '@dm1nP@ssw0rd',
+            'password' => '',
             'nisn'     => '0000000000',
             'kelas'    => 'Admin',
             'role'     => 'admin',

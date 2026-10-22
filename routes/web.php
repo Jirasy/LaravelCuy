@@ -42,6 +42,7 @@ use App\Http\Controllers\EkskulMateriController;
 use App\Http\Controllers\MateriAksesController;
 use App\Http\Controllers\EkskulPrController;
 use App\Http\Controllers\EkskulSaranController;
+use App\Http\Controllers\EkskulFotoController;
 use App\Http\Middleware\PaksaGantiPassword;
 use App\Http\Controllers\CarsController;
 
@@ -154,6 +155,11 @@ Route::middleware(['auth', EnsureUserIsActive::class, PaksaGantiPassword::class]
     Route::post('/pr/{pr}/kumpul', [EkskulPrController::class, 'kumpul'])->name('pr.kumpul');
     Route::get('/pr/pengumpulan/{pengumpulan}/berkas', [EkskulPrController::class, 'berkas'])->name('pr.berkas');
 
+    // Galeri: anggota aktif dan pengelola. Foto siswa menunggu persetujuan pengelola.
+    Route::post('/ekstrakurikuler/{ekstrakurikuler}/galeri', [EkskulFotoController::class, 'store'])->middleware('throttle:15,60')->name('galeri.store');
+    Route::get('/galeri/{foto}/berkas', [EkskulFotoController::class, 'berkas'])->name('galeri.berkas');
+    Route::delete('/galeri/{foto}', [EkskulFotoController::class, 'destroy'])->name('galeri.destroy');
+
     // Kritik & saran: semua pengguna boleh mengirim (dibatasi 10 kiriman per jam)
     Route::get('/kritik-saran', [EkskulSaranController::class, 'index'])->name('saran.index');
     Route::post('/kritik-saran', [EkskulSaranController::class, 'store'])->middleware('throttle:10,60')->name('saran.store');
@@ -236,6 +242,8 @@ Route::middleware(['auth', EnsureUserIsActive::class, PaksaGantiPassword::class]
         Route::patch('/pr/pengumpulan/{pengumpulan}', [EkskulPrController::class, 'nilai'])->name('pr.nilai');
         Route::get('/kritik-saran/masuk', [EkskulSaranController::class, 'masuk'])->name('saran.masuk');
         Route::patch('/kritik-saran/{saran}', [EkskulSaranController::class, 'tanggapi'])->name('saran.tanggapi');
+        Route::patch('/galeri/{foto}/setujui', [EkskulFotoController::class, 'setujui'])->name('galeri.setujui');
+        Route::post('/ekstrakurikuler/{ekstrakurikuler}/galeri/setujui-semua', [EkskulFotoController::class, 'setujuiSemua'])->name('galeri.setujui-semua');
 
         Route::get('/ekstrakurikuler/{ekstrakurikuler}/laporan/{jenis}/{format}', [LaporanController::class, 'unduh'])
             ->whereIn('jenis', ['anggota', 'absensi', 'nilai'])

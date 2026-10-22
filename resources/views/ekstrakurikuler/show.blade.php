@@ -37,7 +37,7 @@
         @endif
 
         {{-- Tab --}}
-        @php $tabs = ['info' => 'Informasi', 'struktur' => 'Struktur', 'prestasi' => 'Prestasi', 'event' => 'Event', 'pengumuman' => 'Pengumuman', 'anggota' => 'Anggota', 'absensi' => 'Absensi', 'nilai' => 'Nilai', 'materi' => 'Materi']; @endphp
+        @php $tabs = ['info' => 'Informasi', 'struktur' => 'Struktur', 'prestasi' => 'Prestasi', 'event' => 'Event', 'pengumuman' => 'Pengumuman', 'anggota' => 'Anggota', 'absensi' => 'Absensi', 'nilai' => 'Nilai', 'materi' => 'Materi', 'galeri' => 'Galeri']; @endphp
         <div class="flex gap-1 border-b border-gray-200 mb-6 overflow-x-auto">
             @foreach($tabs as $key => $label)
                 <a href="{{ route('ekstrakurikuler.show', ['id' => $ekskul->id, 'tab' => $key]) }}"
@@ -134,7 +134,7 @@
             <div class="bg-white p-8 rounded-xl shadow-sm border border-gray-200 text-center text-gray-600">
                 <p class="font-semibold text-gray-800 mb-1">Khusus anggota ekskul ini</p>
                 @if(!$pendaftaranSaya)
-                    <p class="text-sm mb-4">Daftar dan tunggu persetujuan untuk melihat {{ ['pengumuman' => 'pengumuman', 'absensi' => 'absensi', 'nilai' => 'nilai', 'materi' => 'materi dan PR'][$tab] ?? 'daftar anggota' }}.</p>
+                    <p class="text-sm mb-4">Daftar dan tunggu persetujuan untuk melihat {{ ['pengumuman' => 'pengumuman', 'absensi' => 'absensi', 'nilai' => 'nilai', 'materi' => 'materi dan PR', 'galeri' => 'galeri'][$tab] ?? 'daftar anggota' }}.</p>
                     @if($ekskul->pendaftaran_terbuka)
                         <a href="{{ route('pendaftaran.create', ['ekstrakurikuler_id' => $ekskul->id]) }}"
                            class="inline-block bg-indigo-600 text-white px-5 py-2 rounded-lg font-semibold hover:bg-indigo-700">Daftar Sekarang</a>
@@ -198,6 +198,8 @@
             @include('ekstrakurikuler._tab_nilai')
         @elseif($tab === 'materi')
             @include('ekstrakurikuler._tab_materi')
+        @elseif($tab === 'galeri')
+            @include('ekstrakurikuler._tab_galeri')
         @endif
     </div>
 </body>

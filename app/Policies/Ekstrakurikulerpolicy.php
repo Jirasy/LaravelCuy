@@ -31,4 +31,17 @@ class EkstrakurikulerPolicy
             ->where('akses_materi', true)
             ->exists();
     }
+
+    // Melihat dan mengunggah ke galeri: pengelola ekskul, atau anggota aktif ekskul itu.
+    public function galeri(User $user, Ekstrakurikuler $ekskul): bool
+    {
+        if ($this->kelola($user, $ekskul)) {
+            return true;
+        }
+
+        return PendaftaranEkskul::anggotaAktif()
+            ->where('ekstrakurikuler_id', $ekskul->id)
+            ->where('user_id', $user->id)
+            ->exists();
+    }
 }

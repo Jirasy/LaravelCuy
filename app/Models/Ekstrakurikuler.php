@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\Hari;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Storage;
 
 class Ekstrakurikuler extends Model
 {
@@ -26,6 +27,16 @@ class Ekstrakurikuler extends Model
         'pendaftaran_dibuka'     => 'boolean',
         'pendaftaran_tutup_pada' => 'datetime',
     ];
+
+    protected static function booted(): void
+    {
+        // Menghapus ekskul = menghapus juga berkas fisik materi, PR, dan galerinya
+        static::deleting(function (self $ekskul) {
+            foreach (['materi', 'pr', 'galeri'] as $folder) {
+                Storage::disk('local')->deleteDirectory("{$folder}/{$ekskul->id}");
+            }
+        });
+    }
 
     public function pendaftaran()
     {
@@ -65,6 +76,11 @@ class Ekstrakurikuler extends Model
     public function prs()
     {
         return $this->hasMany(EkskulPr::class)->latest();
+    }
+
+    public function fotos()
+    {
+        return $this->hasMany(EkskulFoto::class)->latest();
     }
 
     public function tautans()

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Enums\Hari;
+use App\Models\EkskulFoto;
 use App\Models\EkskulKehadiran;
 use App\Models\EkskulNilai;
 use App\Models\EkskulPengunduranDiri;
@@ -51,7 +52,7 @@ class EkstrakurikulerController extends Controller
         // Prestasi & event terbuka untuk semua user yang login.
         $bolehLihat = $staff || ($pendaftaranSaya && $pendaftaranSaya->status === 'diterima' && $pendaftaranSaya->status_anggota === 'aktif');
 
-        $tab = in_array($request->query('tab'), ['info', 'struktur', 'prestasi', 'event', 'pengumuman', 'anggota', 'absensi', 'nilai', 'materi'], true)
+        $tab = in_array($request->query('tab'), ['info', 'struktur', 'prestasi', 'event', 'pengumuman', 'anggota', 'absensi', 'nilai', 'materi', 'galeri'], true)
             ? $request->query('tab')
             : 'info';
 
@@ -158,6 +159,34 @@ class EkstrakurikulerController extends Controller
             }
         }
 
+        // Tab Galeri (anggota aktif dan pengelola). Foto siswa tampil setelah disetujui.
+        $fotos = null;
+        $fotoMenunggu = collect();
+        $fotoSaya = collect();
+        $eventOpsi = collect();
+        $kategoriDipilih = null;
+
+        if ($bolehLihat && $tab === 'galeri') {
+            $kategoriDipilih = array_key_exists((string) $request->query('kategori'), EkskulFoto::KATEGORI)
+                ? $request->query('kategori')
+                : null;
+
+            $fotos = $ekskul->fotos()
+                ->where('disetujui', true)
+                ->when($kategoriDipilih, fn ($q) => $q->where('kategori', $kategoriDipilih))
+                ->with(['pengunggah', 'event'])
+                ->paginate(24)
+                ->withQueryString();
+
+            if ($staff) {
+                $fotoMenunggu = $ekskul->fotos()->where('disetujui', false)->with('pengunggah')->get();
+            } else {
+                $fotoSaya = $ekskul->fotos()->where('disetujui', false)->where('diunggah_oleh', $user->id)->get();
+            }
+
+            $eventOpsi = $ekskul->events()->orderByDesc('tanggal_mulai')->limit(30)->get(['id', 'judul']);
+        }
+
         // Tab Informasi: tautan ekskul, dan (khusus pengelola) daftar anggota untuk pemberian task
         $tautans = collect();
         $anggotaTugas = collect();
@@ -191,7 +220,8 @@ class EkstrakurikulerController extends Controller
             'pengumumans', 'anggota', 'prestasis', 'events', 'anggotaOpsi', 'jabatans',
             'pengajuanTerakhir', 'sayaPembina', 'tautans', 'anggotaTugas',
             'pertemuans', 'kehadiranSaya', 'anggotaNilai', 'persenHadir', 'daftarPeriode', 'nilaiSaya',
-            'bolehMateri', 'materis', 'prs', 'anggotaAkses', 'pengumpulanSaya'
+            'bolehMateri', 'materis', 'prs', 'anggotaAkses', 'pengumpulanSaya',
+            'fotos', 'fotoMenunggu', 'fotoSaya', 'eventOpsi', 'kategoriDipilih'
         ));
     }
 

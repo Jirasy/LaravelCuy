@@ -6,8 +6,8 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
-// Berkas materi dan PR disimpan di disk PRIVAT (gak bisa dibuka lewat URL langsung),
-// dan cuma disajiin lewat controller yang udah menecek hak akses.
+// Berkas materi dan PR disimpan di disk PRIVAT (tidak bisa dibuka lewat URL langsung),
+// dan hanya disajikan lewat controller yang sudah mengecek hak akses.
 class BerkasPrivat
 {
     // Simpan dengan nama acak. Mengembalikan kolom: berkas, nama_berkas, mime
@@ -30,7 +30,7 @@ class BerkasPrivat
     }
 
     // $langsung = tampil di browser (video/foto/PDF). Selain itu diunduh.
-    public static function kirim(string $path, ?string $nama, ?string $mime, bool $langsung)
+    public static function kirim(string $path, ?string $nama, ?string $mime, bool $langsung, array $tambahan = [])
     {
         abort_unless(Storage::disk('local')->exists($path), 404, 'Berkas tidak ditemukan.');
 
@@ -38,7 +38,7 @@ class BerkasPrivat
         $headers = [
             'Content-Type'           => $mime ?: 'application/octet-stream',
             'X-Content-Type-Options' => 'nosniff',
-        ];
+        ] + $tambahan;
 
         return $langsung
             ? response()->file($penuh, $headers)                       // mendukung seek video (Range)
