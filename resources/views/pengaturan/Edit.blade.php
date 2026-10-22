@@ -24,7 +24,7 @@
     $kartuSaya  = old('kartu_gaya', $user->kartu_gaya ?? 'kaca');
     $aksenSaya  = old('kartu_aksen', $user->kartu_aksen ?? 'ikut_palet');
 
-    // Pratinjau kartu memakai pilihan yang sedang dipilih di form
+    // Pratinjau kartu pake pilihan yang lagi dipilih di form
     $contoh = clone $user;
     $contoh->kartu_gaya  = $kartuSaya;
     $contoh->kartu_aksen = $aksenSaya;
@@ -144,7 +144,7 @@
                 </div>
 
                 @include('partials.kartu-profil', ['user' => $contoh, 'badges' => $contohBadge, 'bisaWa' => false, 'isSelf' => false, 'bisaRiwayat' => false, 'preview' => true])
-                <p class="text-xs text-gray-400 mt-2">Pratinjau. Teks dan warna kartu sudah diatur supaya tetap terbaca di semua pilihan.</p>
+                <p class="text-xs text-gray-400 mt-2">Contoh pratinjau. Teks dan warna kartu sudah diatur supaya tetap terbaca di semua pilihan. </p>
             </div>
 
             <div class="text-right">
