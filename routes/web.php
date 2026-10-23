@@ -1,155 +1,22 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\Controller;
-use App\Http\Controllers\BeresController;
 use App\Http\Controllers\ProfileController;
-use App\Http\Controllers\templatingController;
-use App\Http\Controllers\TeacherController;
-use App\Http\Controllers\kenzoController as KenzoController;
-use App\Http\Controllers\siswaController;
-use App\Http\Controllers\AssetController;
-use App\Http\Controllers\TreeController;
-use App\Http\Controllers\HealthController;
-use App\Http\Controllers\EmployeController;
-use App\Http\Controllers\ViolationController;
-use App\Http\Controllers\JihyController;
-use App\Http\Controllers\StudentController;
-use App\Http\Controllers\EkstrakurikulerController;
-use App\Http\Controllers\PendaftaranEkskulController;
-use App\Http\Controllers\AuthController;
-use App\Http\Controllers\UserController;
-use App\Http\Middleware\RoleMiddleware;
-use App\Http\Middleware\EnsureUserIsActive;   
-use App\Http\Controllers\EkskulPengumumanController;
-use App\Http\Controllers\CarsController;
+use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
     return view('welcome');
 });
 
-Route::get('/blog', function () {
-    return view('blog');
+Route::get('/dashboard', function () {
+    return view('dashboard');
+})->middleware(['auth', 'verified'])->name('dashboard');
+
+Route::middleware('auth')->group(function () {
+    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
+    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
+    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
 
-Route::get('/contact', function () {
-    return view('contact');
-});
+Route::get('/hello', [App\Http\Controllers\HelloController::class, 'index'])->middleware('auth');
 
-Route::get('/oce', function () {
-    return view('oce');
-});
-
-Route::get('/beranda', function () {
-    return view('beranda');
-});
-
-Route::get('/welcome', function () {
-    return view('welcome');
-});
-Route::get('/oce', function () {
-    return view('oce');
-});
-Route::get('/beranda', function () {
-    return view('beranda');
-});
-Route::get('/yeberes', [BeresController::class, 'beres']);
-
-Route::get('/profile', [ProfileController::class, 'biodata']);
-Route::get('/previous-school', [ProfileController::class, 'previousSchool']);
-
-Route::get('/templating', [templatingController::class, 'blade']);
-
-Route::get('/mapel', [TeacherController::class, 'mapel']);
-
-Route::get('/kenzo', [KenzoController::class, 'kenzo']);
-
-Route::get('/siswa', [siswaController::class, 'siswa']);
-Route::get('/siswa', [siswaController::class, 'index']);
-Route::get('/siswa/create', [siswaController::class, 'create']);
-Route::post('/siswa', [siswaController::class, 'store']);
-
-Route::get('/Asset', [AssetController::class, 'Asset']);
-
-Route::get('/Tree', [TreeController::class, 'index']);
-Route::get('/Tree/create', [TreeController::class, 'create']);
-Route::post('/Tree/store', [TreeController::class, 'store']);
-Route::get('/Tree/{id}/edit', [TreeController::class, 'edit']);
-Route::post('/Tree/{id}/edit', [TreeController::class, 'update']);
-Route::get('/Tree/{id}/destroy', [TreeController::class, 'destroy']);
-
-Route::get('/Student', [StudentController::class, 'index']);
-Route::get('/Student/create', [StudentController::class, 'create']);
-Route::post('/Student/store', [StudentController::class, 'store']);
-Route::get('/Student/{id}/edit', [StudentController::class, 'edit']);
-Route::post('/Student/{id}/edit', [StudentController::class, 'update']);
-Route::get('/Student/{id}/destroy', [StudentController::class, 'destroy']);
-
-Route::get('/Health', [HealthController::class, 'index']);
-
-Route::get('/Employe', [EmployeController::class, 'index']);
-Route::get('/Employe/create', [EmployeController::class, 'create']);
-Route::post('/Employe', [EmployeController::class, 'store']);
-
-Route::get('/violation', [ViolationController::class, 'index']);
-Route::get('/violation/create', [ViolationController::class, 'create']);
-Route::post('/violation/store', [ViolationController::class, 'store']);
-
-Route::get('/jihy', [JihyController::class, 'index']);
-Route::get('/jihy/create', [JihyController::class, 'create']);
-Route::post('/jihy/store', [JihyController::class, 'store']);
-
-// Route::get('/', function () {
-//     return redirect()->route('ekstrakurikuler.index');
-// });
-
-// ---------- Auth ----------
-Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
-Route::post('/login', [AuthController::class, 'login'])->name('login.process');
-Route::get('/register', [AuthController::class, 'showRegister'])->name('register');
-Route::post('/register', [AuthController::class, 'register'])->name('register.process');
-Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
-
-Route::middleware(['auth', EnsureUserIsActive::class])->group(function () {
-
-    // Semua user yang login
-    Route::get('/ekstrakurikuler', [EkstrakurikulerController::class, 'index'])->name('ekstrakurikuler.index');
-    Route::get('/ekstrakurikuler/{id}', [EkstrakurikulerController::class, 'show'])->whereNumber('id')->name('ekstrakurikuler.show');
-    Route::get('/pendaftaran', [PendaftaranEkskulController::class, 'index'])->name('pendaftaran.index');
-    Route::get('/pendaftaran/create', [PendaftaranEkskulController::class, 'create'])->name('pendaftaran.create');
-    Route::post('/pendaftaran/store', [PendaftaranEkskulController::class, 'store'])->name('pendaftaran.store');
-
-    // Admin & pembina
-    Route::middleware(RoleMiddleware::class . ':admin,pembina')->group(function () {
-        Route::get('/ekstrakurikuler/create', [EkstrakurikulerController::class, 'create'])->name('ekstrakurikuler.create');
-        Route::post('/ekstrakurikuler/store', [EkstrakurikulerController::class, 'store'])->name('ekstrakurikuler.store');
-        Route::get('/ekstrakurikuler/{id}/edit', [EkstrakurikulerController::class, 'edit'])->name('ekstrakurikuler.edit');
-        Route::put('/ekstrakurikuler/{id}', [EkstrakurikulerController::class, 'update'])->name('ekstrakurikuler.update');
-        Route::delete('/ekstrakurikuler/{id}', [EkstrakurikulerController::class, 'destroy'])->name('ekstrakurikuler.destroy');
-        Route::patch('/pendaftaran/{pendaftaran}/status', [PendaftaranEkskulController::class, 'updateStatus'])->name('pendaftaran.updateStatus');
-        Route::post('/ekstrakurikuler/{ekstrakurikuler}/pengumuman', [EkskulPengumumanController::class, 'store'])->name('ekskul-pengumuman.store');
-        Route::get('/ekskul-pengumuman/{pengumuman}/edit', [EkskulPengumumanController::class, 'edit'])->name('ekskul-pengumuman.edit');
-        Route::put('/ekskul-pengumuman/{pengumuman}', [EkskulPengumumanController::class, 'update'])->name('ekskul-pengumuman.update');
-        Route::delete('/ekskul-pengumuman/{pengumuman}', [EkskulPengumumanController::class, 'destroy'])->name('ekskul-pengumuman.destroy');
-    });
-
-    // Admin saja
-    Route::middleware(RoleMiddleware::class . ':admin')->group(function () {
-       Route::get('/users', [UserController::class, 'index'])->name('users.index');
-       Route::get('/users/{user}/edit', [UserController::class, 'edit'])->name('users.edit');
-       Route::put('/users/{user}', [UserController::class, 'update'])->name('users.update');
-       Route::patch('/users/{user}/role', [UserController::class, 'updateRole'])->name('users.updateRole');
-       Route::patch('/users/{user}/toggle', [UserController::class, 'toggleActive'])->name('users.toggle');
-       Route::delete('/users/{user}', [UserController::class, 'destroy'])->name('users.destroy');
-   });
-});
-
-Route::get('/cars', [CarsController::class, 'index']);
-Route::get('/cars/create', [CarsController::class, 'create']);
-Route::post('/cars', [CarsController::class, 'store']);
-Route::get('/cars/{id}/edit', [CarsController::class, 'edit']);
-Route::post('/cars/{id}/edit', [CarsController::class, 'update']);
-Route::delete('/cars/{id}', [CarsController::class, 'destroy']);
-Route::get('/cars/{id}/buy', [CarsController::class, 'buyForm']);
-Route::post('/cars/{id}/buy', [CarsController::class, 'buy']);
-Route::get('/sales', [CarsController::class, 'sales']);
+require __DIR__.'/auth.php';

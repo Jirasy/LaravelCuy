@@ -4,10 +4,12 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 
+use App\Models\;
+
 class BeresController extends Controller
 {
-    public function beres()
+    public function index()
     {
-        return view('yeberes');
+        return "Hello, World!";
     }
 }
