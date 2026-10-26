@@ -43,6 +43,8 @@ use App\Http\Controllers\MateriAksesController;
 use App\Http\Controllers\EkskulPrController;
 use App\Http\Controllers\EkskulSaranController;
 use App\Http\Controllers\EkskulFotoController;
+use App\Http\Controllers\CasisController;
+use App\Http\Controllers\OsisPeriodeController;
 use App\Http\Middleware\PaksaGantiPassword;
 use App\Http\Controllers\CarsController;
 
@@ -160,6 +162,14 @@ Route::middleware(['auth', EnsureUserIsActive::class, PaksaGantiPassword::class]
     Route::get('/galeri/{foto}/berkas', [EkskulFotoController::class, 'berkas'])->name('galeri.berkas');
     Route::delete('/galeri/{foto}', [EkskulFotoController::class, 'destroy'])->name('galeri.destroy');
 
+    // OSIS & CaSis: siswa mendaftar; penilai (pembina OSIS, admin, senior) menilai. Hak akses dicek di controller.
+    Route::get('/osis/casis/daftar', [CasisController::class, 'create'])->name('casis.create');
+    Route::post('/osis/casis/daftar', [CasisController::class, 'simpan'])->name('casis.simpan');
+    Route::post('/osis/casis/mundur', [CasisController::class, 'mundur'])->name('casis.mundur');
+    Route::get('/osis/casis', [CasisController::class, 'index'])->name('casis.index');
+    Route::get('/osis/casis/{casis}', [CasisController::class, 'show'])->whereNumber('casis')->name('casis.show');
+    Route::post('/osis/casis/{casis}/review', [CasisController::class, 'review'])->whereNumber('casis')->name('casis.review');
+
     // Kritik & saran: semua pengguna boleh mengirim (dibatasi 10 kiriman per jam)
     Route::get('/kritik-saran', [EkskulSaranController::class, 'index'])->name('saran.index');
     Route::post('/kritik-saran', [EkskulSaranController::class, 'store'])->middleware('throttle:10,60')->name('saran.store');
@@ -244,6 +254,15 @@ Route::middleware(['auth', EnsureUserIsActive::class, PaksaGantiPassword::class]
         Route::patch('/kritik-saran/{saran}', [EkskulSaranController::class, 'tanggapi'])->name('saran.tanggapi');
         Route::patch('/galeri/{foto}/setujui', [EkskulFotoController::class, 'setujui'])->name('galeri.setujui');
         Route::post('/ekstrakurikuler/{ekstrakurikuler}/galeri/setujui-semua', [EkskulFotoController::class, 'setujuiSemua'])->name('galeri.setujui-semua');
+
+        // OSIS: keputusan akhir, periode, senior penilai, dan status OSIS siswa dari Kelola User (admin & pembina OSIS)
+        Route::patch('/osis/casis/{casis}/keputusan', [CasisController::class, 'putuskan'])->whereNumber('casis')->name('casis.putuskan');
+        Route::post('/users/{user}/casis', [CasisController::class, 'masukkan'])->name('casis.masukkan');
+        Route::post('/users/{user}/pengurus-osis', [CasisController::class, 'jadikanPengurus'])->name('casis.pengurus');
+        Route::post('/osis/periode', [OsisPeriodeController::class, 'store'])->name('periode.store');
+        Route::patch('/osis/periode/{periode}/status', [OsisPeriodeController::class, 'status'])->name('periode.status');
+        Route::post('/osis/periode/{periode}/senior', [OsisPeriodeController::class, 'seniorTambah'])->name('periode.senior.store');
+        Route::delete('/osis/periode/{periode}/senior/{user}', [OsisPeriodeController::class, 'seniorHapus'])->name('periode.senior.destroy');
 
         Route::get('/ekstrakurikuler/{ekstrakurikuler}/laporan/{jenis}/{format}', [LaporanController::class, 'unduh'])
             ->whereIn('jenis', ['anggota', 'absensi', 'nilai'])
