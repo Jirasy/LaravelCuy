@@ -2,9 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\CasisPendaftaran;
 use App\Models\EkskulPembina;
+use App\Models\OsisPeriode;
+use App\Models\PendaftaranEkskul;
 use App\Models\User;
 use App\Rules\PasswordKuat;
+use App\Services\OsisService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
@@ -15,10 +19,37 @@ use Illuminate\Validation\Rule;
 // pembina tidak boleh menyentuh akun admin; hanya admin yang boleh mengubah role.
 class UserController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
         $users = User::orderByDesc('is_active')->orderBy('role')->orderBy('name')->get();
-        return view('users.index', compact('users'));
+
+        // Status OSIS tiap siswa (lencana dan tombol di tabel). Cuma admin & pembina OSIS yang boleh mengubahnya.
+        $layanan  = app(OsisService::class);
+        $ekskulOsis = $layanan->osis();
+        $infoOsis = ['ada' => false];
+
+        if ($ekskulOsis) {
+            $periode = OsisPeriode::where('ekstrakurikuler_id', $ekskulOsis->id)
+                ->whereIn('status', ['rekrutmen', 'seleksi'])
+                ->latest()
+                ->first();
+
+            $infoOsis = [
+                'ada'      => true,
+                'periode'  => $periode,
+                'pengurus' => PendaftaranEkskul::anggotaAktif()
+                    ->where('ekstrakurikuler_id', $ekskulOsis->id)
+                    ->whereNotNull('user_id')
+                    ->pluck('user_id')
+                    ->all(),
+                'casis'    => $periode
+                    ? CasisPendaftaran::where('osis_periode_id', $periode->id)->pluck('status', 'user_id')->all()
+                    : [],
+                'boleh'    => $layanan->bolehMemutuskan($request->user()),
+            ];
+        }
+
+        return view('users.index', compact('users', 'infoOsis'));
     }
 
     public function edit(User $user)
