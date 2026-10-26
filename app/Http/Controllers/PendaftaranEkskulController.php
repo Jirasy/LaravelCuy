@@ -47,6 +47,15 @@ class PendaftaranEkskulController extends Controller
         $ekskuls  = $query->get();
         $terpilih = $request->query('ekstrakurikuler_id', $request->query('ekskul'));
 
+        // Ekskul OSIS punya jalur sendiri (pendaftaran CaSis), tidak lewat form pendaftaran biasa
+        $osisId = Ekstrakurikuler::where('jenis', 'osis')->value('id');
+        if ($osisId && $terpilih && (int) $terpilih === (int) $osisId) {
+            return $user->isStaff()
+                ? redirect()->route('ekstrakurikuler.index')->with('error', 'Untuk OSIS, pakai Kelola User: "Masukkan ke jalur CaSis" atau "Jadikan pengurus OSIS".')
+                : redirect()->route('casis.create');
+        }
+        $ekskuls = $ekskuls->reject(fn ($e) => $e->jenis === 'osis')->values();
+
         // Siswa tidak bisa memilih ekskul yang pendaftarannya ditutup / kuotanya penuh
         if (!$user->isStaff()) {
             $ekskuls = $ekskuls->filter(fn ($e) => $e->pendaftaran_terbuka)->values();
@@ -81,6 +90,10 @@ class PendaftaranEkskulController extends Controller
             $ekskul = Ekstrakurikuler::findOrFail($data['ekstrakurikuler_id']);
             Gate::authorize('kelola', $ekskul);
 
+            if ($ekskul->jenis === 'osis') {
+                return back()->withInput()->with('error', 'Untuk OSIS, pakai Kelola User: "Masukkan ke jalur CaSis" atau "Jadikan pengurus OSIS".');
+            }
+
             $data['user_id'] = null;
 
             $sudah = PendaftaranEkskul::where('ekstrakurikuler_id', $data['ekstrakurikuler_id'])
@@ -96,6 +109,11 @@ class PendaftaranEkskulController extends Controller
 
             $ekskul = Ekstrakurikuler::withCount(['pendaftaran as anggota_count' => fn ($q) => $q->where('status', 'diterima')->where('status_anggota', 'aktif')])
                 ->findOrFail($data['ekstrakurikuler_id']);
+
+            // Ekskul OSIS: pendaftaran lewat form CaSis
+            if ($ekskul->jenis === 'osis') {
+                return redirect()->route('casis.create');
+            }
 
             // Aturan buka/tutup dan kuota dicek di SERVER, bukan hanya lewat teks tombol
             if (!$ekskul->pendaftaran_terbuka) {

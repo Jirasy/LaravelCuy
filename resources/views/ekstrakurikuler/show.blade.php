@@ -94,11 +94,11 @@
                             @if($pendaftaranSaya->tanggal_keluar) pada {{ $pendaftaranSaya->tanggal_keluar->format('d-m-Y') }} @endif
                         </p>
                         @if($ekskul->pendaftaran_terbuka)
-                            <a href="{{ route('pendaftaran.create', ['ekstrakurikuler_id' => $ekskul->id]) }}"
+                            <a href="{{ $ekskul->jenis === 'osis' ? route('casis.create') : route('pendaftaran.create', ['ekstrakurikuler_id' => $ekskul->id]) }}"
                                class="inline-block bg-indigo-600 text-white px-5 py-2 rounded-lg font-semibold hover:bg-indigo-700">Daftar Lagi</a>
                         @endif
                     @elseif($ekskul->pendaftaran_terbuka)
-                        <a href="{{ route('pendaftaran.create', ['ekstrakurikuler_id' => $ekskul->id]) }}"
+                        <a href="{{ $ekskul->jenis === 'osis' ? route('casis.create') : route('pendaftaran.create', ['ekstrakurikuler_id' => $ekskul->id]) }}"
                            class="inline-block bg-indigo-600 text-white px-5 py-2 rounded-lg font-semibold hover:bg-indigo-700">Daftar Sekarang</a>
                     @else
                         <span class="inline-block bg-gray-200 text-gray-500 px-5 py-2 rounded-lg font-semibold cursor-not-allowed select-none">{{ $ekskul->label_pendaftaran }}</span>
@@ -107,6 +107,8 @@
                     @include('ekstrakurikuler._keluar')
 
                     @include('ekstrakurikuler._tautan')
+
+                    @include('ekstrakurikuler._osis')
 
                     <div class="mt-4 pt-4 border-t border-gray-200">
                         <a href="{{ route('saran.index', ['ekskul' => $ekskul->id]) }}" class="text-sm text-indigo-600 font-semibold hover:underline">💬 Kirim kritik &amp; saran untuk ekskul ini</a>
@@ -136,7 +138,7 @@
                 @if(!$pendaftaranSaya)
                     <p class="text-sm mb-4">Daftar dan tunggu persetujuan untuk melihat {{ ['pengumuman' => 'pengumuman', 'absensi' => 'absensi', 'nilai' => 'nilai', 'materi' => 'materi dan PR', 'galeri' => 'galeri'][$tab] ?? 'daftar anggota' }}.</p>
                     @if($ekskul->pendaftaran_terbuka)
-                        <a href="{{ route('pendaftaran.create', ['ekstrakurikuler_id' => $ekskul->id]) }}"
+                        <a href="{{ $ekskul->jenis === 'osis' ? route('casis.create') : route('pendaftaran.create', ['ekstrakurikuler_id' => $ekskul->id]) }}"
                            class="inline-block bg-indigo-600 text-white px-5 py-2 rounded-lg font-semibold hover:bg-indigo-700">Daftar Sekarang</a>
                     @endif
                 @elseif($pendaftaranSaya->status === 'pending')

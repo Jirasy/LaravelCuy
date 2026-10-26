@@ -237,7 +237,7 @@ class EkstrakurikulerController extends Controller
 
         DB::transaction(function () use ($data) {
             $ekskul = Ekstrakurikuler::create(
-                Arr::only($data, ['nama_ekstrakurikuler', 'pembina', 'deskripsi', 'status'])
+                $this->kolomEkskul($data)
             );
 
             // Pembina yang membuat ekskul otomatis ditugaskan sebagai pembinanya
@@ -276,7 +276,7 @@ class EkstrakurikulerController extends Controller
 
         DB::transaction(function () use ($ekskul, $data) {
             $ekskul->update(
-                Arr::only($data, ['nama_ekstrakurikuler', 'pembina', 'deskripsi', 'status'])
+                $this->kolomEkskul($data)
             );
             $ekskul->syncJadwal($this->susunJadwal($data));
         });
@@ -321,6 +321,18 @@ class EkstrakurikulerController extends Controller
         return $hasil;
     }
 
+    // Kolom yang disimpan. "jenis" (ekskul biasa / OSIS) hanya boleh diubah admin.
+    private function kolomEkskul(array $data): array
+    {
+        $kolom = Arr::only($data, ['nama_ekstrakurikuler', 'pembina', 'deskripsi', 'status']);
+
+        if (Auth::user()->isAdmin() && !empty($data['jenis'])) {
+            $kolom['jenis'] = $data['jenis'];
+        }
+
+        return $kolom;
+    }
+
     // Ubah input form (hari[] + jadwal[hari][jam_*]) menjadi daftar jadwal
     private function susunJadwal(array $data): array
     {
@@ -346,6 +358,12 @@ class EkstrakurikulerController extends Controller
             'hari.*'    => ['required', Rule::in($valid)],
             'deskripsi' => 'nullable|string',
             'status'    => ($statusWajib ? 'required' : 'nullable') . '|in:aktif,nonaktif',
+            'jenis'     => ['nullable', Rule::in(['ekskul', 'osis']), function ($atribut, $nilai, $gagal) use ($request) {
+                // Hanya boleh ada satu ekskul bertipe OSIS
+                if ($nilai === 'osis' && Ekstrakurikuler::where('jenis', 'osis')->where('id', '!=', (int) $request->route('id'))->exists()) {
+                    $gagal('Sudah ada ekskul bertipe OSIS. Hanya boleh satu.');
+                }
+            }],
         ];
 
         // Jam wajib diisi untuk SETIAP hari yang dipilih

@@ -21,6 +21,7 @@ class Ekstrakurikuler extends Model
         'pendaftaran_dibuka',
         'pendaftaran_tutup_pada',
         'kuota',
+        'jenis',
     ];
 
     protected $casts = [
@@ -78,6 +79,11 @@ class Ekstrakurikuler extends Model
         return $this->hasMany(EkskulPr::class)->latest();
     }
 
+    public function periodeOsis()
+    {
+        return $this->hasMany(OsisPeriode::class);
+    }
+
     public function fotos()
     {
         return $this->hasMany(EkskulFoto::class)->latest();
@@ -98,6 +104,11 @@ class Ekstrakurikuler extends Model
         }
 
         if (!$this->pendaftaran_dibuka) {
+            return 'ditutup';
+        }
+
+        // Ekskul OSIS: pendaftaran = pendaftaran CaSis, hanya terbuka saat ada periode rekrutmen yang dibuka
+        if ($this->jenis === 'osis' && !OsisPeriode::terbuka()->where('ekstrakurikuler_id', $this->id)->exists()) {
             return 'ditutup';
         }
 

@@ -23,6 +23,16 @@
         <nav class="flex flex-wrap items-center gap-4">
             <a href="{{ route('ekstrakurikuler.index') }}" class="text-gray-700 hover:underline {{ request()->routeIs('ekstrakurikuler.*') ? $aktif : '' }}">Katalog</a>
             <a href="{{ route('pendaftaran.index') }}" class="text-gray-700 hover:underline {{ request()->routeIs('pendaftaran.*') ? $aktif : '' }}">Pendaftaran</a>
+            @php $dataNav = \App\Support\NavbarData::untuk($me); @endphp
+            @if($dataNav['casisDraft'])
+                <a href="{{ route('casis.create') }}" class="text-red-600 font-semibold hover:underline">Lengkapi CaSis</a>
+            @endif
+            @if($dataNav['casisTugas'] > 0)
+                <a href="{{ route('casis.index') }}" class="text-gray-700 hover:underline {{ request()->routeIs('casis.*') ? $aktif : '' }}">
+                    Seleksi CaSis
+                    <span class="ml-0.5 px-1.5 py-0.5 text-xs rounded-full bg-red-600 text-white">{{ $dataNav['casisTugas'] }}</span>
+                </a>
+            @endif
             @if($me->isStaff())
                 @php $saranBaru = \App\Models\EkskulSaran::untukPengelola($me)->where('status', 'baru')->count(); @endphp
                 <a href="{{ route('saran.masuk') }}" class="text-gray-700 hover:underline {{ request()->routeIs('saran.*') ? $aktif : '' }}">

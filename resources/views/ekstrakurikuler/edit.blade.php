@@ -36,6 +36,17 @@
         <input type="text" name="pembina" value="{{ old('pembina', $ekstrakurikuler->pembina) }}" required class="w-full border p-2 rounded-lg mt-1">
     </div>
 
+    @if(auth()->user()->isAdmin())
+    <div>
+        <label class="block text-sm font-semibold text-gray-700">Jenis ekskul</label>
+        <select name="jenis" class="w-full border p-2 rounded-lg mt-1">
+            <option value="ekskul" {{ old('jenis', $ekstrakurikuler->jenis ?? 'ekskul') === 'ekskul' ? 'selected' : '' }}>Ekskul biasa</option>
+            <option value="osis" {{ old('jenis', $ekstrakurikuler->jenis ?? 'ekskul') === 'osis' ? 'selected' : '' }}>OSIS (pendaftaran lewat seleksi CaSis)</option>
+        </select>
+        <p class="text-xs text-gray-500 mt-1">Hanya satu ekskul yang boleh bertipe OSIS.</p>
+    </div>
+    @endif
+
     @php
         $awalJadwal = $ekstrakurikuler->haris->mapWithKeys(fn ($x) => [
             $x->hari => ['jam_mulai' => substr($x->jam_mulai, 0, 5), 'jam_selesai' => substr($x->jam_selesai, 0, 5)],

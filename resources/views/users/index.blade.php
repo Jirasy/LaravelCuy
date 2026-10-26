@@ -75,6 +75,13 @@
                                         <p class="font-semibold text-gray-800">{{ $u->name }}@if($saya) <span class="text-xs text-gray-400">(kamu)</span>@endif</p>
                                         <p class="text-xs text-gray-500">{{ $u->email }}</p>
                                         @if($u->status_sekolah)<span class="inline-block mt-1 px-2 py-0.5 text-xs rounded-full {{ $u->is_alumni ? 'bg-amber-100 text-amber-800' : 'bg-gray-100 text-gray-800' }}">🎓 {{ $u->status_sekolah }}</span>@endif
+                                        @if($infoOsis['ada'] ?? false)
+                                            @if(in_array($u->id, $infoOsis['pengurus'], true))
+                                                <span class="inline-block mt-1 px-2 py-0.5 text-xs rounded-full bg-purple-100 text-purple-800">🏛️ Pengurus OSIS</span>
+                                            @elseif(isset($infoOsis['casis'][$u->id]))
+                                                <span class="inline-block mt-1 px-2 py-0.5 text-xs rounded-full bg-indigo-100 text-indigo-800">🗳️ CaSis: {{ \App\Models\CasisPendaftaran::STATUS[$infoOsis['casis'][$u->id]] }}</span>
+                                            @endif
+                                        @endif
                                     </div>
                                 </div>
                             </td>
@@ -115,6 +122,19 @@
                                                 @include('tugas._form', ['mode' => 'user', 'userTarget' => $u])
                                             </div>
                                         </details>
+                                    @endif
+
+                                    @if(($infoOsis['ada'] ?? false) && ($infoOsis['boleh'] ?? false) && $u->role === 'siswa' && $u->is_active && !in_array($u->id, $infoOsis['pengurus'], true))
+                                        @if($infoOsis['periode'] && !isset($infoOsis['casis'][$u->id]))
+                                            <form action="{{ route('casis.masukkan', $u->id) }}" method="POST" onsubmit="return confirm('Masukkan {{ e($u->name) }} ke jalur CaSis OSIS? Ia akan diminta melengkapi formulir pendaftaran.')">
+                                                @csrf
+                                                <button type="submit" class="bg-purple-600 text-white px-3 py-1 rounded text-xs font-semibold hover:bg-purple-700">Masukkan ke jalur CaSis</button>
+                                            </form>
+                                        @endif
+                                        <form action="{{ route('casis.pengurus', $u->id) }}" method="POST" onsubmit="return confirm('Jadikan {{ e($u->name) }} pengurus OSIS secara langsung, tanpa seleksi?')">
+                                            @csrf
+                                            <button type="submit" class="bg-slate-700 text-white px-3 py-1 rounded text-xs font-semibold hover:bg-slate-800">Jadikan pengurus OSIS</button>
+                                        </form>
                                     @endif
                                     @can('kelola', $u)
                                         <a href="{{ route('users.edit', $u->id) }}" class="bg-yellow-500 text-white px-3 py-1 rounded text-xs font-semibold hover:bg-yellow-600">Edit</a>

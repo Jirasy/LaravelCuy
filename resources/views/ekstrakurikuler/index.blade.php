@@ -88,7 +88,7 @@
                             Lihat Detail
                         </a>
                         @if($ekskul->pendaftaran_terbuka)
-                            <a href="{{ route('pendaftaran.create', ['ekstrakurikuler_id' => $ekskul->id]) }}" class="block w-full text-center bg-indigo-600 text-white py-2 rounded-lg font-semibold hover:bg-indigo-700 transition">
+                            <a href="{{ $ekskul->jenis === 'osis' ? route('casis.create') : route('pendaftaran.create', ['ekstrakurikuler_id' => $ekskul->id]) }}" class="block w-full text-center bg-indigo-600 text-white py-2 rounded-lg font-semibold hover:bg-indigo-700 transition">
                             Daftar Sekarang
                         </a>
                         @else
