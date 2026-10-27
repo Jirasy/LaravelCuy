@@ -28,7 +28,7 @@
         <div class="flex justify-between items-center mb-6">
             <div>
                 <h1 class="text-3xl font-bold text-gray-800">Daftar Ekstrakurikuler</h1>
-                <p class="text-gray-600 text-sm">Pilih dan daftar ekstrakurikuler sekolahmu di sini.</p>
+                <p class="text-gray-600 text-sm">{{ auth()->user()->isStaff() ? 'Kelola ekstrakurikuler sekolah di sini.' : 'Pilih dan daftar ekstrakurikuler sekolahmu di sini.' }}</p>
             </div>
             <div class="space-x-2">
                 @if(auth()->user()->isStaff())
@@ -88,16 +88,47 @@
                     </div>
 
                     <!-- Tombol Aksi per Kartu -->
+                    @php
+                        $pengguna = auth()->user();
+                        // Pendaftaran terakhir user ini di ekskul ini (hanya siswa yang punya)
+                        $ps = $pendaftaranSaya[$ekskul->id] ?? null;
+                        $urlDaftar = $ekskul->jenis === 'osis' ? route('casis.create') : route('pendaftaran.create', ['ekstrakurikuler_id' => $ekskul->id]);
+
+                        // Siswa yang sudah/sedang terdaftar: kartu tidak lagi menjadi kartu "Daftar"
+                        $statusKartu = null;
+                        if ($ps && $ps->status_anggota === 'aktif') {
+                            $statusKartu = match ($ps->status) {
+                                'diterima' => ['✅ Kamu anggota aktif', 'bg-emerald-50 text-emerald-700 border-emerald-200'],
+                                'ditolak'  => ['Pendaftaranmu tidak disetujui', 'bg-red-50 text-red-700 border-red-200'],
+                                default    => ['⏳ Pendaftaranmu menunggu persetujuan', 'bg-amber-50 text-amber-700 border-amber-200'],
+                            };
+                        } elseif ($ps && $ps->status_anggota === 'dikeluarkan') {
+                            $statusKartu = ['Kamu dikeluarkan dari ekskul ini', 'bg-red-50 text-red-700 border-red-200'];
+                        }
+                    @endphp
                     <div class="mt-6 pt-4 border-t border-gray-100 space-y-2">
-                        <a href="{{ route('ekstrakurikuler.show', $ekskul->id) }}" class="block w-full text-center border border-indigo-600 text-indigo-700 py-2 rounded-lg font-semibold hover:bg-indigo-50 transition">
-                            Lihat Detail
-                        </a>
-                        @if($ekskul->pendaftaran_terbuka)
-                            <a href="{{ $ekskul->jenis === 'osis' ? route('casis.create') : route('pendaftaran.create', ['ekstrakurikuler_id' => $ekskul->id]) }}" class="block w-full text-center bg-indigo-600 text-white py-2 rounded-lg font-semibold hover:bg-indigo-700 transition">
-                            Daftar Sekarang
-                        </a>
+                        @if($pengguna->isStaff())
+                            {{-- Admin & pembina bukan siswa: tidak mendaftar ekskul, hanya mengelola --}}
+                            <a href="{{ route('ekstrakurikuler.show', $ekskul->id) }}" class="block w-full text-center border border-indigo-600 text-indigo-700 py-2 rounded-lg font-semibold hover:bg-indigo-50 transition">
+                                Lihat Detail
+                            </a>
+                            <p class="text-xs text-center text-gray-500">{{ $ekskul->pendaftaran_terbuka ? 'Pendaftaran dibuka' : $ekskul->label_pendaftaran }}</p>
+                        @elseif($statusKartu)
+                            <p class="text-sm text-center font-semibold border rounded-lg py-2 px-3 {{ $statusKartu[1] }}">{{ $statusKartu[0] }}</p>
+                            <a href="{{ route('ekstrakurikuler.show', $ekskul->id) }}" class="block w-full text-center bg-indigo-600 text-white py-2 rounded-lg font-semibold hover:bg-indigo-700 transition">
+                                Lihat Informasi
+                            </a>
                         @else
-                            <span class="block w-full text-center bg-gray-200 text-gray-500 py-2 rounded-lg font-semibold cursor-not-allowed select-none">{{ $ekskul->label_pendaftaran }}</span>
+                            <a href="{{ route('ekstrakurikuler.show', $ekskul->id) }}" class="block w-full text-center border border-indigo-600 text-indigo-700 py-2 rounded-lg font-semibold hover:bg-indigo-50 transition">
+                                Lihat Detail
+                            </a>
+                            @if($ekskul->pendaftaran_terbuka)
+                                <a href="{{ $urlDaftar }}" class="block w-full text-center bg-indigo-600 text-white py-2 rounded-lg font-semibold hover:bg-indigo-700 transition">
+                                    {{ $ps ? 'Daftar Lagi' : 'Daftar Sekarang' }}
+                                </a>
+                            @else
+                                <span class="block w-full text-center bg-gray-200 text-gray-500 py-2 rounded-lg font-semibold cursor-not-allowed select-none">{{ $ekskul->label_pendaftaran }}</span>
+                            @endif
                         @endif
 
                         @can('kelola', $ekskul)

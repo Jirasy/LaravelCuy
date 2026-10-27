@@ -4,7 +4,7 @@
 @unless($bisaUnggah)
     <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 mb-6 flex flex-wrap items-center justify-between gap-3 text-sm">
         <p class="text-gray-700">📸 Dokumentasi kegiatan {{ $ekskul->nama_ekstrakurikuler }}. Foto baru bisa diunggah oleh anggota ekskul ini.</p>
-        @if(!$pendaftaranSaya && $ekskul->pendaftaran_terbuka)
+        @if(!$pendaftaranSaya && $ekskul->pendaftaran_terbuka && !auth()->user()->isStaff())
             <a href="{{ $ekskul->jenis === 'osis' ? route('casis.create') : route('pendaftaran.create', ['ekstrakurikuler_id' => $ekskul->id]) }}"
                class="bg-indigo-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-indigo-700 whitespace-nowrap">Tertarik? Daftar Sekarang</a>
         @endif

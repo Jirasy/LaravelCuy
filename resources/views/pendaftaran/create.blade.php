@@ -1,5 +1,4 @@
 @php
-    $staff = auth()->user()->isStaff();
     $me = auth()->user();
 @endphp
 <!DOCTYPE html>
@@ -31,12 +30,10 @@
                 </div>
             @endif
 
-            @unless($staff)
                 <div class="bg-indigo-50 border border-indigo-200 text-indigo-800 px-4 py-3 rounded-lg mb-4 text-sm">
                     Kamu mendaftar sebagai <strong>{{ $me->name }}</strong> ({{ $me->kelas }}, NISN {{ $me->nisn }}).
                     Data ini diambil dari akunmu.
                 </div>
-            @endunless
 
             <form action="{{ route('pendaftaran.store') }}" method="POST" class="space-y-4">
                 @csrf
@@ -52,34 +49,6 @@
                         @endforeach
                     </select>
                 </div>
-
-                @if($staff)
-                    <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-sm font-semibold text-gray-700">Nama Pendaftar</label>
-                            <input type="text" name="nama_pendaftar" value="{{ old('nama_pendaftar') }}" required placeholder="Nama lengkap" class="w-full border p-2 rounded-lg mt-1">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-semibold text-gray-700">Mendaftar sebagai</label>
-                            <select name="peran" required class="w-full border p-2 rounded-lg mt-1">
-                                <option value="siswa"   {{ old('peran', 'siswa') == 'siswa' ? 'selected' : '' }}>Siswa</option>
-                                <option value="admin"   {{ old('peran') == 'admin' ? 'selected' : '' }}>Admin</option>
-                                <option value="pembina" {{ old('peran') == 'pembina' ? 'selected' : '' }}>Pembina</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-sm font-semibold text-gray-700">Kelas <span class="text-gray-400 font-normal">(wajib untuk siswa)</span></label>
-                            <input type="text" name="kelas" value="{{ old('kelas') }}" placeholder="Contoh: XII PPLG" class="w-full border p-2 rounded-lg mt-1">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-semibold text-gray-700">NISN <span class="text-gray-400 font-normal">(opsional)</span></label>
-                            <input type="text" name="nisn" value="{{ old('nisn') }}" class="w-full border p-2 rounded-lg mt-1">
-                        </div>
-                    </div>
-                @endif
 
                 <div>
                     <label class="block text-sm font-semibold text-gray-700">Alasan Mendaftar</label>

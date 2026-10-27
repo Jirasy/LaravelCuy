@@ -78,7 +78,9 @@
                 </div>
 
                 <div class="pt-4 border-t">
-                    @if($pendaftaranSaya && $pendaftaranSaya->status_anggota === 'aktif')
+                    @if(auth()->user()->isStaff())
+                        {{-- Admin & pembina bukan siswa: tidak mendaftar ekskul --}}
+                    @elseif($pendaftaranSaya && $pendaftaranSaya->status_anggota === 'aktif')
                         <p class="text-sm">
                             Status pendaftaranmu:
                             @include('partials.status-badge', ['status' => $pendaftaranSaya->status, 'label' => $pendaftaranSaya->status_label])
@@ -87,7 +89,7 @@
                         <p class="text-sm text-red-600">
                             Kamu dikeluarkan dari ekskul ini
                             @if($pendaftaranSaya->tanggal_keluar) pada {{ $pendaftaranSaya->tanggal_keluar->format('d-m-Y') }} @endif.
-                            <span class="text-gray-500">Hubungi pembina kalau ingin bergabung lagi.</span>
+                            <span class="text-gray-500">Kamu tidak bisa mendaftar lagi ke ekskul ini.</span>
                         </p>
                     @elseif($pendaftaranSaya)
                         <p class="text-sm text-gray-600 mb-3">
@@ -140,7 +142,9 @@
         @elseif(!$bolehLihat)
             <div class="bg-white p-8 rounded-xl shadow-sm border border-gray-200 text-center text-gray-600">
                 <p class="font-semibold text-gray-800 mb-1">Khusus anggota ekskul ini</p>
-                @if(!$pendaftaranSaya)
+                @if(auth()->user()->isStaff())
+                    <p class="text-sm">Hanya siswa anggota dan pengelola ekskul ini yang bisa melihatnya.</p>
+                @elseif(!$pendaftaranSaya)
                     <p class="text-sm mb-4">Daftar dan tunggu persetujuan untuk melihat {{ ['pengumuman' => 'pengumuman', 'absensi' => 'absensi', 'nilai' => 'nilai', 'materi' => 'materi dan PR'][$tab] ?? 'daftar anggota' }}.</p>
                     @if($ekskul->pendaftaran_terbuka)
                         <a href="{{ $ekskul->jenis === 'osis' ? route('casis.create') : route('pendaftaran.create', ['ekstrakurikuler_id' => $ekskul->id]) }}"

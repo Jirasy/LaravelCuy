@@ -27,7 +27,14 @@ class EkstrakurikulerController extends Controller
             ->latest()
             ->get();
 
-        return view('ekstrakurikuler.index', compact('ekskuls'));
+        // Pendaftaran terakhir milik user ini di tiap ekskul (kunci = id ekskul), supaya kartu bisa menampilkan
+        // status (anggota aktif / menunggu / dst) dan bukan tombol "Daftar" untuk ekskul yang sudah diikuti.
+        // Admin & pembina bukan siswa: tidak punya pendaftaran.
+        $pendaftaranSaya = Auth::user()->isStaff()
+            ? collect()
+            : PendaftaranEkskul::where('user_id', Auth::id())->orderBy('id')->get()->keyBy('ekstrakurikuler_id');
+
+        return view('ekstrakurikuler.index', compact('ekskuls', 'pendaftaranSaya'));
     }
 
     // Halaman detail satu ekskul: tab Informasi / Prestasi / Event / Pengumuman / Anggota

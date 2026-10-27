@@ -99,7 +99,7 @@ class PendaftaranEkskul extends Model
     public function getPesanPenghalangAttribute(): string
     {
         if ($this->status_anggota === 'dikeluarkan') {
-            return 'Kamu pernah dikeluarkan dari ekskul ini. Hubungi pembina kalau ingin bergabung lagi.';
+            return 'Kamu pernah dikeluarkan dari ekskul ini, jadi tidak bisa mendaftar lagi.';
         }
 
         return match ($this->status) {
