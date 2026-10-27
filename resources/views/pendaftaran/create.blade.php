@@ -86,6 +86,20 @@
                     <textarea name="alasan_mendaftar" rows="3" placeholder="Kenapa ingin ikut ekskul ini?" class="w-full border p-2 rounded-lg mt-1">{{ old('alasan_mendaftar') }}</textarea>
                 </div>
 
+                @if(session('bentrok_baru'))
+                    <div class="bg-amber-50 border border-amber-300 text-amber-900 px-4 py-3 rounded-lg text-sm" role="alert">
+                        <p class="font-bold mb-1">⚠️ Jadwal ekskul ini bentrok dengan ekskul lain milikmu</p>
+                        <ul class="list-disc pl-5 mb-3">
+                            @foreach(session('bentrok_baru') as $ringkasan)<li>{{ $ringkasan }}</li>@endforeach
+                        </ul>
+                        <p class="mb-3">Kalau tetap mendaftar, kamu bisa memilih ekskul yang dihadiri atau mengatur pembagian waktu di profilmu setelah pendaftaran disetujui.</p>
+                        <label class="flex items-start gap-2 font-semibold cursor-pointer">
+                            <input type="checkbox" name="konfirmasi_bentrok" value="1" required class="mt-1">
+                            <span>Saya mengerti jadwalnya bentrok dan tetap ingin mendaftar</span>
+                        </label>
+                    </div>
+                @endif
+
                 <div class="flex justify-end space-x-2 pt-4">
                     <a href="{{ route('ekstrakurikuler.index') }}" class="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-semibold hover:bg-gray-300">Batal</a>
                     <button type="submit" class="bg-indigo-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-indigo-700">Kirim Pendaftaran</button>

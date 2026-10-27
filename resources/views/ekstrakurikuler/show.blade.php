@@ -131,12 +131,16 @@
         @elseif($tab === 'struktur')
             @include('ekstrakurikuler._tab_struktur')
 
+        {{-- ========== TAB GALERI: terbuka untuk semua user login (hanya foto yang sudah disetujui) ========== --}}
+        @elseif($tab === 'galeri')
+            @include('ekstrakurikuler._tab_galeri')
+
         {{-- ========== TAB PENGUMUMAN & ANGGOTA: khusus anggota / pengelola ========== --}}
         @elseif(!$bolehLihat)
             <div class="bg-white p-8 rounded-xl shadow-sm border border-gray-200 text-center text-gray-600">
                 <p class="font-semibold text-gray-800 mb-1">Khusus anggota ekskul ini</p>
                 @if(!$pendaftaranSaya)
-                    <p class="text-sm mb-4">Daftar dan tunggu persetujuan untuk melihat {{ ['pengumuman' => 'pengumuman', 'absensi' => 'absensi', 'nilai' => 'nilai', 'materi' => 'materi dan PR', 'galeri' => 'galeri'][$tab] ?? 'daftar anggota' }}.</p>
+                    <p class="text-sm mb-4">Daftar dan tunggu persetujuan untuk melihat {{ ['pengumuman' => 'pengumuman', 'absensi' => 'absensi', 'nilai' => 'nilai', 'materi' => 'materi dan PR'][$tab] ?? 'daftar anggota' }}.</p>
                     @if($ekskul->pendaftaran_terbuka)
                         <a href="{{ $ekskul->jenis === 'osis' ? route('casis.create') : route('pendaftaran.create', ['ekstrakurikuler_id' => $ekskul->id]) }}"
                            class="inline-block bg-indigo-600 text-white px-5 py-2 rounded-lg font-semibold hover:bg-indigo-700">Daftar Sekarang</a>
@@ -200,8 +204,6 @@
             @include('ekstrakurikuler._tab_nilai')
         @elseif($tab === 'materi')
             @include('ekstrakurikuler._tab_materi')
-        @elseif($tab === 'galeri')
-            @include('ekstrakurikuler._tab_galeri')
         @endif
     </div>
 </body>

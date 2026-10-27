@@ -36,6 +36,10 @@
             </div>
         @endif
 
+        @if($bentrok->isNotEmpty())
+            @include('profil._bentrok', ['bentrok' => $bentrok, 'user' => $user])
+        @endif
+
         {{-- Jadwal kegiatan ekskul per hari --}}
         <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200" data-aos="fade-up">
             <h2 class="text-lg font-bold text-gray-800 mb-3">Jadwal Kegiatan Ekskul</h2>
@@ -63,10 +67,16 @@
             @else
                 <div class="space-y-2">
                     @foreach($daftar as $j)
-                        <div class="flex items-center justify-between gap-3 border border-gray-200 rounded-lg px-4 py-3">
+                        @php $bentrokBaris = in_array($j['ekskul_id'], $idBentrokPerHari[$hariDipilih] ?? [], true); @endphp
+                        <div class="flex items-center justify-between gap-3 border rounded-lg px-4 py-3 {{ $bentrokBaris ? 'border-amber-400' : 'border-gray-200' }}">
                             <div>
                                 <a href="{{ route('ekstrakurikuler.show', $j['ekskul_id']) }}" class="font-semibold text-gray-800 hover:underline">{{ $j['ekskul'] }}</a>
-                                <p class="text-xs text-gray-500">{{ $j['peran'] }}</p>
+                                <p class="text-xs text-gray-500">
+                                    {{ $j['peran'] }}
+                                    @if($bentrokBaris)
+                                        <a href="#bentrok-jadwal" class="ml-1 font-semibold text-amber-600 hover:underline">⚠️ Bentrok</a>
+                                    @endif
+                                </p>
                             </div>
                             <span class="text-sm font-semibold text-indigo-600 whitespace-nowrap">{{ $j['mulai'] }} – {{ $j['selesai'] }} WIB</span>
                         </div>

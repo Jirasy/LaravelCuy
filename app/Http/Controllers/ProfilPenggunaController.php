@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Enums\Hari;
 use App\Models\PendaftaranEkskul;
 use App\Models\User;
+use App\Services\BentrokJadwalService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
@@ -13,14 +14,14 @@ use Illuminate\Validation\Rule;
 // Edit profil hanya untuk pemilik akun.
 class ProfilPenggunaController extends Controller
 {
-    public function show(Request $request, ?User $user = null)
+    public function show(Request $request, BentrokJadwalService $bentrokService, ?User $user = null)
     {
         $viewer = $request->user();
-        $user   = $user ?? $viewer;
+        $user = $user ?? $viewer;
         $isSelf = $user->id === $viewer->id;
 
         // Akun nonaktif hanya terlihat oleh admin/pembina dan pemiliknya
-        abort_if(!$user->is_active && !$isSelf && !$viewer->isStaff(), 404);
+        abort_if(! $user->is_active && ! $isSelf && ! $viewer->isStaff(), 404);
 
         // Keanggotaan aktif (disetujui dan belum selesai) + ekskul yang dibina
         $keanggotaan = PendaftaranEkskul::with(['ekstrakurikuler.haris', 'jabatanAktif'])
@@ -39,7 +40,7 @@ class ProfilPenggunaController extends Controller
         }
         foreach ($keanggotaan as $p) {
             $badges->push([
-                'ekskul'  => $p->ekstrakurikuler->nama_ekstrakurikuler,
+                'ekskul' => $p->ekstrakurikuler->nama_ekstrakurikuler,
                 'jabatan' => $p->jabatanAktif->isEmpty() ? null : $p->jabatan_label,
             ]);
         }
@@ -61,19 +62,33 @@ class ProfilPenggunaController extends Controller
             fn ($h) => [$h->value => $semua->where('hari', $h->value)->sortBy('mulai')->values()]
         );
 
+        // Bentrok jadwal hanya relevan untuk siswa dan hanya diurus oleh pemilik profil.
+        // Dihitung dari $semua yang sudah dimuat di atas, jadi tidak ada query tambahan untuk jadwalnya.
+        $bentrok = collect();
+        if ($isSelf && $user->role === 'siswa') {
+            $bentrok = $bentrokService->denganPilihan($bentrokService->cari($semua), $user);
+        }
+
+        // Ekskul yang bentrok per hari, untuk menandai barisnya di daftar jadwal
+        $idBentrokPerHari = $bentrok->groupBy('hari')->map(
+            fn ($daftar) => $daftar->flatMap(fn ($b) => [$b['a']['ekskul_id'], $b['b']['ekskul_id']])->unique()->values()->all()
+        );
+
         // Hari yang ditampilkan: ?hari=rabu, kalau kosong memakai hari ini (ikut APP_TIMEZONE)
-        $hariIni     = Hari::cases()[now()->dayOfWeekIso - 1]->value;
+        $hariIni = Hari::cases()[now()->dayOfWeekIso - 1]->value;
         $hariDipilih = $perHari->has($request->query('hari')) ? $request->query('hari') : $hariIni;
 
         return view('profil.show', [
-            'user'         => $user,
-            'isSelf'       => $isSelf,
-            'badges'       => $badges,
-            'perHari'      => $perHari,
-            'hariIni'      => $hariIni,
-            'hariDipilih'  => $hariDipilih,
-            'bisaWa'       => $viewer->can('lihatNoHp', $user),
-            'bisaRiwayat'  => $isSelf || $viewer->isStaff(),
+            'user' => $user,
+            'isSelf' => $isSelf,
+            'badges' => $badges,
+            'perHari' => $perHari,
+            'hariIni' => $hariIni,
+            'hariDipilih' => $hariDipilih,
+            'bentrok' => $bentrok,
+            'idBentrokPerHari' => $idBentrokPerHari,
+            'bisaWa' => $viewer->can('lihatNoHp', $user),
+            'bisaRiwayat' => $isSelf || $viewer->isStaff(),
             'lihatDataAkun' => $isSelf || $viewer->isStaff(),
         ]);
     }
@@ -91,25 +106,25 @@ class ProfilPenggunaController extends Controller
         ]);
 
         $data = $request->validate([
-            'name'             => 'required|string|max:255',
-            'foto'             => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
-            'no_hp'            => ['nullable', 'regex:/^(\+?62|0)8[0-9]{7,12}$/'],
-            'no_hp_tampil'     => ['required', Rule::in(array_keys(User::NO_HP_TAMPIL))],
-            'bio'              => 'nullable|string|max:160',
+            'name' => 'required|string|max:255',
+            'foto' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
+            'no_hp' => ['nullable', 'regex:/^(\+?62|0)8[0-9]{7,12}$/'],
+            'no_hp_tampil' => ['required', Rule::in(array_keys(User::NO_HP_TAMPIL))],
+            'bio' => 'nullable|string|max:160',
             'angkatan_sekolah' => 'nullable|string|max:20',
         ], [
-            'foto.image'        => 'File foto harus berupa gambar.',
-            'foto.mimes'        => 'Foto harus berformat JPG, PNG, atau WEBP.',
-            'foto.max'          => 'Ukuran foto maksimal 2 MB.',
-            'no_hp.regex'       => 'Nomor HP tidak valid. Contoh: 081234567890 atau +6281234567890.',
-            'bio.max'           => 'Bio maksimal 160 karakter.',
+            'foto.image' => 'File foto harus berupa gambar.',
+            'foto.mimes' => 'Foto harus berformat JPG, PNG, atau WEBP.',
+            'foto.max' => 'Ukuran foto maksimal 2 MB.',
+            'no_hp.regex' => 'Nomor HP tidak valid. Contoh: 081234567890 atau +6281234567890.',
+            'bio.max' => 'Bio maksimal 160 karakter.',
         ]);
 
         $user = $request->user();
-        $user->name             = $data['name'];
-        $user->no_hp            = $data['no_hp'] ? $this->normalisasiNoHp($data['no_hp']) : null;
-        $user->no_hp_tampil     = $data['no_hp_tampil'];
-        $user->bio              = isset($data['bio']) ? trim($data['bio']) : null;
+        $user->name = $data['name'];
+        $user->no_hp = $data['no_hp'] ? $this->normalisasiNoHp($data['no_hp']) : null;
+        $user->no_hp_tampil = $data['no_hp_tampil'];
+        $user->bio = isset($data['bio']) ? trim($data['bio']) : null;
         $user->angkatan_sekolah = $data['angkatan_sekolah'] ?? null;
 
         if ($request->hasFile('foto')) {
@@ -137,19 +152,12 @@ class ProfilPenggunaController extends Controller
     {
         $digit = ltrim($nomor, '+');
 
-        return str_starts_with($digit, '0') ? '62' . substr($digit, 1) : $digit;
+        return str_starts_with($digit, '0') ? '62'.substr($digit, 1) : $digit;
     }
 
     private function barisJadwal(int $ekskulId, string $nama, $jadwal, string $peran): array
     {
-        return [
-            'ekskul_id' => $ekskulId,
-            'ekskul'    => $nama,
-            'hari'      => $jadwal->hari,
-            'mulai'     => substr($jadwal->jam_mulai, 0, 5),
-            'selesai'   => substr($jadwal->jam_selesai, 0, 5),
-            'peran'     => $peran,
-        ];
+        return BentrokJadwalService::barisJadwal($ekskulId, $nama, $jadwal, $peran);
     }
 
     private function hapusFile(?string $path): void

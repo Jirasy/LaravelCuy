@@ -278,6 +278,9 @@ html.dark .sparkle { color: #e0e7ff; }
     html.dark .text-gray-600 { color: #cbd5e1; }
     html.dark .text-gray-500, html.dark .text-gray-400 { color: #94a3b8; }
     html.dark .text-indigo-700 { color: #a5b4fc; }
+    html.dark .bg-amber-50 { background-color: #3b2a0a; }
+    html.dark .border-amber-300, html.dark .border-amber-200 { border-color: #92660f; }
+    html.dark .text-amber-900 { color: #fde68a; }
     html.dark .border-gray-100, html.dark .border-gray-200, html.dark .border-gray-300 { border-color: #334155; }
     html.dark input, html.dark textarea, html.dark select:not(.status-select) {
         background-color: #0f172a; color: #e2e8f0; border-color: #475569;

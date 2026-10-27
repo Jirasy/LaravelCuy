@@ -32,7 +32,8 @@ class EkstrakurikulerPolicy
             ->exists();
     }
 
-    // Melihat dan mengunggah ke galeri: pengelola ekskul, atau anggota aktif ekskul itu.
+    // Mengunggah ke galeri: pengelola ekskul, atau anggota aktif ekskul itu.
+    // (Melihat foto yang sudah disetujui terbuka untuk semua user login, tidak lewat policy ini.)
     public function galeri(User $user, Ekstrakurikuler $ekskul): bool
     {
         if ($this->kelola($user, $ekskul)) {

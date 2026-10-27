@@ -26,6 +26,7 @@ class EkstrakurikulerController extends Controller
             ->withCount(['pendaftaran as anggota_count' => fn ($q) => $q->where('status', 'diterima')->where('status_anggota', 'aktif')])
             ->latest()
             ->get();
+
         return view('ekstrakurikuler.index', compact('ekskuls'));
     }
 
@@ -159,14 +160,17 @@ class EkstrakurikulerController extends Controller
             }
         }
 
-        // Tab Galeri (anggota aktif dan pengelola). Foto siswa tampil setelah disetujui.
+        // Tab Galeri: terbuka untuk semua user yang login, tapi hanya foto yang sudah disetujui.
+        // Mengunggah khusus anggota aktif dan pengelola; foto siswa tampil setelah disetujui.
         $fotos = null;
         $fotoMenunggu = collect();
         $fotoSaya = collect();
         $eventOpsi = collect();
         $kategoriDipilih = null;
+        $bisaUnggah = false;
 
-        if ($bolehLihat && $tab === 'galeri') {
+        if ($tab === 'galeri') {
+            $bisaUnggah = $user->can('galeri', $ekskul);
             $kategoriDipilih = array_key_exists((string) $request->query('kategori'), EkskulFoto::KATEGORI)
                 ? $request->query('kategori')
                 : null;
@@ -184,7 +188,10 @@ class EkstrakurikulerController extends Controller
                 $fotoSaya = $ekskul->fotos()->where('disetujui', false)->where('diunggah_oleh', $user->id)->get();
             }
 
-            $eventOpsi = $ekskul->events()->orderByDesc('tanggal_mulai')->limit(30)->get(['id', 'judul']);
+            // Daftar event hanya dibutuhkan formulir unggah
+            if ($bisaUnggah) {
+                $eventOpsi = $ekskul->events()->orderByDesc('tanggal_mulai')->limit(30)->get(['id', 'judul']);
+            }
         }
 
         // Tab Informasi: tautan ekskul, dan (khusus pengelola) daftar anggota untuk pemberian task
@@ -221,7 +228,7 @@ class EkstrakurikulerController extends Controller
             'pengajuanTerakhir', 'sayaPembina', 'tautans', 'anggotaTugas',
             'pertemuans', 'kehadiranSaya', 'anggotaNilai', 'persenHadir', 'daftarPeriode', 'nilaiSaya',
             'bolehMateri', 'materis', 'prs', 'anggotaAkses', 'pengumpulanSaya',
-            'fotos', 'fotoMenunggu', 'fotoSaya', 'eventOpsi', 'kategoriDipilih'
+            'fotos', 'fotoMenunggu', 'fotoSaya', 'eventOpsi', 'kategoriDipilih', 'bisaUnggah'
         ));
     }
 
@@ -248,7 +255,7 @@ class EkstrakurikulerController extends Controller
         });
 
         return redirect()->route('ekstrakurikuler.index')
-                         ->with('success', 'Ekstrakurikuler berhasil ditambahkan!');
+            ->with('success', 'Ekstrakurikuler berhasil ditambahkan!');
     }
 
     public function edit($id)
@@ -282,7 +289,7 @@ class EkstrakurikulerController extends Controller
         });
 
         return redirect()->route('ekstrakurikuler.index')
-                         ->with('success', 'Data ekstrakurikuler berhasil diperbarui!');
+            ->with('success', 'Data ekstrakurikuler berhasil diperbarui!');
     }
 
     public function destroy($id)
@@ -293,7 +300,7 @@ class EkstrakurikulerController extends Controller
         Ekstrakurikuler::findOrFail($id)->delete(); // semua data turunan ikut terhapus (cascade)
 
         return redirect()->route('ekstrakurikuler.index')
-                         ->with('success', 'Ekstrakurikuler berhasil dihapus!');
+            ->with('success', 'Ekstrakurikuler berhasil dihapus!');
     }
 
     // Persentase hadir tiap anggota dari absensi yang sudah tercatat: [pendaftaran_id => persen]
@@ -326,7 +333,7 @@ class EkstrakurikulerController extends Controller
     {
         $kolom = Arr::only($data, ['nama_ekstrakurikuler', 'pembina', 'deskripsi', 'status']);
 
-        if (Auth::user()->isAdmin() && !empty($data['jenis'])) {
+        if (Auth::user()->isAdmin() && ! empty($data['jenis'])) {
             $kolom['jenis'] = $data['jenis'];
         }
 
@@ -339,8 +346,8 @@ class EkstrakurikulerController extends Controller
         return collect($data['hari'])
             ->unique()
             ->map(fn ($h) => [
-                'hari'        => $h,
-                'jam_mulai'   => $data['jadwal'][$h]['jam_mulai'],
+                'hari' => $h,
+                'jam_mulai' => $data['jadwal'][$h]['jam_mulai'],
                 'jam_selesai' => $data['jadwal'][$h]['jam_selesai'],
             ])
             ->values()
@@ -353,12 +360,12 @@ class EkstrakurikulerController extends Controller
 
         $rules = [
             'nama_ekstrakurikuler' => 'required|string|max:255',
-            'pembina'   => 'required|string|max:255',
-            'hari'      => 'required|array|min:1',
-            'hari.*'    => ['required', Rule::in($valid)],
+            'pembina' => 'required|string|max:255',
+            'hari' => 'required|array|min:1',
+            'hari.*' => ['required', Rule::in($valid)],
             'deskripsi' => 'nullable|string',
-            'status'    => ($statusWajib ? 'required' : 'nullable') . '|in:aktif,nonaktif',
-            'jenis'     => ['nullable', Rule::in(['ekskul', 'osis']), function ($atribut, $nilai, $gagal) use ($request) {
+            'status' => ($statusWajib ? 'required' : 'nullable').'|in:aktif,nonaktif',
+            'jenis' => ['nullable', Rule::in(['ekskul', 'osis']), function ($atribut, $nilai, $gagal) use ($request) {
                 // Hanya boleh ada satu ekskul bertipe OSIS
                 if ($nilai === 'osis' && Ekstrakurikuler::where('jenis', 'osis')->where('id', '!=', (int) $request->route('id'))->exists()) {
                     $gagal('Sudah ada ekskul bertipe OSIS. Hanya boleh satu.');
@@ -370,7 +377,7 @@ class EkstrakurikulerController extends Controller
         $dipilih = array_intersect(array_filter((array) $request->input('hari', []), 'is_string'), $valid);
 
         foreach ($dipilih as $h) {
-            $rules["jadwal.$h.jam_mulai"]   = 'required|date_format:H:i,H:i:s';
+            $rules["jadwal.$h.jam_mulai"] = 'required|date_format:H:i,H:i:s';
             $rules["jadwal.$h.jam_selesai"] = "required|date_format:H:i,H:i:s|after:jadwal.$h.jam_mulai";
         }
 
@@ -381,12 +388,12 @@ class EkstrakurikulerController extends Controller
     {
         return [
             'hari.required' => 'Pilih minimal satu hari pelaksanaan.',
-            'hari.min'      => 'Pilih minimal satu hari pelaksanaan.',
-            'jadwal.*.jam_mulai.required'   => 'Jam mulai wajib diisi untuk setiap hari yang dipilih.',
+            'hari.min' => 'Pilih minimal satu hari pelaksanaan.',
+            'jadwal.*.jam_mulai.required' => 'Jam mulai wajib diisi untuk setiap hari yang dipilih.',
             'jadwal.*.jam_selesai.required' => 'Jam selesai wajib diisi untuk setiap hari yang dipilih.',
-            'jadwal.*.jam_mulai.date_format'   => 'Format jam mulai tidak valid.',
+            'jadwal.*.jam_mulai.date_format' => 'Format jam mulai tidak valid.',
             'jadwal.*.jam_selesai.date_format' => 'Format jam selesai tidak valid.',
-            'jadwal.*.jam_selesai.after'       => 'Jam selesai harus setelah jam mulai.',
+            'jadwal.*.jam_selesai.after' => 'Jam selesai harus setelah jam mulai.',
         ];
     }
 }

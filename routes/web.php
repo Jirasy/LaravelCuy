@@ -1,52 +1,53 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\Controller;
-use App\Http\Controllers\BeresController;
-use App\Http\Controllers\ProfileController;
-use App\Http\Controllers\templatingController;
-use App\Http\Controllers\TeacherController;
-use App\Http\Controllers\kenzoController as KenzoController;
-use App\Http\Controllers\siswaController;
-use App\Http\Controllers\AssetController;
-use App\Http\Controllers\TreeController;
-use App\Http\Controllers\HealthController;
-use App\Http\Controllers\EmployeController;
-use App\Http\Controllers\ViolationController;
-use App\Http\Controllers\JihyController;
-use App\Http\Controllers\EkstrakurikulerController;
-use App\Http\Controllers\PendaftaranEkskulController;
-use App\Http\Controllers\AuthController;
-use App\Http\Controllers\UserController;
-use App\Http\Middleware\RoleMiddleware;
-use App\Http\Middleware\EnsureUserIsActive;   
-use App\Http\Controllers\EkskulPengumumanController;
-use App\Http\Controllers\PengaturanController;
-use App\Http\Controllers\EkskulPrestasiController;
-use App\Http\Controllers\EkskulEventController;
-use App\Http\Controllers\KeanggotaanController;
-use App\Http\Controllers\RiwayatController;
-use App\Http\Controllers\EkskulPembinaController;
-use App\Http\Controllers\ProfilPenggunaController;
-use App\Http\Controllers\EkskulJabatanController;
-use App\Http\Controllers\AnggotaJabatanController;
-use App\Http\Controllers\PengunduranDiriController;
-use App\Http\Controllers\EkskulTugasController;
-use App\Http\Controllers\NotifikasiController;
-use App\Http\Controllers\EkskulTautanController;
-use App\Http\Controllers\PendaftaranKontrolController;
 use App\Http\Controllers\AbsensiController;
-use App\Http\Controllers\NilaiController;
-use App\Http\Controllers\LaporanController;
-use App\Http\Controllers\EkskulMateriController;
-use App\Http\Controllers\MateriAksesController;
-use App\Http\Controllers\EkskulPrController;
-use App\Http\Controllers\EkskulSaranController;
-use App\Http\Controllers\EkskulFotoController;
-use App\Http\Controllers\CasisController;
-use App\Http\Controllers\OsisPeriodeController;
-use App\Http\Middleware\PaksaGantiPassword;
+use App\Http\Controllers\AnggotaJabatanController;
+use App\Http\Controllers\AssetController;
+use App\Http\Controllers\AuthController;
+use App\Http\Controllers\BentrokJadwalController;
+use App\Http\Controllers\BeresController;
 use App\Http\Controllers\CarsController;
+use App\Http\Controllers\CasisController;
+use App\Http\Controllers\Controller;
+use App\Http\Controllers\EkskulEventController;
+use App\Http\Controllers\EkskulFotoController;
+use App\Http\Controllers\EkskulJabatanController;
+use App\Http\Controllers\EkskulMateriController;
+use App\Http\Controllers\EkskulPembinaController;
+use App\Http\Controllers\EkskulPengumumanController;
+use App\Http\Controllers\EkskulPrController;
+use App\Http\Controllers\EkskulPrestasiController;
+use App\Http\Controllers\EkskulSaranController;
+use App\Http\Controllers\EkskulTautanController;
+use App\Http\Controllers\EkskulTugasController;
+use App\Http\Controllers\EkstrakurikulerController;
+use App\Http\Controllers\EmployeController;
+use App\Http\Controllers\HealthController;
+use App\Http\Controllers\JihyController;
+use App\Http\Controllers\KeanggotaanController;
+use App\Http\Controllers\kenzoController as KenzoController;
+use App\Http\Controllers\LaporanController;
+use App\Http\Controllers\MateriAksesController;
+use App\Http\Controllers\NilaiController;
+use App\Http\Controllers\NotifikasiController;
+use App\Http\Controllers\OsisPeriodeController;
+use App\Http\Controllers\PendaftaranEkskulController;
+use App\Http\Controllers\PendaftaranKontrolController;
+use App\Http\Controllers\PengaturanController;
+use App\Http\Controllers\PengunduranDiriController;
+use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\ProfilPenggunaController;
+use App\Http\Controllers\RiwayatController;
+use App\Http\Controllers\siswaController;
+use App\Http\Controllers\TeacherController;
+use App\Http\Controllers\templatingController;
+use App\Http\Controllers\TreeController;
+use App\Http\Controllers\UserController;
+use App\Http\Controllers\ViolationController;
+use App\Http\Middleware\EnsureUserIsActive;
+use App\Http\Middleware\PaksaGantiPassword;
+use App\Http\Middleware\RoleMiddleware;
+use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
     return view('welcome');
@@ -174,6 +175,10 @@ Route::middleware(['auth', EnsureUserIsActive::class, PaksaGantiPassword::class]
     Route::get('/kritik-saran', [EkskulSaranController::class, 'index'])->name('saran.index');
     Route::post('/kritik-saran', [EkskulSaranController::class, 'store'])->middleware('throttle:10,60')->name('saran.store');
 
+    // Jadwal ekskul bentrok: siswa memilih hadir di salah satu atau membagi waktu
+    Route::post('/bentrok-jadwal', [BentrokJadwalController::class, 'simpan'])->name('bentrok.simpan');
+    Route::delete('/bentrok-jadwal/{pilihan}', [BentrokJadwalController::class, 'hapus'])->name('bentrok.hapus');
+
     // Profil publik (semua user login) dan edit profil milik sendiri
     Route::get('/profil/edit', [ProfilPenggunaController::class, 'edit'])->name('profil.edit');
     Route::put('/profil', [ProfilPenggunaController::class, 'update'])->name('profil.update');
@@ -188,7 +193,7 @@ Route::middleware(['auth', EnsureUserIsActive::class, PaksaGantiPassword::class]
     Route::post('/pendaftaran/store', [PendaftaranEkskulController::class, 'store'])->name('pendaftaran.store');
 
     // Admin & pembina aja
-    Route::middleware(RoleMiddleware::class . ':admin,pembina')->group(function () {
+    Route::middleware(RoleMiddleware::class.':admin,pembina')->group(function () {
         Route::get('/ekstrakurikuler/create', [EkstrakurikulerController::class, 'create'])->name('ekstrakurikuler.create');
         Route::post('/ekstrakurikuler/store', [EkstrakurikulerController::class, 'store'])->name('ekstrakurikuler.store');
         Route::get('/ekstrakurikuler/{id}/edit', [EkstrakurikulerController::class, 'edit'])->name('ekstrakurikuler.edit');
@@ -278,7 +283,7 @@ Route::middleware(['auth', EnsureUserIsActive::class, PaksaGantiPassword::class]
     });
 
     // Admin aja
-    Route::middleware(RoleMiddleware::class . ':admin')->group(function () {
+    Route::middleware(RoleMiddleware::class.':admin')->group(function () {
         Route::patch('/users/{user}/role', [UserController::class, 'updateRole'])->name('users.updateRole');
         Route::get('/tautan', [EkskulTautanController::class, 'index'])->name('tautan.index');
 
