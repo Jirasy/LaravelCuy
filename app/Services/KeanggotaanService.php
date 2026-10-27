@@ -9,7 +9,9 @@ use App\Models\Ekstrakurikuler;
 use App\Models\PendaftaranEkskul;
 use App\Models\User;
 use App\Support\Pemberitahuan;
+use Closure;
 use DomainException;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 // Semua perpindahan status keanggotaan lewat sini supaya aturannya konsisten.
@@ -24,17 +26,20 @@ class KeanggotaanService
         }
 
         $this->pastikanAnggotaAktif($p);
-        $this->pastikanBelumAdaPengajuan($p->ekstrakurikuler_id, $pengaju->id);
 
-        $pengajuan = EkskulPengunduranDiri::create([
-            'ekstrakurikuler_id' => $p->ekstrakurikuler_id,
-            'user_id'            => $pengaju->id,
-            'pendaftaran_id'     => $p->id,
-            'peran'              => 'anggota',
-            'jenis'              => 'mengundurkan_diri',
-            'alasan'             => $alasan,
-            'diajukan_oleh'      => $pengaju->id,
-        ]);
+        $pengajuan = $this->denganKunci("pengajuan-keluar:{$p->ekstrakurikuler_id}:{$pengaju->id}", function () use ($p, $pengaju, $alasan) {
+            $this->pastikanBelumAdaPengajuan($p->ekstrakurikuler_id, $pengaju->id);
+
+            return EkskulPengunduranDiri::create([
+                'ekstrakurikuler_id' => $p->ekstrakurikuler_id,
+                'user_id'            => $pengaju->id,
+                'pendaftaran_id'     => $p->id,
+                'peran'              => 'anggota',
+                'jenis'              => 'mengundurkan_diri',
+                'alasan'             => $alasan,
+                'diajukan_oleh'      => $pengaju->id,
+            ]);
+        });
 
         $ekskul = $p->ekstrakurikuler;
         Pemberitahuan::kirim(
@@ -61,16 +66,18 @@ class KeanggotaanService
             throw new DomainException('Kamu bukan pembina yang bertugas di ekskul ini.');
         }
 
-        $this->pastikanBelumAdaPengajuan($ekskul->id, $pembina->id);
+        $pengajuan = $this->denganKunci("pengajuan-keluar:{$ekskul->id}:{$pembina->id}", function () use ($ekskul, $pembina, $alasan) {
+            $this->pastikanBelumAdaPengajuan($ekskul->id, $pembina->id);
 
-        $pengajuan = EkskulPengunduranDiri::create([
-            'ekstrakurikuler_id' => $ekskul->id,
-            'user_id'            => $pembina->id,
-            'peran'              => 'pembina',
-            'jenis'              => 'mengundurkan_diri',
-            'alasan'             => $alasan,
-            'diajukan_oleh'      => $pembina->id,
-        ]);
+            return EkskulPengunduranDiri::create([
+                'ekstrakurikuler_id' => $ekskul->id,
+                'user_id'            => $pembina->id,
+                'peran'              => 'pembina',
+                'jenis'              => 'mengundurkan_diri',
+                'alasan'             => $alasan,
+                'diajukan_oleh'      => $pembina->id,
+            ]);
+        });
 
         Pemberitahuan::kirim(
             Pemberitahuan::admin(),
@@ -94,6 +101,10 @@ class KeanggotaanService
         $this->pastikanAnggotaAktif($p);
 
         $catatan = DB::transaction(function () use ($p, $pelaku, $alasan) {
+            // Ambil ulang dengan kunci baris: dua pengeluaran serentak tidak membuat catatan ganda
+            $p = PendaftaranEkskul::lockForUpdate()->findOrFail($p->id);
+            $this->pastikanAnggotaAktif($p);
+
             $catatan = EkskulPengunduranDiri::create([
                 'ekstrakurikuler_id' => $p->ekstrakurikuler_id,
                 'user_id'            => $p->user_id,
@@ -108,6 +119,7 @@ class KeanggotaanService
             ]);
 
             $this->terapkanKeluarAnggota($p, 'dikeluarkan');
+            $this->tutupPengajuanMenunggu($p, $pelaku);
 
             return $catatan;
         });
@@ -134,7 +146,14 @@ class KeanggotaanService
         }
 
         DB::transaction(function () use ($pengajuan, $pemutus, $setuju, $catatan) {
-            $pengajuan->update([
+            // Ambil ulang dengan kunci baris: dua orang yang memutuskan bersamaan tidak memprosesnya dua kali
+            $terkini = EkskulPengunduranDiri::lockForUpdate()->findOrFail($pengajuan->id);
+
+            if ($terkini->status !== 'menunggu') {
+                throw new DomainException('Pengajuan ini sudah diputuskan.');
+            }
+
+            $terkini->update([
                 'status'            => $setuju ? 'disetujui' : 'ditolak',
                 'diputuskan_oleh'   => $pemutus->id,
                 'catatan_keputusan' => $catatan,
@@ -186,6 +205,41 @@ class KeanggotaanService
                 '🛡️',
                 $pemutus->id
             );
+        }
+    }
+
+    // Anggota yang dikeluarkan tidak perlu lagi menunggu keputusan atas pengajuan keluarnya
+    private function tutupPengajuanMenunggu(PendaftaranEkskul $p, User $pelaku): void
+    {
+        if ($p->user_id === null) {
+            return; // pendaftaran manual tanpa akun tidak punya pengajuan
+        }
+
+        EkskulPengunduranDiri::where('ekstrakurikuler_id', $p->ekstrakurikuler_id)
+            ->where('user_id', $p->user_id)
+            ->where('peran', 'anggota')
+            ->where('status', 'menunggu')
+            ->update([
+                'status'            => 'disetujui',
+                'diputuskan_oleh'   => $pelaku->id,
+                'catatan_keputusan' => 'Ditutup otomatis: anggota dikeluarkan.',
+                'diputuskan_pada'   => now(),
+            ]);
+    }
+
+    // Satu aksi per kunci pada satu waktu (cegah klik ganda membuat pengajuan kembar)
+    private function denganKunci(string $kunci, Closure $aksi): mixed
+    {
+        $kunciCache = Cache::lock($kunci, 10);
+
+        if (! $kunciCache->get()) {
+            throw new DomainException('Permintaanmu sedang diproses. Tunggu sebentar lalu muat ulang halaman.');
+        }
+
+        try {
+            return $aksi();
+        } finally {
+            $kunciCache->release();
         }
     }
 

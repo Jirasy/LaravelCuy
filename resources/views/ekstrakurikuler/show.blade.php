@@ -86,7 +86,8 @@
                     @elseif($pendaftaranSaya && $pendaftaranSaya->status_anggota === 'dikeluarkan')
                         <p class="text-sm text-red-600">
                             Kamu dikeluarkan dari ekskul ini
-                            @if($pendaftaranSaya->tanggal_keluar) pada {{ $pendaftaranSaya->tanggal_keluar->format('d-m-Y') }} @endif
+                            @if($pendaftaranSaya->tanggal_keluar) pada {{ $pendaftaranSaya->tanggal_keluar->format('d-m-Y') }} @endif.
+                            <span class="text-gray-500">Hubungi pembina kalau ingin bergabung lagi.</span>
                         </p>
                     @elseif($pendaftaranSaya)
                         <p class="text-sm text-gray-600 mb-3">

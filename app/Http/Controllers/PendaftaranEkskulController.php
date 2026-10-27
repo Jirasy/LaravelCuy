@@ -8,6 +8,7 @@ use App\Services\BentrokJadwalService;
 use App\Support\Pemberitahuan;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Gate;
 
 class PendaftaranEkskulController extends Controller
@@ -60,11 +61,23 @@ class PendaftaranEkskulController extends Controller
         }
         $ekskuls = $ekskuls->reject(fn ($e) => $e->jenis === 'osis')->values();
 
-        // Siswa tidak bisa memilih ekskul yang pendaftarannya ditutup / kuotanya penuh
+        // Siswa tidak bisa memilih ekskul yang pendaftarannya ditutup / kuotanya penuh,
+        // maupun ekskul yang masih punya pendaftaran berlaku (lihat PendaftaranEkskul::penghalangDaftar)
         if (! $user->isStaff()) {
-            $ekskuls = $ekskuls->filter(fn ($e) => $e->pendaftaran_terbuka)->values();
+            $terhalang = PendaftaranEkskul::idEkskulTerhalang($user->id);
+
+            $ekskuls = $ekskuls
+                ->filter(fn ($e) => $e->pendaftaran_terbuka)
+                ->reject(fn ($e) => $terhalang->contains($e->id))
+                ->values();
 
             if ($terpilih && ! $ekskuls->contains('id', (int) $terpilih)) {
+                $penghalang = PendaftaranEkskul::penghalangDaftar($user->id, (int) $terpilih);
+
+                if ($penghalang) {
+                    return redirect()->route('ekstrakurikuler.show', (int) $terpilih)->with('error', $penghalang->pesan_penghalang);
+                }
+
                 $tutup = Ekstrakurikuler::find($terpilih);
 
                 return redirect()->route('ekstrakurikuler.index')
@@ -100,10 +113,12 @@ class PendaftaranEkskulController extends Controller
 
             $data['user_id'] = null;
 
-            $sudah = PendaftaranEkskul::where('ekstrakurikuler_id', $data['ekstrakurikuler_id'])
+            // Staf boleh mendaftarkan ulang orang yang sudah keluar maupun dikeluarkan
+            $kunci = 'daftar-ekskul:'.$ekskul->id.':n'.md5(mb_strtolower($data['nama_pendaftar']));
+            $cekPenghalang = fn () => PendaftaranEkskul::where('ekstrakurikuler_id', $data['ekstrakurikuler_id'])
                 ->whereRaw('LOWER(nama_pendaftar) = ?', [mb_strtolower($data['nama_pendaftar'])])
-                ->where('status_anggota', 'aktif')   // yang sudah keluar boleh didaftarkan lagi
-                ->exists();
+                ->where('status_anggota', 'aktif')
+                ->exists() ? 'Sudah terdaftar di ekskul tersebut.' : null;
         } else {
             // Siswa: identitas diambil dari akun yang login, bukan dari input form
             $data = $request->validate([
@@ -134,27 +149,37 @@ class PendaftaranEkskulController extends Controller
                 'nisn' => $user->nisn,
             ];
 
-            $sudah = PendaftaranEkskul::where('ekstrakurikuler_id', $data['ekstrakurikuler_id'])
-                ->where('user_id', $user->id)
-                ->where('status_anggota', 'aktif')   // yang sudah keluar boleh mendaftar lagi
-                ->exists();
+            // Hanya yang pernah mengundurkan diri (status_anggota "keluar") yang boleh mendaftar lagi
+            $kunci = 'daftar-ekskul:'.$ekskul->id.':u'.$user->id;
+            $cekPenghalang = fn () => PendaftaranEkskul::penghalangDaftar($user->id, $ekskul->id)?->pesan_penghalang;
         }
 
-        if ($sudah) {
-            return back()->withInput()->with('error', 'Sudah terdaftar di ekskul tersebut.');
+        // Kunci singkat: klik ganda atau dua tab yang mengirim bersamaan tidak membuat pendaftaran kembar
+        $kunciDaftar = Cache::lock($kunci, 10);
+
+        if (! $kunciDaftar->get()) {
+            return back()->withInput()->with('error', 'Pendaftaran sedang diproses. Tunggu sebentar, lalu cek daftar pendaftaran.');
         }
 
-        // Siswa: kalau jadwal ekskul ini bentrok dengan ekskul lain miliknya, minta konfirmasi dulu
-        if (! $user->isStaff()) {
-            $bentrokBaru = $this->bentrok->bentrokUntukEkskulBaru($user, $ekskul);
-
-            if ($bentrokBaru->isNotEmpty() && ! $request->boolean('konfirmasi_bentrok')) {
-                return back()->withInput()->with('bentrok_baru', $bentrokBaru->map(fn (array $b) => $this->bentrok->ringkas($b))->all());
+        try {
+            if ($pesanPenghalang = $cekPenghalang()) {
+                return back()->withInput()->with('error', $pesanPenghalang);
             }
-        }
 
-        $data['status'] = 'pending';
-        PendaftaranEkskul::create($data);
+            // Siswa: kalau jadwal ekskul ini bentrok dengan ekskul lain miliknya, minta konfirmasi dulu
+            if (! $user->isStaff()) {
+                $bentrokBaru = $this->bentrok->bentrokUntukEkskulBaru($user, $ekskul);
+
+                if ($bentrokBaru->isNotEmpty() && ! $request->boolean('konfirmasi_bentrok')) {
+                    return back()->withInput()->with('bentrok_baru', $bentrokBaru->map(fn (array $b) => $this->bentrok->ringkas($b))->all());
+                }
+            }
+
+            $data['status'] = 'pending';
+            PendaftaranEkskul::create($data);
+        } finally {
+            $kunciDaftar->release();
+        }
 
         // Beri tahu admin & pembina ekskul itu
         Pemberitahuan::kirim(
