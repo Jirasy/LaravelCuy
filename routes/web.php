@@ -31,12 +31,14 @@ use App\Http\Controllers\MateriAksesController;
 use App\Http\Controllers\NilaiController;
 use App\Http\Controllers\NotifikasiController;
 use App\Http\Controllers\OsisPeriodeController;
+use App\Http\Controllers\PanggilanController;
 use App\Http\Controllers\PendaftaranEkskulController;
 use App\Http\Controllers\PendaftaranKontrolController;
 use App\Http\Controllers\PengaturanController;
 use App\Http\Controllers\PengunduranDiriController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProfilPenggunaController;
+use App\Http\Controllers\ProfilTagController;
 use App\Http\Controllers\RiwayatController;
 use App\Http\Controllers\siswaController;
 use App\Http\Controllers\TeacherController;
@@ -183,6 +185,16 @@ Route::middleware(['auth', EnsureUserIsActive::class, PaksaGantiPassword::class]
     Route::get('/profil/edit', [ProfilPenggunaController::class, 'edit'])->name('profil.edit');
     Route::put('/profil', [ProfilPenggunaController::class, 'update'])->name('profil.update');
     Route::delete('/profil/foto', [ProfilPenggunaController::class, 'hapusFoto'])->name('profil.foto.hapus');
+
+    // Nama panggilan milik sendiri (satu "utama" dipakai untuk sapaan dashboard)
+    Route::post('/profil/panggilan', [PanggilanController::class, 'store'])->middleware('throttle:20,60')->name('profil.panggilan.store');
+    Route::patch('/profil/panggilan/{panggilan}/utama', [PanggilanController::class, 'jadikanUtama'])->whereNumber('panggilan')->name('profil.panggilan.utama');
+    Route::delete('/profil/panggilan/{panggilan}', [PanggilanController::class, 'hapus'])->whereNumber('panggilan')->name('profil.panggilan.destroy');
+
+    // Tag profil: semua user bisa memberi; pemilik & moderator (admin/pembina) mengatur. Hak akses dicek ProfilTagPolicy.
+    Route::post('/profil/{user}/tag', [ProfilTagController::class, 'store'])->whereNumber('user')->middleware('throttle:20,60')->name('profil.tag.store');
+    Route::patch('/profil/tag/{tag}', [ProfilTagController::class, 'update'])->whereNumber('tag')->name('profil.tag.update');
+    Route::delete('/profil/tag/{tag}', [ProfilTagController::class, 'destroy'])->whereNumber('tag')->name('profil.tag.destroy');
     Route::get('/profil/{user?}', [ProfilPenggunaController::class, 'show'])->whereNumber('user')->name('profil.show');
 
     // Semua user yang login

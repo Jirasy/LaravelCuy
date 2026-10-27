@@ -13,13 +13,25 @@
         @if(session('success'))
             <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-lg mb-4">{{ session('success') }}</div>
         @endif
+        @if($errors->any())
+            <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg mb-4 text-sm">
+                <ul class="list-disc pl-5">@foreach($errors->all() as $e)<li>{{ $e }}</li>@endforeach</ul>
+            </div>
+        @endif
 
         <div class="mb-6" data-aos="fade-down">
             @include('partials.kartu-profil', [
                 'user' => $user, 'badges' => $badges, 'bisaWa' => $bisaWa,
-                'isSelf' => $isSelf, 'bisaRiwayat' => $bisaRiwayat,
+                'isSelf' => $isSelf, 'bisaRiwayat' => $bisaRiwayat, 'tags' => $tags,
             ])
         </div>
+
+        @if($isSelf || $bisaModerasi || $bisaBeriTag)
+            @include('profil._tag', [
+                'user' => $user, 'tags' => $tags, 'isSelf' => $isSelf,
+                'bisaModerasi' => $bisaModerasi, 'bisaBeriTag' => $bisaBeriTag,
+            ])
+        @endif
 
         @if($lihatDataAkun)
             <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-200 mb-6 text-sm" data-aos="fade-up">

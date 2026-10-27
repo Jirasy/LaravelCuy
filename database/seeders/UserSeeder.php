@@ -12,7 +12,7 @@ class UserSeeder extends Seeder
         User::create([
             'name'     => 'Admin Sekolah',
             'email'    => 'admin@gmail.com',
-            'password' => '',
+            'password' => '!@#$%^&*()_+-=[]{}|;:,.<>?',
             'nisn'     => '0000000000',
             'kelas'    => 'Admin',
             'role'     => 'admin',
@@ -33,6 +33,15 @@ class UserSeeder extends Seeder
             'password' => 'siswa123',
             'nisn'     => '1234567890',
             'kelas'    => 'XII PPLG',
+            'role'     => 'siswa',
+        ]);
+
+        User::create([
+            'name'     => 'Jimny Al Ramadhan Syahnendi',
+            'email'    => 'syahrama31dhan@gmail.com',
+            'password' => 'JIMNY318',
+            'nisn'     => '2526.010.050',
+            'kelas'    => 'XI PPLG',
             'role'     => 'siswa',
         ]);
     }

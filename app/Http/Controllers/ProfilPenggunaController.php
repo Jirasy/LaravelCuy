@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Enums\Hari;
 use App\Models\PendaftaranEkskul;
+use App\Models\ProfilTag;
 use App\Models\User;
 use App\Services\BentrokJadwalService;
 use Illuminate\Http\Request;
@@ -74,6 +75,19 @@ class ProfilPenggunaController extends Controller
             fn ($daftar) => $daftar->flatMap(fn ($b) => [$b['a']['ekskul_id'], $b['b']['ekskul_id']])->unique()->values()->all()
         );
 
+        // Tag profil. Pemilik & moderator melihat semuanya (pemberi hanya dimuat untuk moderator).
+        // Pengunjung biasa hanya melihat tag yang ditampilkan + tag yang ia beri sendiri.
+        $bisaModerasi = $viewer->can('kelola', $user);
+        $tags = $user->profilTags()
+            ->when($bisaModerasi, fn ($q) => $q->with('pemberi:id,name'))
+            ->when(! $isSelf && ! $bisaModerasi, fn ($q) => $q->where(
+                fn ($w) => $w->where('status', 'tampil')->orWhere('pemberi_id', $viewer->id)
+            ))
+            ->latest()
+            ->get();
+
+        $user->load('panggilan');
+
         // Hari yang ditampilkan: ?hari=rabu, kalau kosong memakai hari ini (ikut APP_TIMEZONE)
         $hariIni = Hari::cases()[now()->dayOfWeekIso - 1]->value;
         $hariDipilih = $perHari->has($request->query('hari')) ? $request->query('hari') : $hariIni;
@@ -87,6 +101,9 @@ class ProfilPenggunaController extends Controller
             'hariDipilih' => $hariDipilih,
             'bentrok' => $bentrok,
             'idBentrokPerHari' => $idBentrokPerHari,
+            'tags' => $tags,
+            'bisaModerasi' => $bisaModerasi,
+            'bisaBeriTag' => $viewer->can('beri', [ProfilTag::class, $user]),
             'bisaWa' => $viewer->can('lihatNoHp', $user),
             'bisaRiwayat' => $isSelf || $viewer->isStaff(),
             'lihatDataAkun' => $isSelf || $viewer->isStaff(),

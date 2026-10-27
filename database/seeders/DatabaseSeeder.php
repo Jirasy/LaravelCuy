@@ -25,7 +25,7 @@ class DatabaseSeeder extends Seeder
         // $this->call(HealthSeeder::class);
         // // $this->call(EmployeSeeder::class);
         // $this->call(ViolationSeeder::class);
-        $this->call(CarSeeder::class);
+        // $this->call(CarSeeder::class);
         $this->call([
             UserSeeder::class,
             EkstrakurikulerSeeder::class,

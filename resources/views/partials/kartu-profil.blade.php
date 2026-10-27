@@ -1,6 +1,7 @@
 {{--
   Kartu profil. Variabel:
-  $user, $badges (koleksi ['ekskul','jabatan']), $bisaWa, $isSelf, $bisaRiwayat, $preview (opsional)
+  $user, $badges (koleksi ['ekskul','jabatan']), $bisaWa, $isSelf, $bisaRiwayat, $preview (opsional),
+  $tags (opsional: koleksi ProfilTag; hanya yang berstatus 'tampil' yang digambar di kartu)
 --}}
 @php
     $preview = $preview ?? false;
@@ -41,6 +42,38 @@
                                 <span class="opacity-60">·</span> {{ $b['jabatan'] }}
                             @endif
                         </span>
+                    @endforeach
+                </div>
+            </div>
+        @endif
+
+        @php
+            $daftarPanggilan = $user->panggilan;
+            $tagTampil = ($tags ?? collect())->where('status', 'tampil');
+        @endphp
+
+        @if($daftarPanggilan->isNotEmpty())
+            <div class="mt-5">
+                <p class="text-xs uppercase tracking-wide pk-muted mb-2">Nama panggilan</p>
+                <div class="flex flex-wrap gap-2">
+                    @foreach($daftarPanggilan as $p)
+                        <span class="pk-chip cursor-default select-none">
+                            {{ $p->nama }}
+                            @if($p->utama && $isSelf)
+                                <span title="Dipakai untuk sapaan di dashboard">★</span>
+                            @endif
+                        </span>
+                    @endforeach
+                </div>
+            </div>
+        @endif
+
+        @if($tagTampil->isNotEmpty())
+            <div class="mt-5">
+                <p class="text-xs uppercase tracking-wide pk-muted mb-2">Tag</p>
+                <div class="flex flex-wrap gap-2">
+                    @foreach($tagTampil as $t)
+                        <span class="pk-chip cursor-default select-none">{{ $t->teks }}</span>
                     @endforeach
                 </div>
             </div>

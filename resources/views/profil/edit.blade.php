@@ -89,6 +89,55 @@
                 <button type="submit" class="bg-indigo-600 text-white px-5 py-2 rounded-lg font-semibold hover:bg-indigo-700">Simpan Profil</button>
             </div>
         </form>
+
+        {{-- Nama panggilan: form tersendiri (HTML tidak boleh punya form di dalam form) --}}
+        @php
+            $daftarPanggilan = $user->panggilan;
+            $maksPanggilan = \App\Models\UserPanggilan::MAKS_PER_USER;
+        @endphp
+        <div id="nama-panggilan" class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 mt-6" data-aos="fade-up">
+            <h2 class="text-lg font-bold text-gray-800">Nama panggilan</h2>
+            <p class="text-xs text-gray-500 mt-1 mb-4">
+                Tambahkan sampai {{ $maksPanggilan }} nama panggilan, tampil di profilmu. Yang bertanda ★ dipakai untuk sapaan di dashboard.
+                Sapaanmu sekarang: <span class="font-semibold text-gray-700">{{ $user->sapaan }}</span>
+                @if($daftarPanggilan->where('utama', true)->isEmpty())(memakai nama depan){{-- belum ada panggilan utama --}}@endif
+            </p>
+
+            @if($daftarPanggilan->isNotEmpty())
+                <div class="space-y-2 mb-4">
+                    @foreach($daftarPanggilan as $p)
+                        <div class="flex flex-wrap items-center justify-between gap-2 border border-gray-200 rounded-lg px-3 py-2">
+                            <span class="px-3 py-1.5 rounded-full text-sm font-semibold border {{ $p->utama ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-gray-50 text-gray-700 border-gray-200' }}">
+                                {{ $p->nama }}@if($p->utama) ★@endif
+                            </span>
+                            <div class="flex items-center gap-3 text-xs">
+                                @unless($p->utama)
+                                    <form action="{{ route('profil.panggilan.utama', $p->id) }}" method="POST">
+                                        @csrf @method('PATCH')
+                                        <button type="submit" class="font-semibold text-indigo-600 hover:underline">Jadikan sapaan</button>
+                                    </form>
+                                @endunless
+                                <form action="{{ route('profil.panggilan.destroy', $p->id) }}" method="POST" onsubmit="return confirm('Hapus nama panggilan ini?')">
+                                    @csrf @method('DELETE')
+                                    <button type="submit" class="font-semibold text-red-600 hover:underline">Hapus</button>
+                                </form>
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+            @endif
+
+            @if($daftarPanggilan->count() < $maksPanggilan)
+                <form action="{{ route('profil.panggilan.store') }}" method="POST" class="flex flex-wrap gap-2">
+                    @csrf
+                    <input type="text" name="nama" value="{{ old('nama') }}" maxlength="30" required placeholder="Contoh: Kiki"
+                           class="flex-1 min-w-[10rem] border p-2 rounded-lg">
+                    <button type="submit" class="bg-indigo-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-indigo-700">Tambah</button>
+                </form>
+            @else
+                <p class="text-xs text-amber-600">Batas {{ $maksPanggilan }} nama panggilan tercapai. Hapus salah satu kalau mau menambah.</p>
+            @endif
+        </div>
     </div>
 
     <form id="form-hapus-foto" action="{{ route('profil.foto.hapus') }}" method="POST" class="hidden">@csrf @method('DELETE')</form>

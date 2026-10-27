@@ -55,6 +55,29 @@ class User extends Authenticatable
         return $this->hasMany(PendaftaranEkskul::class);
     }
 
+    // Semua nama panggilan (yang utama di urutan pertama)
+    public function panggilan()
+    {
+        return $this->hasMany(UserPanggilan::class)->orderByDesc('utama')->orderBy('id');
+    }
+
+    public function panggilanUtama()
+    {
+        return $this->hasOne(UserPanggilan::class)->where('utama', true);
+    }
+
+    // Tag yang diberikan user lain ke profil ini
+    public function profilTags()
+    {
+        return $this->hasMany(ProfilTag::class);
+    }
+
+    // Nama untuk sapaan di dashboard: panggilan utama, kalau belum ada pakai nama depan
+    public function getSapaanAttribute(): string
+    {
+        return $this->panggilanUtama?->nama ?? (explode(' ', trim($this->name))[0] ?: $this->name);
+    }
+
     // URL pakai asset() supaya ikut host yang sedang dibuka (tidak tergantung APP_URL)
     public function getFotoUrlAttribute(): ?string
     {

@@ -19,7 +19,7 @@
             <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-[2px]"></div>
             @endif
             <div class="relative px-8 py-10 md:py-14">
-                <h1 class="text-3xl md:text-4xl font-bold" data-sapaan data-nama="{{ explode(' ', trim(auth()->user()->name))[0] }}">Halo, {{ explode(' ', trim(auth()->user()->name))[0] }}! 👋</h1>
+                <h1 class="text-3xl md:text-4xl font-bold" data-sapaan data-nama="{{ auth()->user()->sapaan }}">Halo, {{ auth()->user()->sapaan }}! 👋</h1>
                 <p class="mt-2 {{ $heroFoto ? 'text-white/90' : 'opacity-80' }}" data-sapaan-sub>Siap untuk jadwal ekskul hari ini?</p>
             </div>
         </div>
