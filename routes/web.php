@@ -8,7 +8,7 @@ use App\Http\Controllers\BentrokJadwalController;
 use App\Http\Controllers\BeresController;
 use App\Http\Controllers\CarsController;
 use App\Http\Controllers\CasisController;
-use App\Http\Controllers\Controller;
+// use App\Http\Controllers\Controller;
 use App\Http\Controllers\EkskulEventController;
 use App\Http\Controllers\EkskulFotoController;
 use App\Http\Controllers\EkskulJabatanController;
@@ -40,9 +40,9 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProfilPenggunaController;
 use App\Http\Controllers\ProfilTagController;
 use App\Http\Controllers\RiwayatController;
-use App\Http\Controllers\siswaController;
+// use App\Http\Controllers\siswaController;
 use App\Http\Controllers\TeacherController;
-use App\Http\Controllers\templatingController;
+// use App\Http\Controllers\templatingController;
 use App\Http\Controllers\TreeController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\ViolationController;
@@ -85,16 +85,16 @@ Route::get('/yeberes', [BeresController::class, 'beres']);
 Route::get('/profile', [ProfileController::class, 'biodata']);
 Route::get('/previous-school', [ProfileController::class, 'previousSchool']);
 
-Route::get('/templating', [templatingController::class, 'blade']);
+// Route::get('/templating', [templatingController::class, 'blade']);
 
 Route::get('/mapel', [TeacherController::class, 'mapel']);
 
 Route::get('/kenzo', [KenzoController::class, 'kenzo']);
 
-Route::get('/siswa', [siswaController::class, 'siswa']);
-Route::get('/siswa', [siswaController::class, 'index']);
-Route::get('/siswa/create', [siswaController::class, 'create']);
-Route::post('/siswa', [siswaController::class, 'store']);
+// Route::get('/siswa', [siswaController::class, 'siswa']);
+// Route::get('/siswa', [siswaController::class, 'index']);
+// Route::get('/siswa/create', [siswaController::class, 'create']);
+// Route::post('/siswa', [siswaController::class, 'store']);
 
 Route::get('/Asset', [AssetController::class, 'Asset']);
 
