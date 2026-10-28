@@ -5,11 +5,10 @@
 --}}
 @php
     $preview = $preview ?? false;
-    $gaya    = in_array($user->kartu_gaya, \App\Models\User::KARTU_GAYA, true) ? $user->kartu_gaya : 'kaca';
-    $aksen   = $user->kartu_aksen ?? 'ikut_palet';
-    $rgb     = \App\Models\User::AKSEN_RGB[$aksen] ?? 'var(--p1-rgb)';
+    // Kelas dan style kartu (preset, warna polos, gradasi, atau gambar/pola). Nilainya sudah divalidasi dan dijaga kontrasnya.
+    $kartu   = \App\Support\TampilanKustom::kartu($user);
 @endphp
-<div class="pk pk-{{ $gaya }}" id="{{ $preview ? 'kartu-preview' : 'kartu-profil' }}" style="--pk-rgb: {{ $rgb }}">
+<div class="pk {{ $kartu['kelas'] }}" id="{{ $preview ? 'kartu-preview' : 'kartu-profil' }}" style="{{ $kartu['style'] }}">
     <div class="px-6 py-6 md:px-8 md:py-8">
         <div class="flex flex-wrap items-center gap-5">
             @include('partials.avatar', ['user' => $user, 'ukuran' => 88])

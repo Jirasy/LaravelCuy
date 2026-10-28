@@ -136,6 +136,8 @@ Route::middleware(['auth', EnsureUserIsActive::class, PaksaGantiPassword::class]
     Route::put('/pengaturan/tampilan', [PengaturanController::class, 'updateTampilan'])->name('pengaturan.tampilan');
     Route::put('/pengaturan/password', [PengaturanController::class, 'updatePassword'])->name('pengaturan.password');
     Route::delete('/pengaturan/wallpaper', [PengaturanController::class, 'hapusWallpaper'])->name('pengaturan.wallpaper.hapus');
+    Route::delete('/pengaturan/aksen', [PengaturanController::class, 'hapusAksen'])->name('pengaturan.aksen.hapus');
+    Route::post('/pengaturan/pratinjau', [PengaturanController::class, 'pratinjau'])->middleware('throttle:60,1')->name('pengaturan.pratinjau');
 
     Route::get('/riwayat/{user?}', [RiwayatController::class, 'show'])->name('riwayat.show');
 

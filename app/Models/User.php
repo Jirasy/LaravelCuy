@@ -32,6 +32,17 @@ class User extends Authenticatable
         'navbar_gaya',
         'kartu_gaya',
         'kartu_aksen',
+        'wallpaper_tipe',
+        'wallpaper_warna1',
+        'wallpaper_warna2',
+        'wallpaper_url',
+        'wallpaper_mode',
+        'aksen_tipe',
+        'aksen_warna1',
+        'aksen_warna2',
+        'aksen_gambar',
+        'aksen_url',
+        'aksen_mode',
     ];
 
     protected $hidden = [
@@ -81,28 +92,25 @@ class User extends Authenticatable
     // URL pakai asset() supaya ikut host yang sedang dibuka (tidak tergantung APP_URL)
     public function getFotoUrlAttribute(): ?string
     {
-        return $this->foto ? asset('storage/' . $this->foto) : null;
-    }
-
-    public function getWallpaperUrlAttribute(): ?string
-    {
-        return $this->wallpaper ? asset('storage/' . $this->wallpaper) : null;
+        return $this->foto ? asset('storage/'.$this->foto) : null;
     }
 
     // Inisial untuk avatar kalau belum punya foto, mis. "Jimny Al" -> "JA"
     public function getInisialAttribute(): string
     {
         $bagian = preg_split('/\s+/', trim($this->name));
-        return mb_strtoupper(mb_substr($bagian[0] ?? '?', 0, 1) . (isset($bagian[1]) ? mb_substr($bagian[1], 0, 1) : ''));
+
+        return mb_strtoupper(mb_substr($bagian[0] ?? '?', 0, 1).(isset($bagian[1]) ? mb_substr($bagian[1], 0, 1) : ''));
     }
 
     // Contoh: "Alumni angkatan 2023" / "Angkatan 2025" / null
     public function getStatusSekolahAttribute(): ?string
     {
         if ($this->is_alumni) {
-            return 'Alumni' . ($this->angkatan_sekolah ? ' angkatan ' . $this->angkatan_sekolah : '');
+            return 'Alumni'.($this->angkatan_sekolah ? ' angkatan '.$this->angkatan_sekolah : '');
         }
-        return $this->angkatan_sekolah ? 'Angkatan ' . $this->angkatan_sekolah : null;
+
+        return $this->angkatan_sekolah ? 'Angkatan '.$this->angkatan_sekolah : null;
     }
 
     // Ekskul yang sedang dibina user ini (relevan untuk role pembina)
@@ -125,21 +133,22 @@ class User extends Authenticatable
 
     // Pilihan tampilan yang diizinkan (dipakai validasi dan view)
     public const NAVBAR_GAYA = ['melayang', 'kaca', 'solid', 'ringkas'];
-    public const KARTU_GAYA  = ['kaca', 'gradasi', 'polos'];
+
+    public const KARTU_GAYA = ['kaca', 'gradasi', 'polos'];
 
     // Warna aksen kartu profil. "ikut_palet" mengikuti palet wallpaper pilihan user.
     public const AKSEN_RGB = [
-        'indigo'  => '99 102 241',
-        'rose'    => '244 63 94',
+        'indigo' => '99 102 241',
+        'rose' => '244 63 94',
         'emerald' => '16 185 129',
-        'amber'   => '245 158 11',
-        'sky'     => '14 165 233',
+        'amber' => '245 158 11',
+        'sky' => '14 165 233',
     ];
 
     public const NO_HP_TAMPIL = [
-        'staff'          => 'Hanya admin & pembina',
+        'staff' => 'Hanya admin & pembina',
         'anggota_ekskul' => 'Teman satu ekskul + admin & pembina',
-        'semua'          => 'Semua pengguna',
+        'semua' => 'Semua pengguna',
     ];
 
     // Tautan WhatsApp, contoh: https://wa.me/6281234567890
@@ -147,7 +156,7 @@ class User extends Authenticatable
     {
         $digit = preg_replace('/\D+/', '', (string) $this->no_hp);
 
-        return $digit ? 'https://wa.me/' . $digit : null;
+        return $digit ? 'https://wa.me/'.$digit : null;
     }
 
     // Nomor untuk dibaca manusia, contoh: 081234567890
@@ -158,7 +167,7 @@ class User extends Authenticatable
             return null;
         }
 
-        return str_starts_with($digit, '62') ? '0' . substr($digit, 2) : $digit;
+        return str_starts_with($digit, '62') ? '0'.substr($digit, 2) : $digit;
     }
 
     public function isAdmin(): bool

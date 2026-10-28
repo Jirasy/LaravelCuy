@@ -1,0 +1,1471 @@
+diff --git a/app/Http/Controllers/EkskulPrController.php b/app/Http/Controllers/EkskulPrController.php
+index 08ed1ae..f9865ed 100644
+--- a/app/Http/Controllers/EkskulPrController.php
++++ b/app/Http/Controllers/EkskulPrController.php
+@@ -12,6 +12,7 @@
+ use Illuminate\Support\Facades\Auth;
+ use Illuminate\Support\Facades\Gate;
+ 
++// Di tampilan fitur ini disebut "Task"; nama class, rute (pr.*), dan tabel tetap "pr".
+ class EkskulPrController extends Controller
+ {
+     // ---------- pengelola ----------
+@@ -46,7 +47,7 @@ public function store(Request $request, Ekstrakurikuler $ekstrakurikuler)
+         $tenggat = $pr->tenggat ? ' (tenggat ' . $pr->tenggat->format('d-m-Y') . ')' : '';
+         Pemberitahuan::kirim(
+             $penerima,
+-            'PR baru',
++            'Task baru',
+             "{$pr->judul} di {$ekstrakurikuler->nama_ekstrakurikuler}{$tenggat}",
+             route('ekstrakurikuler.show', ['id' => $ekstrakurikuler->id, 'tab' => 'materi'], false),
+             '📝',
+@@ -55,7 +56,7 @@ public function store(Request $request, Ekstrakurikuler $ekstrakurikuler)
+ 
+         return redirect()
+             ->route('ekstrakurikuler.show', ['id' => $ekstrakurikuler->id, 'tab' => 'materi'])
+-            ->with('success', 'PR berhasil dibuat.');
++            ->with('success', 'Task berhasil dibuat.');
+     }
+ 
+     // Halaman pemeriksaan: siapa yang sudah mengumpulkan, beri nilai
+@@ -86,7 +87,7 @@ public function destroy(EkskulPr $pr)
+ 
+         return redirect()
+             ->route('ekstrakurikuler.show', ['id' => $ekskulId, 'tab' => 'materi'])
+-            ->with('success', 'PR dihapus.');
++            ->with('success', 'Task dihapus.');
+     }
+ 
+     public function nilai(Request $request, EkskulPrPengumpulan $pengumpulan)
+@@ -111,7 +112,7 @@ public function nilai(Request $request, EkskulPrPengumpulan $pengumpulan)
+         if ($siswa) {
+             Pemberitahuan::kirim(
+                 [$siswa],
+-                'PR dinilai',
++                'Task dinilai',
+                 "{$pr->judul}: nilai {$data['nilai']} dari {$pr->nilai_maks}.",
+                 route('ekstrakurikuler.show', ['id' => $ekskul->id, 'tab' => 'materi'], false),
+                 '📊',
+@@ -129,19 +130,19 @@ public function kumpul(Request $request, EkskulPr $pr)
+         $ekskul = $pr->ekstrakurikuler;
+         $user   = $request->user();
+ 
+-        // Hanya anggota aktif yang diizinkan mengakses materi & PR
++        // Hanya anggota aktif yang diizinkan mengakses materi & Task
+         $anggota = PendaftaranEkskul::anggotaAktif()
+             ->where('ekstrakurikuler_id', $ekskul->id)
+             ->where('user_id', $user->id)
+             ->where('akses_materi', true)
+             ->first();
+ 
+-        abort_unless($anggota, 403, 'Kamu belum diizinkan mengerjakan PR ini.');
++        abort_unless($anggota, 403, 'Kamu belum diizinkan mengerjakan Task ini.');
+ 
+         $ada = EkskulPrPengumpulan::where('pr_id', $pr->id)->where('pendaftaran_id', $anggota->id)->first();
+ 
+         if ($ada && $ada->sudah_dinilai) {
+-            return back()->with('error', 'PR ini sudah dinilai dan tidak bisa diubah lagi.');
++            return back()->with('error', 'Task ini sudah dinilai dan tidak bisa diubah lagi.');
+         }
+ 
+         $data = $request->validate([
+@@ -174,16 +175,16 @@ public function kumpul(Request $request, EkskulPr $pr)
+ 
+         Pemberitahuan::kirim(
+             Pemberitahuan::pengelola($ekskul),
+-            'PR dikumpulkan',
+-            "{$user->name} mengumpulkan PR: {$pr->judul}.",
++            'Task dikumpulkan',
++            "{$user->name} mengumpulkan Task: {$pr->judul}.",
+             route('tugas.show', $pr->id, false),
+             '📥',
+             $user->id
+         );
+ 
+         return back()->with('success', $pengumpulan->terlambat
+-            ? 'PR terkirim, tetapi melewati tenggat.'
+-            : 'PR berhasil dikumpulkan.');
++            ? 'Task terkirim, tetapi melewati tenggat.'
++            : 'Task berhasil dikumpulkan.');
+     }
+ 
+     // Berkas pengumpulan: hanya pemiliknya dan pengelola ekskul
+diff --git a/app/Http/Controllers/EkstrakurikulerController.php b/app/Http/Controllers/EkstrakurikulerController.php
+index f5de5ee..18948c0 100644
+--- a/app/Http/Controllers/EkstrakurikulerController.php
++++ b/app/Http/Controllers/EkstrakurikulerController.php
+@@ -142,7 +142,7 @@ public function show(Request $request, $id)
+             }
+         }
+ 
+-        // Tab Materi & PR: pengelola, dan anggota aktif yang DIIZINKAN pembina/admin
++        // Tab Materi & Task: pengelola, dan anggota aktif yang DIIZINKAN pembina/admin
+         $bolehMateri = false;
+         $materis = collect();
+         $prs = collect();
+diff --git a/app/Http/Controllers/MateriAksesController.php b/app/Http/Controllers/MateriAksesController.php
+index 781a760..3df6acb 100644
+--- a/app/Http/Controllers/MateriAksesController.php
++++ b/app/Http/Controllers/MateriAksesController.php
+@@ -9,7 +9,7 @@
+ use Illuminate\Support\Facades\Gate;
+ use Illuminate\Validation\Rule;
+ 
+-// Izin membuka Materi & PR per anggota. Diatur admin & pembina ekskul itu.
++// Izin membuka Materi & Task per anggota. Diatur admin & pembina ekskul itu.
+ class MateriAksesController extends Controller
+ {
+     // Izinkan / cabut satu anggota
+@@ -29,7 +29,7 @@ public function toggle(Request $request, PendaftaranEkskul $pendaftaran)
+             Pemberitahuan::kirim(
+                 [$pendaftaran->user],
+                 'Akses materi diberikan',
+-                "Kamu sekarang bisa membuka Materi & PR {$ekskul->nama_ekstrakurikuler}.",
++                "Kamu sekarang bisa membuka Materi & Task {$ekskul->nama_ekstrakurikuler}.",
+                 route('ekstrakurikuler.show', ['id' => $ekskul->id, 'tab' => 'materi'], false),
+                 '🔓',
+                 $request->user()->id
+@@ -56,7 +56,7 @@ public function semua(Request $request, Ekstrakurikuler $ekstrakurikuler)
+             Pemberitahuan::kirim(
+                 $berubah->pluck('user'),
+                 'Akses materi diberikan',
+-                "Kamu sekarang bisa membuka Materi & PR {$ekstrakurikuler->nama_ekstrakurikuler}.",
++                "Kamu sekarang bisa membuka Materi & Task {$ekstrakurikuler->nama_ekstrakurikuler}.",
+                 route('ekstrakurikuler.show', ['id' => $ekstrakurikuler->id, 'tab' => 'materi'], false),
+                 '🔓',
+                 $request->user()->id
+@@ -87,7 +87,7 @@ public function mintaAkses(Request $request, Ekstrakurikuler $ekstrakurikuler)
+         Pemberitahuan::kirim(
+             Pemberitahuan::pengelola($ekstrakurikuler),
+             'Permintaan akses materi',
+-            "{$user->name} meminta akses Materi & PR {$ekstrakurikuler->nama_ekstrakurikuler}.",
++            "{$user->name} meminta akses Materi & Task {$ekstrakurikuler->nama_ekstrakurikuler}.",
+             route('ekstrakurikuler.show', ['id' => $ekstrakurikuler->id, 'tab' => 'materi'], false),
+             '🔑',
+             $user->id
+diff --git a/app/Http/Controllers/PendaftaranController.php b/app/Http/Controllers/PendaftaranController.php
+deleted file mode 100644
+index fe7158b..0000000
+--- a/app/Http/Controllers/PendaftaranController.php
++++ /dev/null
+@@ -1,35 +0,0 @@
+-<?php
+-
+-namespace App\Http\Controllers;
+-
+-use App\Models\Pendaftaran;
+-use App\Models\Ekstrakurikuler;
+-use Illuminate\Http\Request;
+-
+-class PendaftaranController extends Controller
+-{
+-    // Menampilkan Form Pendaftaran
+-    public function create()
+-    {
+-        $ekstrakurikuler = Ekstrakurikuler::all();
+-        return view('pendaftaran.create', compact('ekstrakurikuler'));
+-    }
+-
+-    // Menyimpan Data Pendaftaran
+-    public function store(Request $request)
+-    {
+-        $validated = $request->validate([
+-            'ekstrakurikuler_id' => 'required|exists:ekstrakurikulers,id',
+-            'nama_siswa'        => 'required|string|max:255',
+-            'kelas'             => 'required|string|max:50',
+-            'pembina'           => 'nullable|string|max:255',
+-            'admin'             => 'nullable|string|max:255',
+-            'alasan'            => 'required|string',
+-        ]);
+-
+-        Pendaftaran::create($validated);
+-
+-        return redirect()->route('pendaftaran.index')
+-            ->with('success', 'Pendaftaran berhasil dikirim!');
+-    }
+-}
+\ No newline at end of file
+diff --git a/app/Http/Controllers/PendaftaranEkskulController.php b/app/Http/Controllers/PendaftaranEkskulController.php
+index 7480090..cf26196 100644
+--- a/app/Http/Controllers/PendaftaranEkskulController.php
++++ b/app/Http/Controllers/PendaftaranEkskulController.php
+@@ -202,6 +202,11 @@ public function updateStatus(Request $request, PendaftaranEkskul $pendaftaran)
+             'alasan' => 'nullable|string',
+         ]);
+ 
++        // Admin & pembina bukan siswa: pendaftaran lama milik akun yang sekarang jadi staf tidak boleh diterima
++        if ($data['status'] === 'diterima' && $pendaftaran->user?->isStaff()) {
++            return back()->with('error', 'Pendaftar ini sekarang berperan admin/pembina, bukan siswa, jadi tidak bisa diterima sebagai anggota. Tolak saja pendaftarannya.');
++        }
++
+         $sebelumnya = $pendaftaran->status;
+ 
+         $pendaftaran->update([
+diff --git a/app/Http/Controllers/ProfileController.php b/app/Http/Controllers/ProfileController.php
+deleted file mode 100644
+index c9d1aa9..0000000
+--- a/app/Http/Controllers/ProfileController.php
++++ /dev/null
+@@ -1,24 +0,0 @@
+-<?php
+-
+-namespace App\Http\Controllers;
+-
+-use Illuminate\Http\Request;
+-
+-class ProfileController extends Controller
+-{
+-    public function biodata()
+-    {
+-        $name = 'kemed';
+-        $nama = 'kehed';
+-        $umur = 20;
+-        return view('profile.biodata', compact(['name', 'nama', 'umur']));
+-    }
+-
+-    public function previousSchool()
+-    {
+-    //     $school = 'SMK Mahaputra Cerdas Utama';
+-    //     $major = 'Rekayasa Perangkat Lunak';
+-    //     return view('profile.previous-school', compact(['school', 'major']));
+-    return "alhamdullillah saya sudah bisa menampilkan data sekolah sebelumnya";
+-    }
+-}
+\ No newline at end of file
+diff --git a/app/Http/Controllers/UserController.php b/app/Http/Controllers/UserController.php
+index 64dc75e..cacf1a6 100644
+--- a/app/Http/Controllers/UserController.php
++++ b/app/Http/Controllers/UserController.php
+@@ -8,7 +8,9 @@
+ use App\Models\PendaftaranEkskul;
+ use App\Models\User;
+ use App\Rules\PasswordKuat;
++use App\Services\KeanggotaanService;
+ use App\Services\OsisService;
++use App\Support\Pemberitahuan;
+ use Illuminate\Http\Request;
+ use Illuminate\Support\Facades\Auth;
+ use Illuminate\Support\Facades\Gate;
+@@ -87,7 +89,7 @@ public function update(Request $request, User $user)
+         return redirect()->route('users.index')->with('success', "Data {$user->name} berhasil diperbarui.");
+     }
+ 
+-    public function updateRole(Request $request, User $user)
++    public function updateRole(Request $request, User $user, KeanggotaanService $keanggotaan)
+     {
+         Gate::authorize('ubahRole', $user);
+ 
+@@ -104,7 +106,23 @@ public function updateRole(Request $request, User $user)
+                 ->update(['selesai' => now()->toDateString()]);
+         }
+ 
+-        return back()->with('success', "Role {$user->name} diubah menjadi {$data['role']}.");
++        // Admin & pembina bukan siswa: keanggotaan ekskul sebagai siswa ikut diakhiri
++        $diakhiri = $data['role'] !== 'siswa' ? $keanggotaan->akhiriKeanggotaanSiswa($user, $request->user()) : 0;
++
++        if ($diakhiri > 0) {
++            Pemberitahuan::kirim(
++                [$user],
++                'Keanggotaan ekskul diakhiri',
++                "Akunmu sekarang berperan sebagai {$data['role']}, jadi keanggotaanmu sebagai siswa di {$diakhiri} ekskul diakhiri.",
++                route('profil.show', [], false),
++                'ℹ️',
++                $request->user()->id
++            );
++        }
++
++        $info = $diakhiri > 0 ? " Keanggotaan ekskulnya sebagai siswa ({$diakhiri}) diakhiri." : '';
++
++        return back()->with('success', "Role {$user->name} diubah menjadi {$data['role']}.{$info}");
+     }
+ 
+     // Aktifkan <-> nonaktifkan
+diff --git a/app/Models/EkskulPr.php b/app/Models/EkskulPr.php
+index a32affa..a87a877 100644
+--- a/app/Models/EkskulPr.php
++++ b/app/Models/EkskulPr.php
+@@ -5,6 +5,8 @@
+ use Illuminate\Database\Eloquent\Model;
+ use Illuminate\Support\Facades\Storage;
+ 
++// Di tampilan fitur ini disebut "Task" (tugas ekskul yang dikumpulkan dan dinilai). Nama class, rute (pr.*),
++// dan tabel (ekskul_prs) sengaja tetap "pr" supaya tidak perlu migrasi.
+ class EkskulPr extends Model
+ {
+     protected $table = 'ekskul_prs';
+@@ -30,7 +32,7 @@ public function pengumpulans()
+ 
+     protected static function booted(): void
+     {
+-        // Hapus berkas pengumpulan saat PR dihapus (baris pengumpulannya terhapus lewat cascade)
++        // Hapus berkas pengumpulan saat Task dihapus (baris pengumpulannya terhapus lewat cascade)
+         static::deleting(function (self $pr) {
+             $pr->pengumpulans()->whereNotNull('berkas')->pluck('berkas')->each(
+                 fn ($path) => Storage::disk('local')->delete($path)
+diff --git a/app/Models/Ekstrakurikuler.php b/app/Models/Ekstrakurikuler.php
+index 8476e06..fde2b94 100644
+--- a/app/Models/Ekstrakurikuler.php
++++ b/app/Models/Ekstrakurikuler.php
+@@ -31,7 +31,7 @@ class Ekstrakurikuler extends Model
+ 
+     protected static function booted(): void
+     {
+-        // Menghapus ekskul = menghapus juga berkas fisik materi, PR, dan galerinya
++        // Menghapus ekskul = menghapus juga berkas fisik materi, Task, dan galerinya
+         static::deleting(function (self $ekskul) {
+             foreach (['materi', 'pr', 'galeri'] as $folder) {
+                 Storage::disk('local')->deleteDirectory("{$folder}/{$ekskul->id}");
+diff --git a/app/Models/Pendaftaran.php b/app/Models/Pendaftaran.php
+deleted file mode 100644
+index 8b027b8..0000000
+--- a/app/Models/Pendaftaran.php
++++ /dev/null
+@@ -1,23 +0,0 @@
+-<?php
+-
+-namespace App\Models;
+-
+-use Illuminate\Database\Eloquent\Model;
+-
+-class Pendaftaran extends Model
+-{
+-    protected $fillable = [
+-        'ekstrakurikuler_id',
+-        'nama_siswa',
+-        'kelas',
+-        'pembina',
+-        'admin',
+-        'alasan',
+-        'status',
+-    ];
+-
+-    public function ekstrakurikuler()
+-    {
+-        return $this->belongsTo(Ekstrakurikuler::class);
+-    }
+-}
+diff --git a/app/Policies/EkstrakurikulerPolicy.php b/app/Policies/EkstrakurikulerPolicy.php
+index fbc4609..493adfc 100644
+--- a/app/Policies/EkstrakurikulerPolicy.php
++++ b/app/Policies/EkstrakurikulerPolicy.php
+@@ -18,7 +18,7 @@ public function kelola(User $user, Ekstrakurikuler $ekskul): bool
+         return $user->isPembina() && in_array((int) $ekskul->id, $user->idEkskulDikelola(), true);
+     }
+ 
+-    // Membuka Materi & PR: pengelola ekskul, atau anggota aktif yang DIIZINKAN pembina/admin.
++    // Membuka Materi & Task: pengelola ekskul, atau anggota aktif yang DIIZINKAN pembina/admin.
+     public function lihatMateri(User $user, Ekstrakurikuler $ekskul): bool
+     {
+         if ($this->kelola($user, $ekskul)) {
+diff --git a/app/Services/KeanggotaanService.php b/app/Services/KeanggotaanService.php
+index 982aed8..0fb6d75 100644
+--- a/app/Services/KeanggotaanService.php
++++ b/app/Services/KeanggotaanService.php
+@@ -208,6 +208,33 @@ public function putuskan(EkskulPengunduranDiri $pengajuan, User $pemutus, bool $
+         }
+     }
+ 
++    // Admin & pembina bukan siswa. Kalau akun diubah jadi admin/pembina, keanggotaannya sebagai siswa diakhiri:
++    // status "keluar" (seperti mengundurkan diri, riwayat tetap tersimpan) dan pengajuan keluar yang menunggu ditutup.
++    // Pendaftaran yang masih pending tidak diubah di sini; menyetujuinya ditolak di PendaftaranEkskulController.
++    // Mengembalikan jumlah keanggotaan aktif yang diakhiri.
++    public function akhiriKeanggotaanSiswa(User $user, User $pelaku): int
++    {
++        return DB::transaction(function () use ($user, $pelaku) {
++            $aktif = PendaftaranEkskul::anggotaAktif()->where('user_id', $user->id)->get();
++
++            foreach ($aktif as $p) {
++                $this->terapkanKeluarAnggota($p, 'keluar');
++            }
++
++            EkskulPengunduranDiri::where('user_id', $user->id)
++                ->where('peran', 'anggota')
++                ->where('status', 'menunggu')
++                ->update([
++                    'status'            => 'disetujui',
++                    'diputuskan_oleh'   => $pelaku->id,
++                    'catatan_keputusan' => 'Ditutup otomatis: akun diubah menjadi admin/pembina.',
++                    'diputuskan_pada'   => now(),
++                ]);
++
++            return $aktif->count();
++        });
++    }
++
+     // Anggota yang dikeluarkan tidak perlu lagi menunggu keputusan atas pengajuan keluarnya
+     private function tutupPengajuanMenunggu(PendaftaranEkskul $p, User $pelaku): void
+     {
+diff --git a/app/Support/BerkasPrivat.php b/app/Support/BerkasPrivat.php
+index 833989a..88ba5ec 100644
+--- a/app/Support/BerkasPrivat.php
++++ b/app/Support/BerkasPrivat.php
+@@ -6,7 +6,7 @@
+ use Illuminate\Support\Facades\Storage;
+ use Illuminate\Support\Str;
+ 
+-// Berkas materi dan PR disimpan di disk PRIVAT (tidak bisa dibuka lewat URL langsung),
++// Berkas materi dan Task disimpan di disk PRIVAT (tidak bisa dibuka lewat URL langsung),
+ // dan hanya disajikan lewat controller yang sudah mengecek hak akses.
+ class BerkasPrivat
+ {
+diff --git a/poin7-pendaftaran-pengunduran-diri.patch b/poin7-pendaftaran-pengunduran-diri.patch
+deleted file mode 100644
+index 88b8ffa..0000000
+--- a/poin7-pendaftaran-pengunduran-diri.patch
++++ /dev/null
+@@ -1,696 +0,0 @@
+-diff --git a/app/Http/Controllers/PendaftaranEkskulController.php b/app/Http/Controllers/PendaftaranEkskulController.php
+-index c77a31f..982b163 100644
+---- a/app/Http/Controllers/PendaftaranEkskulController.php
+-+++ b/app/Http/Controllers/PendaftaranEkskulController.php
+-@@ -8,6 +8,7 @@
+- use App\Support\Pemberitahuan;
+- use Illuminate\Http\Request;
+- use Illuminate\Support\Facades\Auth;
+-+use Illuminate\Support\Facades\Cache;
+- use Illuminate\Support\Facades\Gate;
+- 
+- class PendaftaranEkskulController extends Controller
+-@@ -60,11 +61,23 @@ public function create(Request $request)
+-         }
+-         $ekskuls = $ekskuls->reject(fn ($e) => $e->jenis === 'osis')->values();
+- 
+--        // Siswa tidak bisa memilih ekskul yang pendaftarannya ditutup / kuotanya penuh
+-+        // Siswa tidak bisa memilih ekskul yang pendaftarannya ditutup / kuotanya penuh,
+-+        // maupun ekskul yang masih punya pendaftaran berlaku (lihat PendaftaranEkskul::penghalangDaftar)
+-         if (! $user->isStaff()) {
+--            $ekskuls = $ekskuls->filter(fn ($e) => $e->pendaftaran_terbuka)->values();
+-+            $terhalang = PendaftaranEkskul::idEkskulTerhalang($user->id);
+-+
+-+            $ekskuls = $ekskuls
+-+                ->filter(fn ($e) => $e->pendaftaran_terbuka)
+-+                ->reject(fn ($e) => $terhalang->contains($e->id))
+-+                ->values();
+- 
+-             if ($terpilih && ! $ekskuls->contains('id', (int) $terpilih)) {
+-+                $penghalang = PendaftaranEkskul::penghalangDaftar($user->id, (int) $terpilih);
+-+
+-+                if ($penghalang) {
+-+                    return redirect()->route('ekstrakurikuler.show', (int) $terpilih)->with('error', $penghalang->pesan_penghalang);
+-+                }
+-+
+-                 $tutup = Ekstrakurikuler::find($terpilih);
+- 
+-                 return redirect()->route('ekstrakurikuler.index')
+-@@ -100,10 +113,12 @@ public function store(Request $request)
+- 
+-             $data['user_id'] = null;
+- 
+--            $sudah = PendaftaranEkskul::where('ekstrakurikuler_id', $data['ekstrakurikuler_id'])
+-+            // Staf boleh mendaftarkan ulang orang yang sudah keluar maupun dikeluarkan
+-+            $kunci = 'daftar-ekskul:'.$ekskul->id.':n'.md5(mb_strtolower($data['nama_pendaftar']));
+-+            $cekPenghalang = fn () => PendaftaranEkskul::where('ekstrakurikuler_id', $data['ekstrakurikuler_id'])
+-                 ->whereRaw('LOWER(nama_pendaftar) = ?', [mb_strtolower($data['nama_pendaftar'])])
+--                ->where('status_anggota', 'aktif')   // yang sudah keluar boleh didaftarkan lagi
+--                ->exists();
+-+                ->where('status_anggota', 'aktif')
+-+                ->exists() ? 'Sudah terdaftar di ekskul tersebut.' : null;
+-         } else {
+-             // Siswa: identitas diambil dari akun yang login, bukan dari input form
+-             $data = $request->validate([
+-@@ -134,27 +149,37 @@ public function store(Request $request)
+-                 'nisn' => $user->nisn,
+-             ];
+- 
+--            $sudah = PendaftaranEkskul::where('ekstrakurikuler_id', $data['ekstrakurikuler_id'])
+--                ->where('user_id', $user->id)
+--                ->where('status_anggota', 'aktif')   // yang sudah keluar boleh mendaftar lagi
+--                ->exists();
+-+            // Hanya yang pernah mengundurkan diri (status_anggota "keluar") yang boleh mendaftar lagi
+-+            $kunci = 'daftar-ekskul:'.$ekskul->id.':u'.$user->id;
+-+            $cekPenghalang = fn () => PendaftaranEkskul::penghalangDaftar($user->id, $ekskul->id)?->pesan_penghalang;
+-         }
+- 
+--        if ($sudah) {
+--            return back()->withInput()->with('error', 'Sudah terdaftar di ekskul tersebut.');
+-+        // Kunci singkat: klik ganda atau dua tab yang mengirim bersamaan tidak membuat pendaftaran kembar
+-+        $kunciDaftar = Cache::lock($kunci, 10);
+-+
+-+        if (! $kunciDaftar->get()) {
+-+            return back()->withInput()->with('error', 'Pendaftaran sedang diproses. Tunggu sebentar, lalu cek daftar pendaftaran.');
+-         }
+- 
+--        // Siswa: kalau jadwal ekskul ini bentrok dengan ekskul lain miliknya, minta konfirmasi dulu
+--        if (! $user->isStaff()) {
+--            $bentrokBaru = $this->bentrok->bentrokUntukEkskulBaru($user, $ekskul);
+-+        try {
+-+            if ($pesanPenghalang = $cekPenghalang()) {
+-+                return back()->withInput()->with('error', $pesanPenghalang);
+-+            }
+-+
+-+            // Siswa: kalau jadwal ekskul ini bentrok dengan ekskul lain miliknya, minta konfirmasi dulu
+-+            if (! $user->isStaff()) {
+-+                $bentrokBaru = $this->bentrok->bentrokUntukEkskulBaru($user, $ekskul);
+- 
+--            if ($bentrokBaru->isNotEmpty() && ! $request->boolean('konfirmasi_bentrok')) {
+--                return back()->withInput()->with('bentrok_baru', $bentrokBaru->map(fn (array $b) => $this->bentrok->ringkas($b))->all());
+-+                if ($bentrokBaru->isNotEmpty() && ! $request->boolean('konfirmasi_bentrok')) {
+-+                    return back()->withInput()->with('bentrok_baru', $bentrokBaru->map(fn (array $b) => $this->bentrok->ringkas($b))->all());
+-+                }
+-             }
+--        }
+- 
+--        $data['status'] = 'pending';
+--        PendaftaranEkskul::create($data);
+-+            $data['status'] = 'pending';
+-+            PendaftaranEkskul::create($data);
+-+        } finally {
+-+            $kunciDaftar->release();
+-+        }
+- 
+-         // Beri tahu admin & pembina ekskul itu
+-         Pemberitahuan::kirim(
+-diff --git a/app/Models/PendaftaranEkskul.php b/app/Models/PendaftaranEkskul.php
+-index a050edd..521d58a 100644
+---- a/app/Models/PendaftaranEkskul.php
+-+++ b/app/Models/PendaftaranEkskul.php
+-@@ -72,6 +72,43 @@ public function scopeAnggotaAktif($query)
+-         return $query->where('status', 'diterima')->where('status_anggota', 'aktif');
+-     }
+- 
+-+    // ---- Anti-double registration ----
+-+    // Siswa TIDAK boleh mendaftar lagi ke ekskul yang sama kalau masih ada pendaftaran yang berlaku:
+-+    // menunggu, anggota aktif, ditolak, atau dikeluarkan. Satu-satunya pengecualian: status_anggota
+-+    // "keluar" (mengundurkan diri yang sudah disetujui). Dikeluarkan hanya bisa didaftarkan ulang oleh admin/pembina.
+-+    public static function penghalangDaftar(int $userId, int $ekskulId): ?self
+-+    {
+-+        return static::where('user_id', $userId)
+-+            ->where('ekstrakurikuler_id', $ekskulId)
+-+            ->where('status_anggota', '!=', 'keluar')
+-+            ->latest('id')
+-+            ->first();
+-+    }
+-+
+-+    // Id semua ekskul yang sedang terhalang untuk user ini (satu query, dipakai menyaring form pendaftaran)
+-+    public static function idEkskulTerhalang(int $userId): \Illuminate\Support\Collection
+-+    {
+-+        return static::where('user_id', $userId)
+-+            ->where('status_anggota', '!=', 'keluar')
+-+            ->pluck('ekstrakurikuler_id')
+-+            ->unique()
+-+            ->values();
+-+    }
+-+
+-+    // Alasan yang ditampilkan ke siswa saat pendaftarannya ditolak sistem karena double registration
+-+    public function getPesanPenghalangAttribute(): string
+-+    {
+-+        if ($this->status_anggota === 'dikeluarkan') {
+-+            return 'Kamu pernah dikeluarkan dari ekskul ini. Hubungi pembina kalau ingin bergabung lagi.';
+-+        }
+-+
+-+        return match ($this->status) {
+-+            'diterima' => 'Kamu sudah menjadi anggota aktif ekskul ini.',
+-+            'ditolak'  => 'Pendaftaranmu sebelumnya tidak disetujui. Hubungi pembina kalau ingin diproses ulang.',
+-+            default    => 'Pendaftaranmu masih menunggu persetujuan.',
+-+        };
+-+    }
+-+
+-     public function kehadirans()
+-     {
+-         return $this->hasMany(EkskulKehadiran::class, 'pendaftaran_id');
+-diff --git a/app/Services/KeanggotaanService.php b/app/Services/KeanggotaanService.php
+-index 36bfb8a..982aed8 100644
+---- a/app/Services/KeanggotaanService.php
+-+++ b/app/Services/KeanggotaanService.php
+-@@ -9,7 +9,9 @@
+- use App\Models\PendaftaranEkskul;
+- use App\Models\User;
+- use App\Support\Pemberitahuan;
+-+use Closure;
+- use DomainException;
+-+use Illuminate\Support\Facades\Cache;
+- use Illuminate\Support\Facades\DB;
+- 
+- // Semua perpindahan status keanggotaan lewat sini supaya aturannya konsisten.
+-@@ -24,17 +26,20 @@ public function ajukanAnggota(PendaftaranEkskul $p, User $pengaju, string $alasa
+-         }
+- 
+-         $this->pastikanAnggotaAktif($p);
+--        $this->pastikanBelumAdaPengajuan($p->ekstrakurikuler_id, $pengaju->id);
+--
+--        $pengajuan = EkskulPengunduranDiri::create([
+--            'ekstrakurikuler_id' => $p->ekstrakurikuler_id,
+--            'user_id'            => $pengaju->id,
+--            'pendaftaran_id'     => $p->id,
+--            'peran'              => 'anggota',
+--            'jenis'              => 'mengundurkan_diri',
+--            'alasan'             => $alasan,
+--            'diajukan_oleh'      => $pengaju->id,
+--        ]);
+-+
+-+        $pengajuan = $this->denganKunci("pengajuan-keluar:{$p->ekstrakurikuler_id}:{$pengaju->id}", function () use ($p, $pengaju, $alasan) {
+-+            $this->pastikanBelumAdaPengajuan($p->ekstrakurikuler_id, $pengaju->id);
+-+
+-+            return EkskulPengunduranDiri::create([
+-+                'ekstrakurikuler_id' => $p->ekstrakurikuler_id,
+-+                'user_id'            => $pengaju->id,
+-+                'pendaftaran_id'     => $p->id,
+-+                'peran'              => 'anggota',
+-+                'jenis'              => 'mengundurkan_diri',
+-+                'alasan'             => $alasan,
+-+                'diajukan_oleh'      => $pengaju->id,
+-+            ]);
+-+        });
+- 
+-         $ekskul = $p->ekstrakurikuler;
+-         Pemberitahuan::kirim(
+-@@ -61,16 +66,18 @@ public function ajukanPembina(Ekstrakurikuler $ekskul, User $pembina, string $al
+-             throw new DomainException('Kamu bukan pembina yang bertugas di ekskul ini.');
+-         }
+- 
+--        $this->pastikanBelumAdaPengajuan($ekskul->id, $pembina->id);
+-+        $pengajuan = $this->denganKunci("pengajuan-keluar:{$ekskul->id}:{$pembina->id}", function () use ($ekskul, $pembina, $alasan) {
+-+            $this->pastikanBelumAdaPengajuan($ekskul->id, $pembina->id);
+- 
+--        $pengajuan = EkskulPengunduranDiri::create([
+--            'ekstrakurikuler_id' => $ekskul->id,
+--            'user_id'            => $pembina->id,
+--            'peran'              => 'pembina',
+--            'jenis'              => 'mengundurkan_diri',
+--            'alasan'             => $alasan,
+--            'diajukan_oleh'      => $pembina->id,
+--        ]);
+-+            return EkskulPengunduranDiri::create([
+-+                'ekstrakurikuler_id' => $ekskul->id,
+-+                'user_id'            => $pembina->id,
+-+                'peran'              => 'pembina',
+-+                'jenis'              => 'mengundurkan_diri',
+-+                'alasan'             => $alasan,
+-+                'diajukan_oleh'      => $pembina->id,
+-+            ]);
+-+        });
+- 
+-         Pemberitahuan::kirim(
+-             Pemberitahuan::admin(),
+-@@ -94,6 +101,10 @@ public function keluarkan(PendaftaranEkskul $p, User $pelaku, string $alasan): E
+-         $this->pastikanAnggotaAktif($p);
+- 
+-         $catatan = DB::transaction(function () use ($p, $pelaku, $alasan) {
+-+            // Ambil ulang dengan kunci baris: dua pengeluaran serentak tidak membuat catatan ganda
+-+            $p = PendaftaranEkskul::lockForUpdate()->findOrFail($p->id);
+-+            $this->pastikanAnggotaAktif($p);
+-+
+-             $catatan = EkskulPengunduranDiri::create([
+-                 'ekstrakurikuler_id' => $p->ekstrakurikuler_id,
+-                 'user_id'            => $p->user_id,
+-@@ -108,6 +119,7 @@ public function keluarkan(PendaftaranEkskul $p, User $pelaku, string $alasan): E
+-             ]);
+- 
+-             $this->terapkanKeluarAnggota($p, 'dikeluarkan');
+-+            $this->tutupPengajuanMenunggu($p, $pelaku);
+- 
+-             return $catatan;
+-         });
+-@@ -134,7 +146,14 @@ public function putuskan(EkskulPengunduranDiri $pengajuan, User $pemutus, bool $
+-         }
+- 
+-         DB::transaction(function () use ($pengajuan, $pemutus, $setuju, $catatan) {
+--            $pengajuan->update([
+-+            // Ambil ulang dengan kunci baris: dua orang yang memutuskan bersamaan tidak memprosesnya dua kali
+-+            $terkini = EkskulPengunduranDiri::lockForUpdate()->findOrFail($pengajuan->id);
+-+
+-+            if ($terkini->status !== 'menunggu') {
+-+                throw new DomainException('Pengajuan ini sudah diputuskan.');
+-+            }
+-+
+-+            $terkini->update([
+-                 'status'            => $setuju ? 'disetujui' : 'ditolak',
+-                 'diputuskan_oleh'   => $pemutus->id,
+-                 'catatan_keputusan' => $catatan,
+-@@ -189,6 +208,41 @@ public function putuskan(EkskulPengunduranDiri $pengajuan, User $pemutus, bool $
+-         }
+-     }
+- 
+-+    // Anggota yang dikeluarkan tidak perlu lagi menunggu keputusan atas pengajuan keluarnya
+-+    private function tutupPengajuanMenunggu(PendaftaranEkskul $p, User $pelaku): void
+-+    {
+-+        if ($p->user_id === null) {
+-+            return; // pendaftaran manual tanpa akun tidak punya pengajuan
+-+        }
+-+
+-+        EkskulPengunduranDiri::where('ekstrakurikuler_id', $p->ekstrakurikuler_id)
+-+            ->where('user_id', $p->user_id)
+-+            ->where('peran', 'anggota')
+-+            ->where('status', 'menunggu')
+-+            ->update([
+-+                'status'            => 'disetujui',
+-+                'diputuskan_oleh'   => $pelaku->id,
+-+                'catatan_keputusan' => 'Ditutup otomatis: anggota dikeluarkan.',
+-+                'diputuskan_pada'   => now(),
+-+            ]);
+-+    }
+-+
+-+    // Satu aksi per kunci pada satu waktu (cegah klik ganda membuat pengajuan kembar)
+-+    private function denganKunci(string $kunci, Closure $aksi): mixed
+-+    {
+-+        $kunciCache = Cache::lock($kunci, 10);
+-+
+-+        if (! $kunciCache->get()) {
+-+            throw new DomainException('Permintaanmu sedang diproses. Tunggu sebentar lalu muat ulang halaman.');
+-+        }
+-+
+-+        try {
+-+            return $aksi();
+-+        } finally {
+-+            $kunciCache->release();
+-+        }
+-+    }
+-+
+-     private function terapkanKeluarAnggota(PendaftaranEkskul $p, string $status): void
+-     {
+-         $p->update([
+-diff --git a/resources/views/ekstrakurikuler/show.blade.php b/resources/views/ekstrakurikuler/show.blade.php
+-index 92b21be..a198c68 100644
+---- a/resources/views/ekstrakurikuler/show.blade.php
+-+++ b/resources/views/ekstrakurikuler/show.blade.php
+-@@ -86,7 +86,8 @@ class="px-4 py-2 text-sm font-semibold border-b-2 whitespace-nowrap {{ $tab ===
+-                     @elseif($pendaftaranSaya && $pendaftaranSaya->status_anggota === 'dikeluarkan')
+-                         <p class="text-sm text-red-600">
+-                             Kamu dikeluarkan dari ekskul ini
+--                            @if($pendaftaranSaya->tanggal_keluar) pada {{ $pendaftaranSaya->tanggal_keluar->format('d-m-Y') }} @endif
+-+                            @if($pendaftaranSaya->tanggal_keluar) pada {{ $pendaftaranSaya->tanggal_keluar->format('d-m-Y') }} @endif.
+-+                            <span class="text-gray-500">Hubungi pembina kalau ingin bergabung lagi.</span>
+-                         </p>
+-                     @elseif($pendaftaranSaya)
+-                         <p class="text-sm text-gray-600 mb-3">
+-diff --git a/tests/Feature/PendaftaranPengunduranTest.php b/tests/Feature/PendaftaranPengunduranTest.php
+-new file mode 100644
+-index 0000000..0312bfd
+---- /dev/null
+-+++ b/tests/Feature/PendaftaranPengunduranTest.php
+-@@ -0,0 +1,371 @@
+-+<?php
+-+
+-+use App\Models\EkskulPembina;
+-+use App\Models\EkskulPengunduranDiri;
+-+use App\Models\Ekstrakurikuler;
+-+use App\Models\PendaftaranEkskul;
+-+use App\Models\User;
+-+use Illuminate\Foundation\Testing\RefreshDatabase;
+-+use Illuminate\Support\Facades\Cache;
+-+
+-+uses(RefreshDatabase::class);
+-+
+-+beforeEach(function () {
+-+    $this->withoutVite();
+-+});
+-+
+-+function akunKeanggotaan(string $role = 'siswa', ?string $nama = null): User
+-+{
+-+    return User::factory()->create(array_filter([
+-+        'name' => $nama,
+-+        'role' => $role,
+-+        'is_active' => true,
+-+    ]));
+-+}
+-+
+-+function ekskulKeanggotaan(string $nama = 'Futsal'): Ekstrakurikuler
+-+{
+-+    return Ekstrakurikuler::create([
+-+        'nama_ekstrakurikuler' => $nama,
+-+        'pembina' => 'Pak Budi',
+-+        'status' => 'aktif',
+-+    ]);
+-+}
+-+
+-+function tugaskanPembinaKeanggotaan(User $pembina, Ekstrakurikuler $ekskul): EkskulPembina
+-+{
+-+    return EkskulPembina::create([
+-+        'ekstrakurikuler_id' => $ekskul->id,
+-+        'user_id' => $pembina->id,
+-+        'mulai' => now()->toDateString(),
+-+    ]);
+-+}
+-+
+-+function daftarKeanggotaan(User $siswa, Ekstrakurikuler $ekskul, string $status = 'diterima', string $statusAnggota = 'aktif'): PendaftaranEkskul
+-+{
+-+    return PendaftaranEkskul::create([
+-+        'user_id' => $siswa->id,
+-+        'ekstrakurikuler_id' => $ekskul->id,
+-+        'nama_pendaftar' => $siswa->name,
+-+        'peran' => 'siswa',
+-+        'status' => $status,
+-+        'status_anggota' => $statusAnggota,
+-+    ]);
+-+}
+-+
+-+// Judul notifikasi in-app yang diterima user (untuk memeriksa siapa diberi tahu apa)
+-+function judulNotifikasi(User $user): array
+-+{
+-+    return $user->notifications()->get()->map(fn ($n) => $n->data['judul'] ?? null)->all();
+-+}
+-+
+-+// ---------------------------------------------------------------------------
+-+// 7a. Anti-double registration
+-+// ---------------------------------------------------------------------------
+-+
+-+test('siswa tidak bisa mendaftar lagi selama pendaftaran sebelumnya masih berlaku', function (string $status, string $statusAnggota, string $pesan) {
+-+    $siswa = akunKeanggotaan();
+-+    $ekskul = ekskulKeanggotaan();
+-+    daftarKeanggotaan($siswa, $ekskul, $status, $statusAnggota);
+-+
+-+    $this->actingAs($siswa)->post(route('pendaftaran.store'), ['ekstrakurikuler_id' => $ekskul->id])
+-+        ->assertSessionHas('error', fn ($pesanError) => str_contains($pesanError, $pesan));
+-+
+-+    expect(PendaftaranEkskul::count())->toBe(1);
+-+})->with([
+-+    'masih menunggu' => ['pending', 'aktif', 'menunggu persetujuan'],
+-+    'anggota aktif' => ['diterima', 'aktif', 'anggota aktif'],
+-+    'pernah ditolak' => ['ditolak', 'aktif', 'tidak disetujui'],
+-+    'pernah dikeluarkan' => ['diterima', 'dikeluarkan', 'dikeluarkan'],
+-+]);
+-+
+-+test('siswa yang pernah mengundurkan diri boleh mendaftar lagi', function () {
+-+    $siswa = akunKeanggotaan();
+-+    $ekskul = ekskulKeanggotaan();
+-+    $lama = daftarKeanggotaan($siswa, $ekskul, 'diterima', 'keluar');
+-+
+-+    $this->actingAs($siswa)->post(route('pendaftaran.store'), ['ekstrakurikuler_id' => $ekskul->id])
+-+        ->assertRedirect(route('pendaftaran.index'));
+-+
+-+    // Riwayat lama tetap ada; yang baru menunggu persetujuan
+-+    expect(PendaftaranEkskul::where('user_id', $siswa->id)->count())->toBe(2)
+-+        ->and($lama->fresh()->status_anggota)->toBe('keluar')
+-+        ->and(PendaftaranEkskul::where('user_id', $siswa->id)->where('status', 'pending')->exists())->toBeTrue();
+-+
+-+    // Pendaftaran baru itu sendiri langsung menghalangi daftar ketiga kalinya
+-+    $this->actingAs($siswa)->post(route('pendaftaran.store'), ['ekstrakurikuler_id' => $ekskul->id])
+-+        ->assertSessionHas('error');
+-+    expect(PendaftaranEkskul::where('user_id', $siswa->id)->count())->toBe(2);
+-+});
+-+
+-+test('pendaftaran yang dikirim bersamaan ditahan oleh kunci', function () {
+-+    $siswa = akunKeanggotaan();
+-+    $ekskul = ekskulKeanggotaan();
+-+
+-+    $kunci = Cache::lock("daftar-ekskul:{$ekskul->id}:u{$siswa->id}", 10);
+-+    expect($kunci->get())->toBeTrue();
+-+
+-+    $this->actingAs($siswa)->post(route('pendaftaran.store'), ['ekstrakurikuler_id' => $ekskul->id])
+-+        ->assertSessionHas('error');
+-+    expect(PendaftaranEkskul::count())->toBe(0);
+-+
+-+    $kunci->release();
+-+
+-+    $this->actingAs($siswa)->post(route('pendaftaran.store'), ['ekstrakurikuler_id' => $ekskul->id])
+-+        ->assertRedirect(route('pendaftaran.index'));
+-+    expect(PendaftaranEkskul::count())->toBe(1);
+-+});
+-+
+-+test('form pendaftaran tidak menawarkan ekskul yang masih punya pendaftaran berlaku', function () {
+-+    $siswa = akunKeanggotaan();
+-+    $terdaftar = ekskulKeanggotaan('Silat');
+-+    ekskulKeanggotaan('Catur');
+-+    daftarKeanggotaan($siswa, $terdaftar);
+-+
+-+    $this->actingAs($siswa)->get(route('pendaftaran.create'))
+-+        ->assertOk()
+-+        ->assertSee('Catur')
+-+        ->assertDontSee('Silat');
+-+
+-+    $this->actingAs($siswa)->get(route('pendaftaran.create', ['ekstrakurikuler_id' => $terdaftar->id]))
+-+        ->assertRedirect(route('ekstrakurikuler.show', $terdaftar->id))
+-+        ->assertSessionHas('error');
+-+});
+-+
+-+// ---------------------------------------------------------------------------
+-+// 7b. Siswa mengundurkan diri (butuh persetujuan pembina/admin)
+-+// ---------------------------------------------------------------------------
+-+
+-+test('siswa mengajukan keluar dengan alasan, baru resmi keluar setelah pembina menyetujui', function () {
+-+    $siswa = akunKeanggotaan();
+-+    $pembina = akunKeanggotaan('pembina');
+-+    $ekskul = ekskulKeanggotaan();
+-+    tugaskanPembinaKeanggotaan($pembina, $ekskul);
+-+    $pendaftaran = daftarKeanggotaan($siswa, $ekskul);
+-+
+-+    // Alasan wajib dan minimal 10 karakter
+-+    $this->actingAs($siswa)->post(route('pengunduran.anggota', $ekskul->id), ['alasan' => 'capek'])
+-+        ->assertSessionHasErrors('alasan');
+-+    expect(EkskulPengunduranDiri::count())->toBe(0);
+-+
+-+    $this->actingAs($siswa)->post(route('pengunduran.anggota', $ekskul->id), ['alasan' => 'Jadwalnya bentrok dengan les tambahan.'])
+-+        ->assertSessionHas('success');
+-+
+-+    $pengajuan = EkskulPengunduranDiri::firstOrFail();
+-+    expect($pengajuan->status)->toBe('menunggu')
+-+        ->and($pengajuan->peran)->toBe('anggota')
+-+        ->and($pengajuan->jenis)->toBe('mengundurkan_diri')
+-+        ->and(judulNotifikasi($pembina))->toContain('Pengajuan keluar ekskul');
+-+
+-+    // Sebelum disetujui, siswa tetap anggota aktif
+-+    expect($pendaftaran->fresh()->status_anggota)->toBe('aktif');
+-+
+-+    $this->actingAs($pembina)->patch(route('pengunduran.putuskan', $pengajuan->id), ['keputusan' => 'setuju'])
+-+        ->assertSessionHas('success');
+-+
+-+    expect($pengajuan->fresh()->status)->toBe('disetujui')
+-+        ->and($pendaftaran->fresh()->status_anggota)->toBe('keluar')
+-+        ->and($pendaftaran->fresh()->tanggal_keluar)->not->toBeNull()
+-+        ->and(judulNotifikasi($siswa))->toContain('Pengunduran diri disetujui');
+-+
+-+    // Sudah keluar -> boleh mendaftar lagi (aturan 7a)
+-+    $this->actingAs($siswa)->post(route('pendaftaran.store'), ['ekstrakurikuler_id' => $ekskul->id])
+-+        ->assertRedirect(route('pendaftaran.index'));
+-+});
+-+
+-+test('pengajuan keluar ditolak butuh catatan dan siswa tetap anggota aktif', function () {
+-+    $siswa = akunKeanggotaan();
+-+    $pembina = akunKeanggotaan('pembina');
+-+    $ekskul = ekskulKeanggotaan();
+-+    tugaskanPembinaKeanggotaan($pembina, $ekskul);
+-+    $pendaftaran = daftarKeanggotaan($siswa, $ekskul);
+-+
+-+    $this->actingAs($siswa)->post(route('pengunduran.anggota', $ekskul->id), ['alasan' => 'Mau fokus ke pelajaran dulu.']);
+-+    $pengajuan = EkskulPengunduranDiri::firstOrFail();
+-+
+-+    $this->actingAs($pembina)->patch(route('pengunduran.putuskan', $pengajuan->id), ['keputusan' => 'tolak'])
+-+        ->assertSessionHasErrors('catatan');
+-+    expect($pengajuan->fresh()->status)->toBe('menunggu');
+-+
+-+    $this->actingAs($pembina)->patch(route('pengunduran.putuskan', $pengajuan->id), [
+-+        'keputusan' => 'tolak',
+-+        'catatan' => 'Masih dibutuhkan untuk lomba bulan depan.',
+-+    ])->assertSessionHas('success');
+-+
+-+    expect($pengajuan->fresh()->status)->toBe('ditolak')
+-+        ->and($pendaftaran->fresh()->status_anggota)->toBe('aktif')
+-+        ->and(judulNotifikasi($siswa))->toContain('Pengunduran diri ditolak');
+-+
+-+    // Pengajuan yang sudah diputuskan tidak bisa diputuskan lagi
+-+    $this->actingAs($pembina)->patch(route('pengunduran.putuskan', $pengajuan->id), ['keputusan' => 'setuju'])
+-+        ->assertForbidden();
+-+});
+-+
+-+test('tidak boleh ada dua pengajuan keluar yang menunggu, dan pengaju bisa membatalkan', function () {
+-+    $siswa = akunKeanggotaan();
+-+    $ekskul = ekskulKeanggotaan();
+-+    daftarKeanggotaan($siswa, $ekskul);
+-+
+-+    $this->actingAs($siswa)->post(route('pengunduran.anggota', $ekskul->id), ['alasan' => 'Alasan pertama yang cukup panjang.']);
+-+    $this->actingAs($siswa)->post(route('pengunduran.anggota', $ekskul->id), ['alasan' => 'Alasan kedua yang juga panjang.'])
+-+        ->assertSessionHas('error');
+-+    expect(EkskulPengunduranDiri::count())->toBe(1);
+-+
+-+    $this->actingAs($siswa)->delete(route('pengunduran.batal', EkskulPengunduranDiri::firstOrFail()->id))
+-+        ->assertSessionHas('success');
+-+    expect(EkskulPengunduranDiri::count())->toBe(0);
+-+});
+-+
+-+test('yang bukan anggota aktif tidak bisa mengajukan keluar, dan siswa tidak bisa memutuskan pengajuan', function () {
+-+    $siswa = akunKeanggotaan();
+-+    $lain = akunKeanggotaan();
+-+    $ekskul = ekskulKeanggotaan();
+-+    daftarKeanggotaan($siswa, $ekskul);
+-+
+-+    $this->actingAs($lain)->post(route('pengunduran.anggota', $ekskul->id), ['alasan' => 'Saya bukan anggota ekskul ini.'])
+-+        ->assertSessionHas('error');
+-+    expect(EkskulPengunduranDiri::count())->toBe(0);
+-+
+-+    $this->actingAs($siswa)->post(route('pengunduran.anggota', $ekskul->id), ['alasan' => 'Mau pindah ke ekskul lain.']);
+-+    $pengajuan = EkskulPengunduranDiri::firstOrFail();
+-+
+-+    $this->actingAs($siswa)->patch(route('pengunduran.putuskan', $pengajuan->id), ['keputusan' => 'setuju'])
+-+        ->assertForbidden();
+-+    $this->actingAs($lain)->patch(route('pengunduran.putuskan', $pengajuan->id), ['keputusan' => 'setuju'])
+-+        ->assertForbidden();
+-+});
+-+
+-+test('pembina ekskul lain tidak bisa memutuskan pengajuan anggota ekskul ini', function () {
+-+    $siswa = akunKeanggotaan();
+-+    $pembinaLain = akunKeanggotaan('pembina');
+-+    $ekskul = ekskulKeanggotaan('Futsal');
+-+    tugaskanPembinaKeanggotaan($pembinaLain, ekskulKeanggotaan('Catur'));
+-+    daftarKeanggotaan($siswa, $ekskul);
+-+
+-+    $this->actingAs($siswa)->post(route('pengunduran.anggota', $ekskul->id), ['alasan' => 'Mau pindah ke ekskul lain.']);
+-+    $pengajuan = EkskulPengunduranDiri::firstOrFail();
+-+
+-+    $this->actingAs($pembinaLain)->patch(route('pengunduran.putuskan', $pengajuan->id), ['keputusan' => 'setuju'])
+-+        ->assertForbidden();
+-+    expect($pengajuan->fresh()->status)->toBe('menunggu');
+-+});
+-+
+-+// ---------------------------------------------------------------------------
+-+// 7c. Pembina mengundurkan diri (disetujui admin, admin mencari pengganti)
+-+// ---------------------------------------------------------------------------
+-+
+-+test('pembina keluar harus disetujui admin dan admin diingatkan mencari pengganti', function () {
+-+    $admin = akunKeanggotaan('admin');
+-+    $adminLain = akunKeanggotaan('admin');
+-+    $pembina = akunKeanggotaan('pembina');
+-+    $pembinaLain = akunKeanggotaan('pembina');
+-+    $ekskul = ekskulKeanggotaan('Futsal');
+-+    tugaskanPembinaKeanggotaan($pembina, $ekskul);
+-+    tugaskanPembinaKeanggotaan($pembinaLain, ekskulKeanggotaan('Catur'));
+-+
+-+    // Alasan wajib
+-+    $this->actingAs($pembina)->post(route('pengunduran.pembina', $ekskul->id), ['alasan' => 'pindah'])
+-+        ->assertSessionHasErrors('alasan');
+-+
+-+    $this->actingAs($pembina)->post(route('pengunduran.pembina', $ekskul->id), ['alasan' => 'Dipindahtugaskan ke sekolah lain.'])
+-+        ->assertSessionHas('success');
+-+
+-+    $pengajuan = EkskulPengunduranDiri::firstOrFail();
+-+    expect($pengajuan->peran)->toBe('pembina')
+-+        ->and(judulNotifikasi($admin))->toContain('Pembina mengajukan keluar');
+-+
+-+    // Pembina (termasuk dirinya sendiri) tidak boleh memutuskan; hanya admin
+-+    $this->actingAs($pembina)->patch(route('pengunduran.putuskan', $pengajuan->id), ['keputusan' => 'setuju'])->assertForbidden();
+-+    $this->actingAs($pembinaLain)->patch(route('pengunduran.putuskan', $pengajuan->id), ['keputusan' => 'setuju'])->assertForbidden();
+-+
+-+    $this->actingAs($admin)->patch(route('pengunduran.putuskan', $pengajuan->id), ['keputusan' => 'setuju'])
+-+        ->assertSessionHas('success');
+-+
+-+    expect(EkskulPembina::where('ekstrakurikuler_id', $ekskul->id)->where('user_id', $pembina->id)->first()->selesai)->not->toBeNull()
+-+        ->and(judulNotifikasi($pembina))->toContain('Pengunduran diri disetujui')
+-+        ->and(judulNotifikasi($adminLain))->toContain('Butuh pembina pengganti');
+-+
+-+    // Ekskul tanpa pembina muncul sebagai tugas admin
+-+    $this->actingAs($adminLain)->get(route('pengunduran.index'))
+-+        ->assertOk()
+-+        ->assertSee('Futsal');
+-+});
+-+
+-+test('yang bukan pembina bertugas di ekskul itu tidak bisa mengajukan keluar sebagai pembina', function () {
+-+    $pembinaLain = akunKeanggotaan('pembina');
+-+    $ekskul = ekskulKeanggotaan('Futsal');
+-+    tugaskanPembinaKeanggotaan($pembinaLain, ekskulKeanggotaan('Catur'));
+-+
+-+    $this->actingAs($pembinaLain)->post(route('pengunduran.pembina', $ekskul->id), ['alasan' => 'Mau keluar dari ekskul ini.'])
+-+        ->assertForbidden();
+-+    expect(EkskulPengunduranDiri::count())->toBe(0);
+-+});
+-+
+-+// ---------------------------------------------------------------------------
+-+// 7d. Admin/pembina mengeluarkan siswa dengan alasan
+-+// ---------------------------------------------------------------------------
+-+
+-+test('pembina mengeluarkan siswa dengan alasan, lalu siswa tidak bisa mendaftar sendiri lagi', function () {
+-+    $siswa = akunKeanggotaan();
+-+    $pembina = akunKeanggotaan('pembina');
+-+    $ekskul = ekskulKeanggotaan();
+-+    tugaskanPembinaKeanggotaan($pembina, $ekskul);
+-+    $pendaftaran = daftarKeanggotaan($siswa, $ekskul);
+-+
+-+    $this->actingAs($pembina)->post(route('pengunduran.keluarkan', $pendaftaran->id), ['alasan' => 'pendek'])
+-+        ->assertSessionHasErrors('alasan');
+-+    expect($pendaftaran->fresh()->status_anggota)->toBe('aktif');
+-+
+-+    $this->actingAs($pembina)->post(route('pengunduran.keluarkan', $pendaftaran->id), ['alasan' => 'Sering absen tanpa keterangan selama sebulan.'])
+-+        ->assertSessionHas('success');
+-+
+-+    $catatan = EkskulPengunduranDiri::firstOrFail();
+-+    expect($pendaftaran->fresh()->status_anggota)->toBe('dikeluarkan')
+-+        ->and($catatan->jenis)->toBe('dikeluarkan')
+-+        ->and($catatan->status)->toBe('disetujui')
+-+        ->and($catatan->alasan)->toContain('Sering absen')
+-+        ->and(judulNotifikasi($siswa))->toContain('Dikeluarkan dari ekskul');
+-+
+-+    // Tidak bisa dikeluarkan dua kali
+-+    $this->actingAs($pembina)->post(route('pengunduran.keluarkan', $pendaftaran->id), ['alasan' => 'Alasan yang kedua kalinya.'])
+-+        ->assertSessionHas('error');
+-+    expect(EkskulPengunduranDiri::count())->toBe(1);
+-+
+-+    // Dikeluarkan tidak bisa daftar sendiri; harus lewat admin/pembina
+-+    $this->actingAs($siswa)->post(route('pendaftaran.store'), ['ekstrakurikuler_id' => $ekskul->id])
+-+        ->assertSessionHas('error');
+-+    expect(PendaftaranEkskul::count())->toBe(1);
+-+});
+-+
+-+test('hanya admin atau pembina ekskul itu yang bisa mengeluarkan anggota', function () {
+-+    $siswa = akunKeanggotaan();
+-+    $pembinaLain = akunKeanggotaan('pembina');
+-+    $admin = akunKeanggotaan('admin');
+-+    $ekskul = ekskulKeanggotaan('Futsal');
+-+    tugaskanPembinaKeanggotaan($pembinaLain, ekskulKeanggotaan('Catur'));
+-+    $pendaftaran = daftarKeanggotaan($siswa, $ekskul);
+-+    $alasan = ['alasan' => 'Melanggar tata tertib ekskul berulang kali.'];
+-+
+-+    $this->actingAs($siswa)->post(route('pengunduran.keluarkan', $pendaftaran->id), $alasan)->assertForbidden();
+-+    $this->actingAs($pembinaLain)->post(route('pengunduran.keluarkan', $pendaftaran->id), $alasan)->assertForbidden();
+-+    expect($pendaftaran->fresh()->status_anggota)->toBe('aktif');
+-+
+-+    $this->actingAs($admin)->post(route('pengunduran.keluarkan', $pendaftaran->id), $alasan)->assertSessionHas('success');
+-+    expect($pendaftaran->fresh()->status_anggota)->toBe('dikeluarkan');
+-+});
+-+
+-+test('mengeluarkan anggota menutup pengajuan keluarnya yang masih menunggu', function () {
+-+    $siswa = akunKeanggotaan();
+-+    $pembina = akunKeanggotaan('pembina');
+-+    $ekskul = ekskulKeanggotaan();
+-+    tugaskanPembinaKeanggotaan($pembina, $ekskul);
+-+    $pendaftaran = daftarKeanggotaan($siswa, $ekskul);
+-+
+-+    $this->actingAs($siswa)->post(route('pengunduran.anggota', $ekskul->id), ['alasan' => 'Mau fokus ke pelajaran dulu.']);
+-+    expect(EkskulPengunduranDiri::where('status', 'menunggu')->count())->toBe(1);
+-+
+-+    $this->actingAs($pembina)->post(route('pengunduran.keluarkan', $pendaftaran->id), ['alasan' => 'Tidak pernah hadir latihan sama sekali.']);
+-+
+-+    expect(EkskulPengunduranDiri::where('status', 'menunggu')->count())->toBe(0)
+-+        ->and(EkskulPengunduranDiri::where('jenis', 'mengundurkan_diri')->first()->catatan_keputusan)->toContain('Ditutup otomatis');
+-+});
+diff --git a/resources/views/ekstrakurikuler/_tab_materi.blade.php b/resources/views/ekstrakurikuler/_tab_materi.blade.php
+index 586352e..c90b50b 100644
+--- a/resources/views/ekstrakurikuler/_tab_materi.blade.php
++++ b/resources/views/ekstrakurikuler/_tab_materi.blade.php
+@@ -1,7 +1,7 @@
+ {{-- Variabel: $ekskul, $staff, $bolehMateri, $materis, $prs, $anggotaAkses, $pengumpulanSaya, $pendaftaranSaya --}}
+ @if(!$bolehMateri)
+     <div class="bg-white p-8 rounded-xl shadow-sm border border-gray-200 text-center">
+-        <p class="font-semibold text-gray-800 mb-1">🔒 Materi &amp; PR belum bisa kamu buka</p>
++        <p class="font-semibold text-gray-800 mb-1">🔒 Materi &amp; Task belum bisa kamu buka</p>
+         <p class="text-sm text-gray-600 mb-4">Akses materi diberikan oleh pembina atau admin. Kamu bisa meminta izin.</p>
+         <form action="{{ route('materi.minta-akses', $ekskul->id) }}" method="POST">
+             @csrf
+@@ -13,7 +13,7 @@
+         {{-- ===== Akses anggota ===== --}}
+         <details class="bg-white p-5 rounded-xl shadow-sm border border-gray-200 mb-6">
+             <summary class="cursor-pointer font-bold text-gray-800">
+-                🔑 Akses anggota ke Materi &amp; PR
++                🔑 Akses anggota ke Materi &amp; Task
+                 <span class="text-sm font-normal text-gray-500">({{ $anggotaAkses->where('akses_materi', true)->count() }} dari {{ $anggotaAkses->count() }} anggota diizinkan)</span>
+             </summary>
+ 
+@@ -79,11 +79,11 @@ class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 space-y-3 mb-6"
+             <button type="submit" class="bg-indigo-600 text-white px-5 py-2 rounded-lg font-semibold hover:bg-indigo-700">Simpan Materi</button>
+         </form>
+ 
+-        {{-- ===== Buat PR ===== --}}
++        {{-- ===== Buat Task ===== --}}
+         <form action="{{ route('pr.store', $ekskul->id) }}" method="POST" class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 space-y-3 mb-8">
+             @csrf
+-            <h2 class="font-bold text-gray-800">Buat PR / Tugas</h2>
+-            <input type="text" name="judul" required maxlength="200" placeholder="Judul PR" class="w-full border p-2 rounded-lg text-sm">
++            <h2 class="font-bold text-gray-800">Buat Task</h2>
++            <input type="text" name="judul" required maxlength="200" placeholder="Judul Task" class="w-full border p-2 rounded-lg text-sm">
+             <textarea name="deskripsi" rows="3" maxlength="5000" placeholder="Petunjuk pengerjaan" class="w-full border p-2 rounded-lg text-sm"></textarea>
+             <div class="grid grid-cols-2 gap-3">
+                 <div>
+@@ -95,12 +95,12 @@ class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 space-y-3 mb-6"
+                     <input type="number" name="nilai_maks" min="10" max="100" value="100" class="w-full border p-2 rounded-lg text-sm">
+                 </div>
+             </div>
+-            <button type="submit" class="bg-teal-600 text-white px-5 py-2 rounded-lg font-semibold hover:bg-teal-700">Buat PR</button>
++            <button type="submit" class="bg-teal-600 text-white px-5 py-2 rounded-lg font-semibold hover:bg-teal-700">Buat Task</button>
+         </form>
+     @endif
+ 
+-    {{-- ===== Daftar PR ===== --}}
+-    <h2 class="text-sm font-semibold text-gray-500 uppercase mb-2">PR &amp; Tugas ({{ $prs->count() }})</h2>
++    {{-- ===== Daftar Task ===== --}}
++    <h2 class="text-sm font-semibold text-gray-500 uppercase mb-2">Task ({{ $prs->count() }})</h2>
+     <div class="space-y-3 mb-8">
+         @forelse($prs as $pr)
+             @php
+@@ -120,7 +120,7 @@ class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 space-y-3 mb-6"
+                     @if($staff)
+                         <div class="flex gap-2 shrink-0">
+                             <a href="{{ route('pr.show', $pr->id) }}" class="bg-indigo-600 text-white px-3 py-1 rounded text-xs font-semibold hover:bg-indigo-700">Periksa &amp; nilai ({{ $pr->pengumpulans_count }})</a>
+-                            <form action="{{ route('pr.destroy', $pr->id) }}" method="POST" onsubmit="return confirm('Hapus PR ini beserta semua pengumpulannya?')">
++                            <form action="{{ route('pr.destroy', $pr->id) }}" method="POST" onsubmit="return confirm('Hapus Task ini beserta semua pengumpulannya?')">
+                                 @csrf
+                                 @method('DELETE')
+                                 <button type="submit" class="bg-red-600 text-white px-3 py-1 rounded text-xs font-semibold hover:bg-red-700">Hapus</button>
+@@ -156,7 +156,7 @@ class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 space-y-3 mb-6"
+ 
+                         @if(!$p || !$p->sudah_dinilai)
+                             <details class="mt-3">
+-                                <summary class="cursor-pointer text-sm text-indigo-600 font-semibold">{{ $p ? 'Perbarui pengumpulan' : 'Kumpulkan PR' }}</summary>
++                                <summary class="cursor-pointer text-sm text-indigo-600 font-semibold">{{ $p ? 'Perbarui pengumpulan' : 'Kumpulkan Task' }}</summary>
+                                 <form action="{{ route('pr.kumpul', $pr->id) }}" method="POST" enctype="multipart/form-data" class="mt-3 space-y-2">
+                                     @csrf
+                                     <textarea name="jawaban" rows="4" maxlength="5000" placeholder="Tulis jawabanmu (opsional kalau mengunggah berkas)" class="w-full border p-2 rounded-lg text-sm">{{ $p->jawaban ?? '' }}</textarea>
+@@ -171,7 +171,7 @@ class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 space-y-3 mb-6"
+                 @endunless
+             </div>
+         @empty
+-            <div class="bg-white p-8 rounded-xl border border-gray-200 text-center text-gray-500">Belum ada PR.</div>
++            <div class="bg-white p-8 rounded-xl border border-gray-200 text-center text-gray-500">Belum ada Task.</div>
+         @endforelse
+     </div>
+ 
+diff --git a/resources/views/ekstrakurikuler/show.blade.php b/resources/views/ekstrakurikuler/show.blade.php
+index 7bf1719..6a6fbd9 100644
+--- a/resources/views/ekstrakurikuler/show.blade.php
++++ b/resources/views/ekstrakurikuler/show.blade.php
+@@ -145,7 +145,7 @@ class="inline-block bg-indigo-600 text-white px-5 py-2 rounded-lg font-semibold
+                 @if(auth()->user()->isStaff())
+                     <p class="text-sm">Hanya siswa anggota dan pengelola ekskul ini yang bisa melihatnya.</p>
+                 @elseif(!$pendaftaranSaya)
+-                    <p class="text-sm mb-4">Daftar dan tunggu persetujuan untuk melihat {{ ['pengumuman' => 'pengumuman', 'absensi' => 'absensi', 'nilai' => 'nilai', 'materi' => 'materi dan PR'][$tab] ?? 'daftar anggota' }}.</p>
++                    <p class="text-sm mb-4">Daftar dan tunggu persetujuan untuk melihat {{ ['pengumuman' => 'pengumuman', 'absensi' => 'absensi', 'nilai' => 'nilai', 'materi' => 'materi dan Task'][$tab] ?? 'daftar anggota' }}.</p>
+                     @if($ekskul->pendaftaran_terbuka)
+                         <a href="{{ $ekskul->jenis === 'osis' ? route('casis.create') : route('pendaftaran.create', ['ekstrakurikuler_id' => $ekskul->id]) }}"
+                            class="inline-block bg-indigo-600 text-white px-5 py-2 rounded-lg font-semibold hover:bg-indigo-700">Daftar Sekarang</a>
+diff --git a/resources/views/profile/biodata.blade.php b/resources/views/profile/biodata.blade.php
+deleted file mode 100644
+index fa443bc..0000000
+--- a/resources/views/profile/biodata.blade.php
++++ /dev/null
+@@ -1,14 +0,0 @@
+-<!DOCTYPE html>
+-<html lang="en">
+-<head>
+-    <meta charset="UTF-8">
+-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+-    <title>Biodata</title>
+-</head>
+-<body>
+-    <h1>Biodata</h1>
+-    <p>This is the biodata page.</p>
+-    <p>Name: {{ $name }} {{ $nama }}</p>
+-    <p>Age: {{ $umur }}</p>
+-</body>
+-</html>
+\ No newline at end of file
+diff --git a/resources/views/profile/edit.blade.php b/resources/views/profile/edit.blade.php
+deleted file mode 100644
+index 2ca95ae..0000000
+--- a/resources/views/profile/edit.blade.php
++++ /dev/null
+@@ -1,29 +0,0 @@
+-<x-app-layout>
+-    <x-slot name="header">
+-        <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">
+-            {{ __('Profile') }}
+-        </h2>
+-    </x-slot>
+-
+-    <div class="py-12">
+-        <div class="max-w-7xl mx-auto sm:px-6 lg:px-8 space-y-6">
+-            <div class="p-4 sm:p-8 bg-white dark:bg-gray-800 shadow sm:rounded-lg">
+-                <div class="max-w-xl">
+-                    @include('profile.partials.update-profile-information-form')
+-                </div>
+-            </div>
+-
+-            <div class="p-4 sm:p-8 bg-white dark:bg-gray-800 shadow sm:rounded-lg">
+-                <div class="max-w-xl">
+-                    @include('profile.partials.update-password-form')
+-                </div>
+-            </div>
+-
+-            <div class="p-4 sm:p-8 bg-white dark:bg-gray-800 shadow sm:rounded-lg">
+-                <div class="max-w-xl">
+-                    @include('profile.partials.delete-user-form')
+-                </div>
+-            </div>
+-        </div>
+-    </div>
+-</x-app-layout>
+\ No newline at end of file
+diff --git a/resources/views/tugas/index.blade.php b/resources/views/tugas/index.blade.php
+index 216a588..c8147f2 100644
+--- a/resources/views/tugas/index.blade.php
++++ b/resources/views/tugas/index.blade.php
+@@ -15,7 +15,7 @@
+ 
+         <div class="mb-6" data-aos="fade-down">
+             <h1 class="text-3xl font-bold text-gray-800">Task</h1>
+-            <p class="text-gray-600 text-sm">Daftar tugas untukmu dari pembina atau admin, ditambah task pribadimu.</p>
++            <p class="text-gray-600 text-sm">Daftar Task untukmu dari pembina atau admin, ditambah Task pribadimu.</p>
+         </div>
+ 
+         @if(session('success'))
+diff --git a/routes/web.php b/routes/web.php
+index 383f758..32b2968 100644
+--- a/routes/web.php
++++ b/routes/web.php
+@@ -36,7 +36,6 @@
+ use App\Http\Controllers\PendaftaranKontrolController;
+ use App\Http\Controllers\PengaturanController;
+ use App\Http\Controllers\PengunduranDiriController;
+-use App\Http\Controllers\ProfileController;
+ use App\Http\Controllers\ProfilPenggunaController;
+ use App\Http\Controllers\ProfilTagController;
+ use App\Http\Controllers\RiwayatController;
+@@ -82,8 +81,6 @@
+ });
+ Route::get('/yeberes', [BeresController::class, 'beres']);
+ 
+-Route::get('/profile', [ProfileController::class, 'biodata']);
+-Route::get('/previous-school', [ProfileController::class, 'previousSchool']);
+ 
+ Route::get('/templating', [templatingController::class, 'blade']);
+ 
+@@ -154,7 +151,7 @@
+     Route::patch('/tugas/penerima/{penerima}', [EkskulTugasController::class, 'status'])->name('tugas.status');
+     Route::delete('/tugas/{tugas}', [EkskulTugasController::class, 'destroy'])->name('tugas.destroy');
+ 
+-    // Materi & PR: akses berkas dicek di controller (Policy lihatMateri); anggota mengumpulkan PR
++    // Materi & Task: akses berkas dicek di controller (Policy lihatMateri); anggota mengumpulkan Task
+     Route::get('/materi/{materi}/berkas', [EkskulMateriController::class, 'berkas'])->name('materi.berkas');
+     Route::post('/ekstrakurikuler/{ekstrakurikuler}/minta-akses', [MateriAksesController::class, 'mintaAkses'])->middleware('throttle:3,10')->name('materi.minta-akses');
+     Route::post('/pr/{pr}/kumpul', [EkskulPrController::class, 'kumpul'])->name('pr.kumpul');
+@@ -258,7 +255,7 @@
+         Route::post('/pendaftaran/{pendaftaran}/nilai', [NilaiController::class, 'store'])->name('nilai.store');
+         Route::delete('/nilai/{nilai}', [NilaiController::class, 'destroy'])->name('nilai.destroy');
+ 
+-        // Materi, akses materi, PR, dan kotak masuk kritik/saran (pengelola)
++        // Materi, akses materi, Task, dan kotak masuk kritik/saran (pengelola)
+         Route::post('/ekstrakurikuler/{ekstrakurikuler}/materi', [EkskulMateriController::class, 'store'])->name('materi.store');
+         Route::delete('/materi/{materi}', [EkskulMateriController::class, 'destroy'])->name('materi.destroy');
+         Route::patch('/pendaftaran/{pendaftaran}/akses-materi', [MateriAksesController::class, 'toggle'])->name('materi.akses');
+diff --git a/tests/Feature/AdminPembinaBukanSiswaTest.php b/tests/Feature/AdminPembinaBukanSiswaTest.php
+new file mode 100644
+index 0000000..105ec04
+--- /dev/null
++++ b/tests/Feature/AdminPembinaBukanSiswaTest.php
+@@ -0,0 +1,151 @@
++<?php
++
++use App\Models\EkskulPengunduranDiri;
++use App\Models\Ekstrakurikuler;
++use App\Models\PendaftaranEkskul;
++use App\Models\User;
++use Illuminate\Foundation\Testing\RefreshDatabase;
++
++uses(RefreshDatabase::class);
++
++beforeEach(function () {
++    $this->withoutVite();
++});
++
++function akunPeran(string $role, ?string $nama = null): User
++{
++    return User::factory()->create(array_filter([
++        'name' => $nama,
++        'role' => $role,
++        'is_active' => true,
++    ]));
++}
++
++function ekskulPeran(string $nama = 'Futsal'): Ekstrakurikuler
++{
++    return Ekstrakurikuler::create([
++        'nama_ekstrakurikuler' => $nama,
++        'pembina' => 'Pak Budi',
++        'status' => 'aktif',
++    ]);
++}
++
++function daftarPeran(User $user, Ekstrakurikuler $ekskul, string $status = 'diterima'): PendaftaranEkskul
++{
++    return PendaftaranEkskul::create([
++        'user_id' => $user->id,
++        'ekstrakurikuler_id' => $ekskul->id,
++        'nama_pendaftar' => $user->name,
++        'peran' => 'siswa',
++        'status' => $status,
++        'status_anggota' => 'aktif',
++    ]);
++}
++
++// ---------------------------------------------------------------------------
++// Ganti role: admin & pembina bukan siswa
++// ---------------------------------------------------------------------------
++
++test('siswa yang dinaikkan jadi pembina atau admin kehilangan keanggotaan ekskul aktifnya', function (string $roleBaru) {
++    $admin = akunPeran('admin');
++    $siswa = akunPeran('siswa', 'Budi');
++    $futsal = ekskulPeran('Futsal');
++    $silat = ekskulPeran('Silat');
++
++    $p1 = daftarPeran($siswa, $futsal);
++    $p2 = daftarPeran($siswa, $silat);
++
++    $this->actingAs($admin)
++        ->patch(route('users.updateRole', $siswa), ['role' => $roleBaru])
++        ->assertSessionHas('success', fn ($pesan) => str_contains($pesan, 'diakhiri'));
++
++    foreach ([$p1, $p2] as $p) {
++        $p->refresh();
++        expect($p->status_anggota)->toBe('keluar')
++            ->and($p->tanggal_keluar)->not->toBeNull()
++            ->and($p->status)->toBe('diterima');   // riwayat pendaftaran tetap tersimpan
++    }
++
++    expect(PendaftaranEkskul::anggotaAktif()->where('user_id', $siswa->id)->count())->toBe(0);
++    expect($siswa->notifications()->get()->map(fn ($n) => $n->data['judul'] ?? null)->all())
++        ->toContain('Keanggotaan ekskul diakhiri');
++})->with(['pembina', 'admin']);
++
++test('pengajuan keluar yang masih menunggu ikut ditutup saat siswa jadi staf', function () {
++    $admin = akunPeran('admin');
++    $siswa = akunPeran('siswa');
++    $ekskul = ekskulPeran();
++    $p = daftarPeran($siswa, $ekskul);
++
++    $pengajuan = EkskulPengunduranDiri::create([
++        'ekstrakurikuler_id' => $ekskul->id,
++        'user_id' => $siswa->id,
++        'pendaftaran_id' => $p->id,
++        'peran' => 'anggota',
++        'jenis' => 'mengundurkan_diri',
++        'alasan' => 'Fokus ujian',
++    ]);
++
++    $this->actingAs($admin)->patch(route('users.updateRole', $siswa), ['role' => 'pembina']);
++
++    expect($pengajuan->refresh()->status)->toBe('disetujui')
++        ->and($pengajuan->diputuskan_oleh)->toBe($admin->id);
++});
++
++test('mengubah role ke siswa tidak menyentuh keanggotaan', function () {
++    $admin = akunPeran('admin');
++    $siswa = akunPeran('siswa');
++    $p = daftarPeran($siswa, ekskulPeran());
++
++    $this->actingAs($admin)->patch(route('users.updateRole', $siswa), ['role' => 'siswa']);
++
++    expect($p->refresh()->status_anggota)->toBe('aktif');
++});
++
++test('pendaftaran pending milik akun yang sekarang staf tidak bisa diterima', function () {
++    $admin = akunPeran('admin');
++    $pembina = akunPeran('pembina');
++    $ekskul = ekskulPeran();
++    $p = daftarPeran($pembina, $ekskul, 'pending');
++
++    $this->actingAs($admin)
++        ->patch(route('pendaftaran.updateStatus', $p), ['status' => 'diterima'])
++        ->assertSessionHas('error', fn ($pesan) => str_contains($pesan, 'bukan siswa'));
++
++    expect($p->refresh()->status)->toBe('pending');
++
++    // Menolaknya tetap boleh
++    $this->actingAs($admin)
++        ->patch(route('pendaftaran.updateStatus', $p), ['status' => 'ditolak'])
++        ->assertSessionHas('success');
++
++    expect($p->refresh()->status)->toBe('ditolak');
++});
++
++test('admin dan pembina tidak bisa mendaftar ekskul', function (string $role) {
++    $staf = akunPeran($role);
++    $ekskul = ekskulPeran();
++
++    $this->actingAs($staf)
++        ->post(route('pendaftaran.store'), ['ekstrakurikuler_id' => $ekskul->id])
++        ->assertSessionHas('error', fn ($pesan) => str_contains($pesan, 'tidak mendaftar ekskul'));
++
++    expect(PendaftaranEkskul::count())->toBe(0);
++})->with(['admin', 'pembina']);
++
++// ---------------------------------------------------------------------------
++// Istilah: PR diseragamkan menjadi "Task"
++// ---------------------------------------------------------------------------
++
++test('tab materi memakai istilah Task, bukan PR', function () {
++    $admin = akunPeran('admin');
++    $ekskul = ekskulPeran();
++
++    $this->actingAs($admin)
++        ->get(route('ekstrakurikuler.show', ['id' => $ekskul->id, 'tab' => 'materi']))
++        ->assertOk()
++        ->assertSee('Buat Task')
++        ->assertSee('Belum ada Task.')
++        ->assertDontSee('Buat PR')
++        ->assertDontSee('Belum ada PR');
++});

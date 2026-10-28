@@ -24,7 +24,7 @@ class UserController extends Controller
         $users = User::orderByDesc('is_active')->orderBy('role')->orderBy('name')->get();
 
         // Status OSIS tiap siswa (lencana dan tombol di tabel). Cuma admin & pembina OSIS yang boleh mengubahnya.
-        $layanan  = app(OsisService::class);
+        $layanan = app(OsisService::class);
         $ekskulOsis = $layanan->osis();
         $infoOsis = ['ada' => false];
 
@@ -35,17 +35,17 @@ class UserController extends Controller
                 ->first();
 
             $infoOsis = [
-                'ada'      => true,
-                'periode'  => $periode,
+                'ada' => true,
+                'periode' => $periode,
                 'pengurus' => PendaftaranEkskul::anggotaAktif()
                     ->where('ekstrakurikuler_id', $ekskulOsis->id)
                     ->whereNotNull('user_id')
                     ->pluck('user_id')
                     ->all(),
-                'casis'    => $periode
+                'casis' => $periode
                     ? CasisPendaftaran::where('osis_periode_id', $periode->id)->pluck('status', 'user_id')->all()
                     : [],
-                'boleh'    => $layanan->bolehMemutuskan($request->user()),
+                'boleh' => $layanan->bolehMemutuskan($request->user()),
             ];
         }
 
@@ -64,13 +64,13 @@ class UserController extends Controller
         Gate::authorize('kelola', $user);
 
         $data = $request->validate([
-            'name'     => 'required|string|max:255',
-            'email'    => ['required', 'email', Rule::unique('users', 'email')->ignore($user->id)],
-            'nisn'     => ['nullable', 'string', 'max:30', Rule::unique('users', 'nisn')->ignore($user->id)],
-            'kelas'    => 'nullable|string|max:50',
+            'name' => 'required|string|max:255',
+            'email' => ['required', 'email', Rule::unique('users', 'email')->ignore($user->id)],
+            'nisn' => ['nullable', 'string', 'max:30', Rule::unique('users', 'nisn')->ignore($user->id)],
+            'kelas' => 'nullable|string|max:50',
             'password' => ['nullable', 'string', 'confirmed', new PasswordKuat($request->input('name'), $request->input('email'))],
             'angkatan_sekolah' => 'nullable|string|max:20',
-            'tahun_lulus'      => 'nullable|integer|min:1990|max:' . (date('Y') + 10),
+            'tahun_lulus' => 'nullable|integer|min:1990|max:'.(date('Y') + 10),
         ]);
 
         $data['is_alumni'] = $request->boolean('is_alumni');
@@ -116,10 +116,11 @@ class UserController extends Controller
             return back()->with('error', 'Kamu tidak bisa menonaktifkan akunmu sendiri.');
         }
 
-        $user->is_active = !$user->is_active;
+        $user->is_active = ! $user->is_active;
         $user->save();
 
         $teks = $user->is_active ? 'diaktifkan' : 'dinonaktifkan';
+
         return back()->with('success', "Akun {$user->name} berhasil {$teks}.");
     }
 
@@ -132,7 +133,7 @@ class UserController extends Controller
         }
 
         $nama = $user->name;
-        Storage::disk('public')->delete(array_filter([$user->foto, $user->wallpaper])); // bersihkan file milik user
+        Storage::disk('public')->delete(array_filter([$user->foto, $user->wallpaper, $user->aksen_gambar])); // bersihkan file milik user
         $user->delete();
 
         return back()->with('success', "Akun {$nama} berhasil dihapus.");

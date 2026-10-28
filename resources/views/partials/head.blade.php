@@ -14,9 +14,18 @@
 </script>
 @auth
 <script>document.documentElement.dataset.palet = @json(auth()->user()->palet ?? 'aurora');</script>
-@if(auth()->user()->wallpaper_url)
-<style>:root { --wall: url("{{ auth()->user()->wallpaper_url }}"); }</style>
-<script>document.documentElement.classList.add('has-wall');</script>
+@php
+    $wall = \App\Support\TampilanKustom::wallpaper(auth()->user());
+    $aksen = \App\Support\TampilanKustom::aksen(auth()->user());
+    $kelasTampilan = array_merge($wall['kelas'], $aksen['kelas']);
+    $cssTampilan = trim($wall['css'].' '.$aksen['css']);
+@endphp
+@if($cssTampilan !== '')
+{{-- Nilai ini sudah lolos validasi ketat TampilanKustom (hex, https, tanpa kutip/kurung/spasi), jadi aman dicetak apa adanya --}}
+<style>:root { {!! $cssTampilan !!} }</style>
+@endif
+@if($kelasTampilan)
+<script>document.documentElement.classList.add(...@json($kelasTampilan));</script>
 @endif
 @endauth
 <script src="https://cdn.tailwindcss.com"></script>
@@ -312,6 +321,10 @@ html.dark .sparkle { color: #e0e7ff; }
     html[data-palet="forest"] { --bg-base: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 45%, #f7fee7 100%); --a1: rgba(52,211,153,.5); --a2: rgba(163,230,53,.4); --a3: rgba(45,212,191,.45); --a4: rgba(187,247,208,.6); --p1-rgb: 16 185 129; --p2-rgb: 20 184 166; --p3-rgb: 132 204 22; }
     html.dark[data-palet="forest"] { --bg-base: #04100a; --a1: rgba(5,150,105,.6); --a2: rgba(101,163,13,.4); --a3: rgba(13,148,136,.5); --a4: rgba(52,211,153,.25); }
 
+    /* ============ AKSEN KUSTOM (seluruh situs) ============
+       Warna polos/gradasi menggantikan warna palet. Letaknya setelah aturan palet supaya menang (spesifisitas sama). */
+    html.has-aksen-warna { --p1-rgb: var(--ak-1-rgb); --p2-rgb: var(--ak-2-rgb); --p3-rgb: var(--ak-3-rgb); }
+
     /* ============ WALLPAPER FOTO SENDIRI ============ */
     html.has-wall .app-bg { background: var(--wall) center / cover no-repeat fixed; }
     html.has-wall .app-bg::before { display: none; }
@@ -321,6 +334,26 @@ html.dark .sparkle { color: #e0e7ff; }
         background: rgba(255, 255, 255, .35); backdrop-filter: blur(3px);
     }
     html.dark.has-wall .app-bg::after { background: rgba(6, 8, 22, .55); }
+
+    /* Wallpaper warna polos / gradasi: warnanya sudah disesuaikan di server supaya teks tetap terbaca */
+    html.has-wall-warna .app-bg { background: var(--wall-warna-terang) fixed; }
+    html.dark.has-wall-warna .app-bg { background: var(--wall-warna-gelap) fixed; }
+    html.has-wall-warna .app-bg::before,
+    html.has-wall-warna .app-bg::after,
+    html.dark.has-wall-warna .app-bg::after { display: none; }
+
+    /* Wallpaper pola berulang (mis. batik): tidak diburamkan supaya motifnya tetap tajam */
+    html.has-wall.wall-ulang .app-bg { background: var(--wall) top left / auto repeat fixed; }
+    html.has-wall.wall-ulang .app-bg::after,
+    html.dark.has-wall.wall-ulang .app-bg::after { backdrop-filter: none; background: rgba(255, 255, 255, .55); }
+    html.dark.has-wall.wall-ulang .app-bg::after { background: rgba(6, 8, 22, .6); }
+
+    /* Wallpaper GIF: tanpa blur (hemat GPU); pengguna "kurangi gerakan" mendapat latar diam */
+    html.wall-anim.has-wall .app-bg::after,
+    html.dark.wall-anim.has-wall .app-bg::after { backdrop-filter: none; }
+    @media (prefers-reduced-motion: reduce) {
+        html.has-wall.wall-anim .app-bg { background: var(--bg-base); }
+    }
 
     /* ============ NAVBAR: tenggelam ke atas di halaman non-utama ============ */
     .nav-sunk {
@@ -367,6 +400,26 @@ html.dark .sparkle { color: #e0e7ff; }
     html.dark .nav-ringkas { background: rgba(30, 41, 59, .7); border-color: rgba(148, 163, 184, .2); }
     .nav-ringkas .nav-role { display: none; }
 
+    /* Aksen warna: navbar ikut diwarnai (lapisan tipis, teks tetap terbaca) */
+    html.has-aksen-warna .nav-bar { background-image: linear-gradient(135deg, rgb(var(--p1-rgb) / .16), rgb(var(--p2-rgb) / .10), rgb(var(--p3-rgb) / .16)); }
+    html.dark.has-aksen-warna .nav-bar { background-image: linear-gradient(135deg, rgb(var(--p1-rgb) / .28), rgb(var(--p2-rgb) / .20), rgb(var(--p3-rgb) / .28)); }
+
+    /* Aksen gambar/pola: sapaan dan kartu OSIS memakai gambar penuh. Lapisan gelap 60% menjaga teks putih tetap >= 4,5:1 (sama seperti kartu profil). */
+    html.has-aksen-gambar .hero-glass, html.dark.has-aksen-gambar .hero-glass {
+        color: #fff; animation: none; border-color: rgba(255, 255, 255, .25);
+        background: linear-gradient(rgba(15, 23, 42, .60), rgba(15, 23, 42, .60)), var(--aksen-gambar);
+        box-shadow: 0 18px 40px -18px rgba(15, 23, 42, .7);
+    }
+    html.has-aksen-gambar .hero-glass [class*="opacity-"] { opacity: 1; }
+
+    /* Navbar tetap bersih supaya menu terbaca; motifnya dipasang sebagai pita di tepi bawah */
+    html.has-aksen-gambar .nav-bar { position: relative; }
+    html.has-aksen-gambar .nav-bar::after {
+        content: ''; position: absolute; left: 1rem; right: 1rem; bottom: 0; height: 8px; pointer-events: none;
+        border-radius: 9999px 9999px 0 0; background: var(--aksen-gambar);
+    }
+    html.has-aksen-gambar .nav-ringkas::after { height: 4px; }
+
     /* ============ KARTU PROFIL: 3 gaya x aksen warna (teks dijaga tetap kontras) ============ */
     .pk { position: relative; overflow: hidden; border-radius: 1.25rem; --pk-rgb: var(--p1-rgb); }
     .pk-muted { opacity: .78; }
@@ -403,6 +456,10 @@ html.dark .sparkle { color: #e0e7ff; }
 
     .pk-chip { display: inline-flex; align-items: center; gap: .35rem; padding: .2rem .7rem; border-radius: 9999px; font-size: .75rem; font-weight: 600; }
     .pk-kaca .pk-chip, .pk-polos .pk-chip { background: rgb(var(--pk-rgb) / .15); border: 1px solid rgb(var(--pk-rgb) / .35); }
-    .pk-gradasi .pk-chip { background: rgba(255, 255, 255, .2); border: 1px solid rgba(255, 255, 255, .35); }
+    .pk-gradasi .pk-chip, .pk-kustom .pk-chip { background: rgba(255, 255, 255, .2); border: 1px solid rgba(255, 255, 255, .35); }
+
+    /* Aksen kustom (gradasi atau gambar/pola): latar dari variabel --pk-latar, teks putih. Kontras dijaga di TampilanKustom. */
+    .pk-kustom { color: #fff; background: var(--pk-latar); box-shadow: 0 18px 40px -18px rgba(15, 23, 42, .7); }
+    .pk-kustom .pk-muted { opacity: .9; }
 </style>
 @endverbatim
