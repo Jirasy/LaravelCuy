@@ -18,7 +18,7 @@ class EkstrakurikulerPolicy
         return $user->isPembina() && in_array((int) $ekskul->id, $user->idEkskulDikelola(), true);
     }
 
-    // Membuka Materi & PR: pengelola ekskul, atau anggota aktif yang DIIZINKAN pembina/admin.
+    // Membuka Materi & Task: pengelola ekskul, atau anggota aktif yang DIIZINKAN pembina/admin.
     public function lihatMateri(User $user, Ekstrakurikuler $ekskul): bool
     {
         if ($this->kelola($user, $ekskul)) {

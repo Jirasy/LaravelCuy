@@ -142,7 +142,7 @@ class EkstrakurikulerController extends Controller
             }
         }
 
-        // Tab Materi & PR: pengelola, dan anggota aktif yang DIIZINKAN pembina/admin
+        // Tab Materi & Task: pengelola, dan anggota aktif yang DIIZINKAN pembina/admin
         $bolehMateri = false;
         $materis = collect();
         $prs = collect();

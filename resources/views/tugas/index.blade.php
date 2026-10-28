@@ -15,7 +15,7 @@
 
         <div class="mb-6" data-aos="fade-down">
             <h1 class="text-3xl font-bold text-gray-800">Task</h1>
-            <p class="text-gray-600 text-sm">Daftar tugas untukmu dari pembina atau admin, ditambah task pribadimu.</p>
+            <p class="text-gray-600 text-sm">Daftar task untukmu dari pembina atau admin, ditambah task pribadimu.</p>
         </div>
 
         @if(session('success'))

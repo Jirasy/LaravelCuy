@@ -21,10 +21,13 @@
                         @else
                             <span class="font-semibold">{{ $a->nama_pendaftar }}</span>
                         @endif
-                        <span class="ml-1 px-2 py-0.5 text-xs rounded-full
-                            {{ $a->peran === 'admin' ? 'bg-purple-100 text-purple-800' : ($a->peran === 'pembina' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800') }}">
-                            {{ ucfirst($a->peran) }}
-                        </span>
+                        {{-- Hanya siswa yang jadi anggota. Badge ini hanya muncul untuk sisa data lama (bukan siswa). --}}
+                        @if($a->peran !== 'siswa')
+                            <span class="ml-1 px-2 py-0.5 text-xs rounded-full
+                                {{ $a->peran === 'admin' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800' }}">
+                                {{ ucfirst($a->peran) }} (bukan siswa)
+                            </span>
+                        @endif
                     </td>
                     <td class="p-3">{{ $a->kelas ?? '-' }}</td>
                     <td class="p-3">

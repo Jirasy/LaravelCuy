@@ -243,7 +243,7 @@ class KeanggotaanService
         }
     }
 
-    private function terapkanKeluarAnggota(PendaftaranEkskul $p, string $status): void
+    public function terapkanKeluarAnggota(PendaftaranEkskul $p, string $status): void
     {
         $p->update([
             'status_anggota' => $status,

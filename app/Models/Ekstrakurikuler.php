@@ -31,7 +31,7 @@ class Ekstrakurikuler extends Model
 
     protected static function booted(): void
     {
-        // Menghapus ekskul = menghapus juga berkas fisik materi, PR, dan galerinya
+        // Menghapus ekskul = menghapus juga berkas fisik materi, task, dan galerinya
         static::deleting(function (self $ekskul) {
             foreach (['materi', 'pr', 'galeri'] as $folder) {
                 Storage::disk('local')->deleteDirectory("{$folder}/{$ekskul->id}");

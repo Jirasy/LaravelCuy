@@ -9,7 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 
-// Izin membuka Materi & PR per anggota. Diatur admin & pembina ekskul itu.
+// Izin membuka Materi & Task per anggota. Diatur admin & pembina ekskul itu.
 class MateriAksesController extends Controller
 {
     // Izinkan / cabut satu anggota
@@ -29,7 +29,7 @@ class MateriAksesController extends Controller
             Pemberitahuan::kirim(
                 [$pendaftaran->user],
                 'Akses materi diberikan',
-                "Kamu sekarang bisa membuka Materi & PR {$ekskul->nama_ekstrakurikuler}.",
+                "Kamu sekarang bisa membuka Materi & Task {$ekskul->nama_ekstrakurikuler}.",
                 route('ekstrakurikuler.show', ['id' => $ekskul->id, 'tab' => 'materi'], false),
                 '🔓',
                 $request->user()->id
@@ -56,7 +56,7 @@ class MateriAksesController extends Controller
             Pemberitahuan::kirim(
                 $berubah->pluck('user'),
                 'Akses materi diberikan',
-                "Kamu sekarang bisa membuka Materi & PR {$ekstrakurikuler->nama_ekstrakurikuler}.",
+                "Kamu sekarang bisa membuka Materi & Task {$ekstrakurikuler->nama_ekstrakurikuler}.",
                 route('ekstrakurikuler.show', ['id' => $ekstrakurikuler->id, 'tab' => 'materi'], false),
                 '🔓',
                 $request->user()->id
@@ -87,7 +87,7 @@ class MateriAksesController extends Controller
         Pemberitahuan::kirim(
             Pemberitahuan::pengelola($ekstrakurikuler),
             'Permintaan akses materi',
-            "{$user->name} meminta akses Materi & PR {$ekstrakurikuler->nama_ekstrakurikuler}.",
+            "{$user->name} meminta akses Materi & Task {$ekstrakurikuler->nama_ekstrakurikuler}.",
             route('ekstrakurikuler.show', ['id' => $ekstrakurikuler->id, 'tab' => 'materi'], false),
             '🔑',
             $user->id

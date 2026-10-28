@@ -46,7 +46,7 @@ class EkskulPrController extends Controller
         $tenggat = $pr->tenggat ? ' (tenggat ' . $pr->tenggat->format('d-m-Y') . ')' : '';
         Pemberitahuan::kirim(
             $penerima,
-            'PR baru',
+            'Task baru',
             "{$pr->judul} di {$ekstrakurikuler->nama_ekstrakurikuler}{$tenggat}",
             route('ekstrakurikuler.show', ['id' => $ekstrakurikuler->id, 'tab' => 'materi'], false),
             '📝',
@@ -55,7 +55,7 @@ class EkskulPrController extends Controller
 
         return redirect()
             ->route('ekstrakurikuler.show', ['id' => $ekstrakurikuler->id, 'tab' => 'materi'])
-            ->with('success', 'PR berhasil dibuat.');
+            ->with('success', 'Task berhasil dibuat.');
     }
 
     // Halaman pemeriksaan: siapa yang sudah mengumpulkan, beri nilai
@@ -86,7 +86,7 @@ class EkskulPrController extends Controller
 
         return redirect()
             ->route('ekstrakurikuler.show', ['id' => $ekskulId, 'tab' => 'materi'])
-            ->with('success', 'PR dihapus.');
+            ->with('success', 'Task dihapus.');
     }
 
     public function nilai(Request $request, EkskulPrPengumpulan $pengumpulan)
@@ -111,7 +111,7 @@ class EkskulPrController extends Controller
         if ($siswa) {
             Pemberitahuan::kirim(
                 [$siswa],
-                'PR dinilai',
+                'Task dinilai',
                 "{$pr->judul}: nilai {$data['nilai']} dari {$pr->nilai_maks}.",
                 route('ekstrakurikuler.show', ['id' => $ekskul->id, 'tab' => 'materi'], false),
                 '📊',
@@ -129,19 +129,19 @@ class EkskulPrController extends Controller
         $ekskul = $pr->ekstrakurikuler;
         $user   = $request->user();
 
-        // Hanya anggota aktif yang diizinkan mengakses materi & PR
+        // Hanya anggota aktif yang diizinkan mengakses materi & task
         $anggota = PendaftaranEkskul::anggotaAktif()
             ->where('ekstrakurikuler_id', $ekskul->id)
             ->where('user_id', $user->id)
             ->where('akses_materi', true)
             ->first();
 
-        abort_unless($anggota, 403, 'Kamu belum diizinkan mengerjakan PR ini.');
+        abort_unless($anggota, 403, 'Kamu belum diizinkan mengerjakan Task ini.');
 
         $ada = EkskulPrPengumpulan::where('pr_id', $pr->id)->where('pendaftaran_id', $anggota->id)->first();
 
         if ($ada && $ada->sudah_dinilai) {
-            return back()->with('error', 'PR ini sudah dinilai dan tidak bisa diubah lagi.');
+            return back()->with('error', 'Task ini sudah dinilai dan tidak bisa diubah lagi.');
         }
 
         $data = $request->validate([
@@ -174,16 +174,16 @@ class EkskulPrController extends Controller
 
         Pemberitahuan::kirim(
             Pemberitahuan::pengelola($ekskul),
-            'PR dikumpulkan',
-            "{$user->name} mengumpulkan PR: {$pr->judul}.",
-            route('tugas.show', $pr->id, false),
+            'Task dikumpulkan',
+            "{$user->name} mengumpulkan Task: {$pr->judul}.",
+            route('pr.show', $pr->id, false),
             '📥',
             $user->id
         );
 
         return back()->with('success', $pengumpulan->terlambat
-            ? 'PR terkirim, tetapi melewati tenggat.'
-            : 'PR berhasil dikumpulkan.');
+            ? 'Task terkirim, tetapi melewati tenggat.'
+            : 'Task berhasil dikumpulkan.');
     }
 
     // Berkas pengumpulan: hanya pemiliknya dan pengelola ekskul

@@ -145,7 +145,7 @@
                 @if(auth()->user()->isStaff())
                     <p class="text-sm">Hanya siswa anggota dan pengelola ekskul ini yang bisa melihatnya.</p>
                 @elseif(!$pendaftaranSaya)
-                    <p class="text-sm mb-4">Daftar dan tunggu persetujuan untuk melihat {{ ['pengumuman' => 'pengumuman', 'absensi' => 'absensi', 'nilai' => 'nilai', 'materi' => 'materi dan PR'][$tab] ?? 'daftar anggota' }}.</p>
+                    <p class="text-sm mb-4">Daftar dan tunggu persetujuan untuk melihat {{ ['pengumuman' => 'pengumuman', 'absensi' => 'absensi', 'nilai' => 'nilai', 'materi' => 'materi dan task'][$tab] ?? 'daftar anggota' }}.</p>
                     @if($ekskul->pendaftaran_terbuka)
                         <a href="{{ $ekskul->jenis === 'osis' ? route('casis.create') : route('pendaftaran.create', ['ekstrakurikuler_id' => $ekskul->id]) }}"
                            class="inline-block bg-indigo-600 text-white px-5 py-2 rounded-lg font-semibold hover:bg-indigo-700">Daftar Sekarang</a>

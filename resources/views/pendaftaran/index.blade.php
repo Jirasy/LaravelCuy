@@ -50,10 +50,13 @@
                         <tr class="border-t align-top">
                             <td class="p-3">
                                 <div class="font-semibold">{{ $p->nama_pendaftar }}</div>
-                                <span class="inline-block mt-1 px-2 py-0.5 text-xs rounded-full
-                                    {{ $p->peran === 'admin' ? 'bg-purple-100 text-purple-800' : ($p->peran === 'pembina' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800') }}">
-                                    {{ ucfirst($p->peran) }}
-                                </span>
+                                {{-- Hanya siswa yang mendaftar ekskul. Badge ini hanya muncul untuk sisa data lama (bukan siswa). --}}
+                                @if($p->peran !== 'siswa')
+                                    <span class="inline-block mt-1 px-2 py-0.5 text-xs rounded-full
+                                        {{ $p->peran === 'admin' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800' }}">
+                                        {{ ucfirst($p->peran) }} (bukan siswa)
+                                    </span>
+                                @endif
                             </td>
                             <td class="p-3">{{ $p->kelas ?? '-' }}<br><span class="text-xs text-gray-500">{{ $p->nisn ?? '' }}</span></td>
                             <td class="p-3">{{ $p->ekstrakurikuler->nama_ekstrakurikuler ?? '-' }}</td>

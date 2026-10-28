@@ -156,7 +156,7 @@ Route::middleware(['auth', EnsureUserIsActive::class, PaksaGantiPassword::class]
     Route::patch('/tugas/penerima/{penerima}', [EkskulTugasController::class, 'status'])->name('tugas.status');
     Route::delete('/tugas/{tugas}', [EkskulTugasController::class, 'destroy'])->name('tugas.destroy');
 
-    // Materi & PR: akses berkas dicek di controller (Policy lihatMateri); anggota mengumpulkan PR
+    // Materi & Task: akses berkas dicek di controller (Policy lihatMateri); anggota mengumpulkan Task
     Route::get('/materi/{materi}/berkas', [EkskulMateriController::class, 'berkas'])->name('materi.berkas');
     Route::post('/ekstrakurikuler/{ekstrakurikuler}/minta-akses', [MateriAksesController::class, 'mintaAkses'])->middleware('throttle:3,10')->name('materi.minta-akses');
     Route::post('/pr/{pr}/kumpul', [EkskulPrController::class, 'kumpul'])->name('pr.kumpul');
@@ -260,7 +260,7 @@ Route::middleware(['auth', EnsureUserIsActive::class, PaksaGantiPassword::class]
         Route::post('/pendaftaran/{pendaftaran}/nilai', [NilaiController::class, 'store'])->name('nilai.store');
         Route::delete('/nilai/{nilai}', [NilaiController::class, 'destroy'])->name('nilai.destroy');
 
-        // Materi, akses materi, PR, dan kotak masuk kritik/saran (pengelola)
+        // Materi, akses materi, Task, dan kotak masuk kritik/saran (pengelola)
         Route::post('/ekstrakurikuler/{ekstrakurikuler}/materi', [EkskulMateriController::class, 'store'])->name('materi.store');
         Route::delete('/materi/{materi}', [EkskulMateriController::class, 'destroy'])->name('materi.destroy');
         Route::patch('/pendaftaran/{pendaftaran}/akses-materi', [MateriAksesController::class, 'toggle'])->name('materi.akses');

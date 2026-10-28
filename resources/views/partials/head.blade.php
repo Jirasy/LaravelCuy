@@ -369,6 +369,11 @@ html.dark .sparkle { color: #e0e7ff; }
     html.dark .nav-sunk .nav-handle { background: rgba(30, 41, 59, .8); color: #cbd5e1; }
     .nav-sunk:hover, .nav-sunk:focus-within, .nav-sunk.open { transform: translateY(0); }
 
+    /* Dropdown navbar (Notifikasi / Task / Tautan) harus tampil di atas konten halaman. .nav-bar memakai
+       backdrop-filter + animasi AOS sehingga menjadi stacking context sendiri; tanpa z-index di pembungkusnya,
+       hero/kartu yang datang sesudahnya menimpa panel dropdown. Di bawah 50 supaya modal tetap di atasnya. */
+    .nav-wrap:not(.nav-sunk) { position: relative; z-index: 45; }
+
     /* ============ HERO / BANNER: kaca bening yang menyatu dengan wallpaper ============ */
     .hero-glass {
         color: #1e1b4b;

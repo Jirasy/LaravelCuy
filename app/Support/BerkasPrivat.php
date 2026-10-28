@@ -6,7 +6,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
-// Berkas materi dan PR disimpan di disk PRIVAT (tidak bisa dibuka lewat URL langsung),
+// Berkas materi dan task disimpan di disk PRIVAT (tidak bisa dibuka lewat URL langsung),
 // dan hanya disajikan lewat controller yang sudah mengecek hak akses.
 class BerkasPrivat
 {

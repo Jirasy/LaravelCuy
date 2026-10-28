@@ -30,7 +30,7 @@ class EkskulPr extends Model
 
     protected static function booted(): void
     {
-        // Hapus berkas pengumpulan saat PR dihapus (baris pengumpulannya terhapus lewat cascade)
+        // Hapus berkas pengumpulan saat task dihapus (baris pengumpulannya terhapus lewat cascade)
         static::deleting(function (self $pr) {
             $pr->pengumpulans()->whereNotNull('berkas')->pluck('berkas')->each(
                 fn ($path) => Storage::disk('local')->delete($path)

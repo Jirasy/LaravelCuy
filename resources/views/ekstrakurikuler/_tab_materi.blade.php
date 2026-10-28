@@ -1,7 +1,7 @@
 {{-- Variabel: $ekskul, $staff, $bolehMateri, $materis, $prs, $anggotaAkses, $pengumpulanSaya, $pendaftaranSaya --}}
 @if(!$bolehMateri)
     <div class="bg-white p-8 rounded-xl shadow-sm border border-gray-200 text-center">
-        <p class="font-semibold text-gray-800 mb-1">🔒 Materi &amp; PR belum bisa kamu buka</p>
+        <p class="font-semibold text-gray-800 mb-1">🔒 Materi &amp; Task belum bisa kamu buka</p>
         <p class="text-sm text-gray-600 mb-4">Akses materi diberikan oleh pembina atau admin. Kamu bisa meminta izin.</p>
         <form action="{{ route('materi.minta-akses', $ekskul->id) }}" method="POST">
             @csrf
@@ -13,7 +13,7 @@
         {{-- ===== Akses anggota ===== --}}
         <details class="bg-white p-5 rounded-xl shadow-sm border border-gray-200 mb-6">
             <summary class="cursor-pointer font-bold text-gray-800">
-                🔑 Akses anggota ke Materi &amp; PR
+                🔑 Akses anggota ke Materi &amp; Task
                 <span class="text-sm font-normal text-gray-500">({{ $anggotaAkses->where('akses_materi', true)->count() }} dari {{ $anggotaAkses->count() }} anggota diizinkan)</span>
             </summary>
 
@@ -79,11 +79,11 @@
             <button type="submit" class="bg-indigo-600 text-white px-5 py-2 rounded-lg font-semibold hover:bg-indigo-700">Simpan Materi</button>
         </form>
 
-        {{-- ===== Buat PR ===== --}}
+        {{-- ===== Buat Task ===== --}}
         <form action="{{ route('pr.store', $ekskul->id) }}" method="POST" class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 space-y-3 mb-8">
             @csrf
-            <h2 class="font-bold text-gray-800">Buat PR / Tugas</h2>
-            <input type="text" name="judul" required maxlength="200" placeholder="Judul PR" class="w-full border p-2 rounded-lg text-sm">
+            <h2 class="font-bold text-gray-800">Buat Task</h2>
+            <input type="text" name="judul" required maxlength="200" placeholder="Judul Task" class="w-full border p-2 rounded-lg text-sm">
             <textarea name="deskripsi" rows="3" maxlength="5000" placeholder="Petunjuk pengerjaan" class="w-full border p-2 rounded-lg text-sm"></textarea>
             <div class="grid grid-cols-2 gap-3">
                 <div>
@@ -95,12 +95,12 @@
                     <input type="number" name="nilai_maks" min="10" max="100" value="100" class="w-full border p-2 rounded-lg text-sm">
                 </div>
             </div>
-            <button type="submit" class="bg-teal-600 text-white px-5 py-2 rounded-lg font-semibold hover:bg-teal-700">Buat PR</button>
+            <button type="submit" class="bg-teal-600 text-white px-5 py-2 rounded-lg font-semibold hover:bg-teal-700">Buat Task</button>
         </form>
     @endif
 
-    {{-- ===== Daftar PR ===== --}}
-    <h2 class="text-sm font-semibold text-gray-500 uppercase mb-2">PR &amp; Tugas ({{ $prs->count() }})</h2>
+    {{-- ===== Daftar Task ===== --}}
+    <h2 class="text-sm font-semibold text-gray-500 uppercase mb-2">Task ({{ $prs->count() }})</h2>
     <div class="space-y-3 mb-8">
         @forelse($prs as $pr)
             @php
@@ -120,7 +120,7 @@
                     @if($staff)
                         <div class="flex gap-2 shrink-0">
                             <a href="{{ route('pr.show', $pr->id) }}" class="bg-indigo-600 text-white px-3 py-1 rounded text-xs font-semibold hover:bg-indigo-700">Periksa &amp; nilai ({{ $pr->pengumpulans_count }})</a>
-                            <form action="{{ route('pr.destroy', $pr->id) }}" method="POST" onsubmit="return confirm('Hapus PR ini beserta semua pengumpulannya?')">
+                            <form action="{{ route('pr.destroy', $pr->id) }}" method="POST" onsubmit="return confirm('Hapus Task ini beserta semua pengumpulannya?')">
                                 @csrf
                                 @method('DELETE')
                                 <button type="submit" class="bg-red-600 text-white px-3 py-1 rounded text-xs font-semibold hover:bg-red-700">Hapus</button>
@@ -156,7 +156,7 @@
 
                         @if(!$p || !$p->sudah_dinilai)
                             <details class="mt-3">
-                                <summary class="cursor-pointer text-sm text-indigo-600 font-semibold">{{ $p ? 'Perbarui pengumpulan' : 'Kumpulkan PR' }}</summary>
+                                <summary class="cursor-pointer text-sm text-indigo-600 font-semibold">{{ $p ? 'Perbarui pengumpulan' : 'Kumpulkan Task' }}</summary>
                                 <form action="{{ route('pr.kumpul', $pr->id) }}" method="POST" enctype="multipart/form-data" class="mt-3 space-y-2">
                                     @csrf
                                     <textarea name="jawaban" rows="4" maxlength="5000" placeholder="Tulis jawabanmu (opsional kalau mengunggah berkas)" class="w-full border p-2 rounded-lg text-sm">{{ $p->jawaban ?? '' }}</textarea>
@@ -171,7 +171,7 @@
                 @endunless
             </div>
         @empty
-            <div class="bg-white p-8 rounded-xl border border-gray-200 text-center text-gray-500">Belum ada PR.</div>
+            <div class="bg-white p-8 rounded-xl border border-gray-200 text-center text-gray-500">Belum ada Task.</div>
         @endforelse
     </div>
 
