@@ -28,6 +28,8 @@
 <script>document.documentElement.classList.add(...@json($kelasTampilan));</script>
 @endif
 @endauth
+<link rel="preconnect" href="https://cdn.tailwindcss.com">
+<link rel="preconnect" href="https://unpkg.com">
 <script src="https://cdn.tailwindcss.com"></script>
 <script>tailwind.config = { darkMode: 'class' }</script>
 <link rel="stylesheet" href="https://unpkg.com/aos@2.3.1/dist/aos.css">

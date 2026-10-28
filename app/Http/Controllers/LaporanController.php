@@ -68,7 +68,7 @@ class LaporanController extends Controller
             return back()->with('error', 'Ekspor Excel butuh paket maatwebsite/excel. Jalankan: composer require maatwebsite/excel');
         }
 
-        return \Maatwebsite\Excel\Facades\Excel::download(new LaporanExport('laporan.excel', $data), $nama . '.xlsx');
+        return \Maatwebsite\Excel\Facades\Excel::download(new LaporanExport('laporan.Excel', $data), $nama . '.xlsx');
     }
 
     // ---------- penyusun data ----------
