@@ -54,11 +54,11 @@ class PendaftaranEkskulController extends Controller
         $terpilih = $request->query('ekstrakurikuler_id', $request->query('ekskul'));
 
         // Ekskul OSIS punya jalur sendiri (pendaftaran CaSis), tidak lewat form pendaftaran biasa
-        $osisId = Ekstrakurikuler::where('jenis', 'osis')->value('id');
+        $osisId = Ekstrakurikuler::alurCasis()->value('id');
         if ($osisId && $terpilih && (int) $terpilih === (int) $osisId) {
             return redirect()->route('casis.create');
         }
-        $ekskuls = $ekskuls->reject(fn ($e) => $e->jenis === 'osis')->values();
+        $ekskuls = $ekskuls->reject(fn ($e) => $e->memakaiCasis())->values();
 
         // Tidak ditawarkan: ekskul yang pendaftarannya ditutup / kuotanya penuh, dan ekskul yang masih
         // punya pendaftaran berlaku (lihat PendaftaranEkskul::penghalangDaftar). Yang pernah
@@ -107,7 +107,7 @@ class PendaftaranEkskulController extends Controller
             ->findOrFail($data['ekstrakurikuler_id']);
 
         // Ekskul OSIS: pendaftaran lewat form CaSis
-        if ($ekskul->jenis === 'osis') {
+        if ($ekskul->memakaiCasis()) {
             return redirect()->route('casis.create');
         }
 

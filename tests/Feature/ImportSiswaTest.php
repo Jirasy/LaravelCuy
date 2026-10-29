@@ -7,6 +7,8 @@ use App\Services\ImportSiswaService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Hash;
+use PhpOffice\PhpSpreadsheet\Cell\DataType;
+use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
@@ -26,6 +28,12 @@ function unggahImp($test, User $oleh, string $nama, string $isi)
     return $test->actingAs($oleh)->post(route('import-siswa.proses'), [
         'berkas' => UploadedFile::fake()->createWithContent($nama, $isi),
     ]);
+}
+
+// Muat file .xlsx hasil unduhan ($respons = respons download dari controller)
+function bukaUnduhanImp($respons): Spreadsheet
+{
+    return IOFactory::load($respons->baseResponse->getFile()->getPathname());
 }
 
 function berkasDocxImp(array $baris): UploadedFile
@@ -212,9 +220,62 @@ test('rekap kredensial hanya bisa dibuka pengunggah, password tampil sekali sete
     $this->actingAs($admin)->get(route('import-siswa.hasil', $notif->id))->assertSee($password);
     $this->actingAs($admin)->get(route('import-siswa.hasil', $notif->id))->assertDontSee($password);
 
-    $csv = $this->actingAs($admin)->post(route('import-siswa.unduh', $notif->id));
-    $csv->assertOk();
-    expect($csv->streamedContent())->toContain('tono.sugiarto@siswa.local')->toContain($password);
+    $unduhan = $this->actingAs($admin)->post(route('import-siswa.unduh', $notif->id));
+    $unduhan->assertOk()->assertDownload();
+    $tabel = bukaUnduhanImp($unduhan)->getActiveSheet()->toArray(null, false, false, false);
+
+    expect($tabel[1][0])->toBe('Tono Sugiarto')
+        ->and($tabel[1][2])->toBe('tono.sugiarto@siswa.local')
+        ->and($tabel[1][3])->toBe($password);
+
+    // Pengunggah lain tetap tidak bisa mengunduh rekap orang lain
+    $this->actingAs($lain)->post(route('import-siswa.unduh', $notif->id))->assertNotFound();
+});
+
+test('unduhan hasil import berupa tabel xlsx rapi: judul kolom, satu baris per siswa, semua sel berupa teks', function () {
+    $admin = akunImp();
+
+    unggahImp($this, $admin, 'siswa.csv', "Nama;Kelas\nAndi Wijaya;X-2\nBudi Santoso;X-1\nSiti Aminah;\n");
+    $notif = $admin->notifications()->first();
+
+    $andi = User::where('name', 'Andi Wijaya')->first();
+    $budi = User::where('name', 'Budi Santoso')->first();
+    $siti = User::where('name', 'Siti Aminah')->first();
+
+    KredensialSementara::catat($budi, '=1+1', null, $admin);                                      // diawali "=": jangan jadi rumus
+    KredensialSementara::where('user_id', $andi->id)->update(['kedaluwarsa_pada' => now()->subDay()]); // sudah kedaluwarsa
+    KredensialSementara::where('user_id', $siti->id)->delete();                                   // sudah diganti siswa
+
+    $unduhan = $this->actingAs($admin)->post(route('import-siswa.unduh', $notif->id));
+    $unduhan->assertOk()->assertDownload();
+
+    $excel = bukaUnduhanImp($unduhan);
+    $lembar = $excel->getActiveSheet();
+    $tabel = $lembar->toArray(null, false, false, false);
+
+    expect($lembar->getTitle())->toBe('Akun Siswa Baru')
+        ->and($tabel)->toHaveCount(4) // judul + 3 siswa
+        ->and($tabel[0])->toBe(['Nama', 'Kelas', 'Email login', 'Password sementara'])
+        ->and($tabel[1][0])->toBe('Andi Wijaya')
+        ->and($tabel[1][1])->toBe('X-2')
+        ->and($tabel[1][2])->toBe($andi->email)
+        ->and($tabel[1][3])->toBe('Kedaluwarsa, reset lewat Kelola User')
+        ->and($tabel[2][0])->toBe('Budi Santoso')
+        ->and($tabel[2][3])->toBe('=1+1')
+        ->and($tabel[3][0])->toBe('Siti Aminah')
+        ->and($tabel[3][1])->toBeEmpty()
+        ->and($tabel[3][3])->toBe('Sudah diganti siswa');
+
+    // Tampilan: judul tebal dan dibekukan, ada filter, lebar kolom menyesuaikan isi
+    expect($lembar->getStyle('A1')->getFont()->getBold())->toBeTrue()
+        ->and($lembar->getFreezePane())->toBe('A2')
+        ->and($lembar->getAutoFilter()->getRange())->toBe('A1:D4')
+        ->and($lembar->getColumnDimension('C')->getWidth())->toBeGreaterThan(10);
+
+    // Password berawalan "=" harus tersimpan sebagai teks, bukan rumus yang dihitung Excel
+    $sel = $lembar->getCell('D3');
+    expect($sel->getDataType())->toBe(DataType::TYPE_STRING)
+        ->and($sel->isFormula())->toBeFalse();
 });
 
 test('siswa hasil import bisa login dan wajib mengganti password sementara', function () {

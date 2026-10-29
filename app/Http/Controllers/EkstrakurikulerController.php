@@ -9,6 +9,7 @@ use App\Models\EkskulNilai;
 use App\Models\EkskulPengunduranDiri;
 use App\Models\EkskulPrPengumpulan;
 use App\Models\Ekstrakurikuler;
+use App\Models\JenisEkskul;
 use App\Models\PendaftaranEkskul;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -20,10 +21,15 @@ use Illuminate\Validation\Rule;
 
 class EkstrakurikulerController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $ekskuls = Ekstrakurikuler::with(['haris', 'pembinaAktif'])
+        // Saringan jenis: hanya jenis yang punya ekskul yang ditawarkan
+        $jenisFilter = JenisEkskul::withCount('ekskuls')->has('ekskuls')->urut()->get();
+        $jenisAktif  = $jenisFilter->firstWhere('kode', $request->query('jenis'));
+
+        $ekskuls = Ekstrakurikuler::with(['haris', 'pembinaAktif', 'jenisEkskul'])
             ->withCount(['pendaftaran as anggota_count' => fn ($q) => $q->where('status', 'diterima')->where('status_anggota', 'aktif')])
+            ->when($jenisAktif, fn ($q) => $q->where('jenis_ekskul_id', $jenisAktif->id))
             ->latest()
             ->get();
 
@@ -34,7 +40,7 @@ class EkstrakurikulerController extends Controller
             ? collect()
             : PendaftaranEkskul::where('user_id', Auth::id())->relevanDulu()->get()->unique('ekstrakurikuler_id')->keyBy('ekstrakurikuler_id');
 
-        return view('ekstrakurikuler.index', compact('ekskuls', 'pendaftaranSaya'));
+        return view('ekstrakurikuler.index', compact('ekskuls', 'pendaftaranSaya', 'jenisFilter', 'jenisAktif'));
     }
 
     // Halaman detail satu ekskul: tab Informasi / Prestasi / Event / Pengumuman / Anggota
@@ -354,13 +360,13 @@ class EkstrakurikulerController extends Controller
         return $hasil;
     }
 
-    // Kolom yang disimpan. "jenis" (ekskul biasa / OSIS) hanya boleh diubah admin.
+    // Kolom yang disimpan. Jenis ekskul (OSIS, MPK, Pramuka, dst) hanya boleh diubah admin.
     private function kolomEkskul(array $data): array
     {
         $kolom = Arr::only($data, ['nama_ekstrakurikuler', 'pembina', 'deskripsi', 'status']);
 
-        if (Auth::user()->isAdmin() && ! empty($data['jenis'])) {
-            $kolom['jenis'] = $data['jenis'];
+        if (Auth::user()->isAdmin() && ! empty($data['jenis_ekskul_id'])) {
+            $kolom['jenis_ekskul_id'] = (int) $data['jenis_ekskul_id'];
         }
 
         return $kolom;
@@ -391,10 +397,24 @@ class EkstrakurikulerController extends Controller
             'hari.*' => ['required', Rule::in($valid)],
             'deskripsi' => 'nullable|string',
             'status' => ($statusWajib ? 'required' : 'nullable').'|in:aktif,nonaktif',
-            'jenis' => ['nullable', Rule::in(['ekskul', 'osis']), function ($atribut, $nilai, $gagal) use ($request) {
-                // Hanya boleh ada satu ekskul bertipe OSIS
-                if ($nilai === 'osis' && Ekstrakurikuler::where('jenis', 'osis')->where('id', '!=', (int) $request->route('id'))->exists()) {
-                    $gagal('Sudah ada ekskul bertipe OSIS. Hanya boleh satu.');
+            'jenis_ekskul_id' => ['nullable', 'integer', function ($atribut, $nilai, $gagal) use ($request) {
+                $jenis = JenisEkskul::find($nilai);
+
+                if (! $jenis) {
+                    return $gagal('Jenis ekskul tidak dikenal.');
+                }
+
+                $idEkskul = (int) $request->route('id');
+                $saatIni  = Ekstrakurikuler::whereKey($idEkskul)->value('jenis_ekskul_id');
+
+                // Jenis nonaktif tidak bisa dipilih lagi, kecuali memang sudah dipakai ekskul ini
+                if (! $jenis->aktif && (int) $nilai !== (int) $saatIni) {
+                    return $gagal("Jenis {$jenis->nama} sudah dinonaktifkan.");
+                }
+
+                // Jenis "hanya satu" (mis. OSIS, MPK): tidak boleh ada ekskul lain dengan jenis yang sama
+                if ($jenis->hanya_satu && Ekstrakurikuler::where('jenis_ekskul_id', $jenis->id)->where('id', '!=', $idEkskul)->exists()) {
+                    $gagal("Sudah ada ekskul berjenis {$jenis->nama}. Jenis ini hanya boleh dimiliki satu ekskul.");
                 }
             }],
         ];

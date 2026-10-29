@@ -37,14 +37,7 @@
     </div>
 
     @if(auth()->user()->isAdmin())
-    <div>
-        <label class="block text-sm font-semibold text-gray-700">Jenis ekskul</label>
-        <select name="jenis" class="w-full border p-2 rounded-lg mt-1">
-            <option value="ekskul" {{ old('jenis', $ekstrakurikuler->jenis ?? 'ekskul') === 'ekskul' ? 'selected' : '' }}>Ekskul biasa</option>
-            <option value="osis" {{ old('jenis', $ekstrakurikuler->jenis ?? 'ekskul') === 'osis' ? 'selected' : '' }}>OSIS (pendaftaran lewat seleksi CaSis)</option>
-        </select>
-        <p class="text-xs text-gray-500 mt-1">Hanya satu ekskul yang boleh bertipe OSIS.</p>
-    </div>
+    @include('ekstrakurikuler._jenis')
     @endif
 
     @php

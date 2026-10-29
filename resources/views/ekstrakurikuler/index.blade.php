@@ -59,6 +59,15 @@
 
         @include('ekstrakurikuler._kartu_osis')
 
+        @if($jenisFilter->count() > 1)
+            <div class="flex flex-wrap gap-2 mb-4">
+                <a href="{{ route('ekstrakurikuler.index') }}" class="px-3 py-1 rounded-full text-xs font-semibold border {{ $jenisAktif ? 'bg-white text-gray-700 border-gray-300' : 'bg-indigo-600 text-white border-indigo-600' }}">Semua</a>
+                @foreach($jenisFilter as $j)
+                    <a href="{{ route('ekstrakurikuler.index', ['jenis' => $j->kode]) }}" class="px-3 py-1 rounded-full text-xs font-semibold border {{ $jenisAktif && $jenisAktif->id === $j->id ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-700 border-gray-300' }}">{{ $j->nama }} ({{ $j->ekskuls_count }})</a>
+                @endforeach
+            </div>
+        @endif
+
         <!-- Grid Kartu Ekstrakurikuler -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
             @forelse($ekskuls as $ekskul)
@@ -69,8 +78,8 @@
                         <span class="inline-block px-3 py-1 text-xs font-semibold rounded-full {{ $ekskul->status === 'aktif' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800' }}">
                             {{ ucfirst($ekskul->status) }}
                         </span>
-                        @if($ekskul->jenis === 'osis')
-                            <span class="inline-block px-2 py-0.5 ml-1 text-xs rounded-full bg-purple-100 text-purple-800">🗳️ OSIS</span>
+                        @if($ekskul->jenisEkskul && $ekskul->jenisEkskul->kode !== 'ekskul')
+                            <span class="inline-block px-2 py-0.5 ml-1 text-xs rounded-full bg-purple-100 text-purple-800">{{ $ekskul->memakaiCasis() ? '🗳️ ' : '' }}{{ $ekskul->jenisEkskul->nama }}</span>
                         @endif
                         @if(auth()->user()->isAdmin() && $ekskul->pembinaAktif->isEmpty())
                             <span class="inline-block px-2 py-0.5 ml-1 text-xs rounded-full bg-red-100 text-red-700">Belum ada pembina</span>
@@ -94,7 +103,7 @@
                         $pengguna = auth()->user();
                         // Pendaftaran terakhir user ini di ekskul ini (hanya siswa yang punya)
                         $ps = $pendaftaranSaya[$ekskul->id] ?? null;
-                        $urlDaftar = $ekskul->jenis === 'osis' ? route('casis.create') : route('pendaftaran.create', ['ekstrakurikuler_id' => $ekskul->id]);
+                        $urlDaftar = $ekskul->memakaiCasis() ? route('casis.create') : route('pendaftaran.create', ['ekstrakurikuler_id' => $ekskul->id]);
 
                         // Siswa yang sudah/sedang terdaftar: kartu tidak lagi menjadi kartu "Daftar"
                         $statusKartu = null;

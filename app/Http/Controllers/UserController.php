@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\CasisPendaftaran;
 use App\Models\EkskulPembina;
+use App\Models\KredensialSementara;
 use App\Models\OsisPeriode;
 use App\Models\PendaftaranEkskul;
 use App\Models\User;
@@ -106,7 +107,7 @@ class UserController extends Controller
 
         if (isset($data['password'])) {
             // Password lama yang tersimpan di Kredensial sudah tidak berlaku
-            \App\Models\KredensialSementara::where('user_id', $user->id)->delete();
+            KredensialSementara::where('user_id', $user->id)->delete();
         }
 
         $user->update($data); // password di-hash otomatis oleh cast 'hashed'
@@ -122,14 +123,7 @@ class UserController extends Controller
             'role' => 'required|in:admin,pembina,siswa',
         ]);
 
-        $user->update(['role' => $data['role']]);
-
-        // Bukan pembina lagi -> lepas dari semua ekskul yang ia bina
-        if ($data['role'] !== 'pembina') {
-            EkskulPembina::where('user_id', $user->id)
-                ->whereNull('selesai')
-                ->update(['selesai' => now()->toDateString()]);
-        }
+        $this->terapkanRole($user, $data['role']);
 
         return back()->with('success', "Role {$user->name} diubah menjadi {$data['role']}.");
     }
@@ -160,9 +154,120 @@ class UserController extends Controller
         }
 
         $nama = $user->name;
-        Storage::disk('public')->delete(array_filter([$user->foto, $user->wallpaper, $user->aksen_gambar])); // bersihkan file milik user
-        $user->delete();
+        $this->hapusAkun($user);
 
         return back()->with('success', "Akun {$nama} berhasil dihapus.");
+    }
+
+    // Aksi massal dari checkbox di Kelola User. Tiap akun tetap dicek UserPolicy; yang tidak boleh dilewati dan dilaporkan.
+    public function massal(Request $request)
+    {
+        $data = $request->validate([
+            'aksi' => ['required', Rule::in(self::AKSI_MASSAL)],
+            'ids' => ['required', 'array', 'min:1', 'max:'.self::MAKS_MASSAL],
+            'ids.*' => ['integer', 'distinct'],
+            'role' => ['nullable', 'required_if:aksi,ubah_role', Rule::in(['admin', 'pembina', 'siswa'])],
+            'kelas' => ['nullable', 'required_if:aksi,ubah_kelas', 'string', 'max:50'],
+        ], [
+            'aksi.required' => 'Pilih aksi massal dulu.',
+            'aksi.in' => 'Aksi massal tidak dikenali.',
+            'ids.required' => 'Pilih minimal satu akun dulu.',
+            'ids.min' => 'Pilih minimal satu akun dulu.',
+            'ids.max' => 'Maksimal '.self::MAKS_MASSAL.' akun sekali proses.',
+            'role.required_if' => 'Pilih role baru dulu.',
+            'role.in' => 'Role tidak valid.',
+            'kelas.required_if' => 'Isi kelas baru dulu.',
+        ]);
+
+        $aktor = $request->user();
+        $berhasil = 0;
+        $dilewati = [];
+
+        foreach (User::whereIn('id', $data['ids'])->orderBy('name')->get() as $user) {
+            $alasan = $this->alasanDilewati($aktor, $user, $data['aksi']);
+
+            if ($alasan !== null) {
+                $dilewati[] = "{$user->name} ({$alasan})";
+
+                continue;
+            }
+
+            match ($data['aksi']) {
+                // is_active sengaja tidak masuk $fillable (seperti toggleActive), jadi diisi lewat forceFill
+                'aktifkan' => $user->forceFill(['is_active' => true])->save(),
+                'nonaktifkan' => $user->forceFill(['is_active' => false])->save(),
+                'ubah_kelas' => $user->update(['kelas' => trim($data['kelas'])]),
+                'ubah_role' => $this->terapkanRole($user, $data['role']),
+                'hapus' => $this->hapusAkun($user),
+            };
+
+            $berhasil++;
+        }
+
+        $arah = back();
+
+        if ($berhasil > 0) {
+            $arah->with('success', $this->pesanMassal($data['aksi'], $berhasil, $data['role'] ?? null));
+        }
+
+        if ($dilewati !== []) {
+            $contoh = implode(', ', array_slice($dilewati, 0, 5));
+            $sisa = count($dilewati) - 5;
+
+            $arah->with('error', count($dilewati).' akun dilewati: '.$contoh.($sisa > 0 ? ", dan {$sisa} lainnya." : '.'));
+        }
+
+        return $arah;
+    }
+
+    public const AKSI_MASSAL = ['aktifkan', 'nonaktifkan', 'hapus', 'ubah_role', 'ubah_kelas'];
+
+    public const MAKS_MASSAL = 200;
+
+    // Null = boleh diproses; selain itu alasan singkat yang ditampilkan ke pengguna
+    private function alasanDilewati(User $aktor, User $user, string $aksi): ?string
+    {
+        if (! $aktor->can('kelola', $user)) {
+            return 'tidak punya izin untuk akun ini';
+        }
+
+        if ($user->id === $aktor->id && in_array($aksi, ['hapus', 'nonaktifkan', 'ubah_role'], true)) {
+            return 'akunmu sendiri';
+        }
+
+        if ($aksi === 'ubah_role' && ! $aktor->can('ubahRole', $user)) {
+            return 'hanya admin yang bisa mengubah role';
+        }
+
+        return null;
+    }
+
+    private function pesanMassal(string $aksi, int $jumlah, ?string $role): string
+    {
+        return match ($aksi) {
+            'aktifkan' => "{$jumlah} akun berhasil diaktifkan.",
+            'nonaktifkan' => "{$jumlah} akun berhasil dinonaktifkan.",
+            'hapus' => "{$jumlah} akun berhasil dihapus.",
+            'ubah_role' => "Role {$jumlah} akun diubah menjadi {$role}.",
+            'ubah_kelas' => "Kelas {$jumlah} akun berhasil diperbarui.",
+        };
+    }
+
+    private function terapkanRole(User $user, string $role): void
+    {
+        $user->update(['role' => $role]);
+
+        // Bukan pembina lagi -> lepas dari semua ekskul yang ia bina
+        if ($role !== 'pembina') {
+            EkskulPembina::where('user_id', $user->id)
+                ->whereNull('selesai')
+                ->update(['selesai' => now()->toDateString()]);
+        }
+    }
+
+    private function hapusAkun(User $user): void
+    {
+        Storage::disk('public')->delete(array_filter([$user->foto, $user->wallpaper, $user->aksen_gambar])); // bersihkan file milik user
+        $user->delete();
     }
 }

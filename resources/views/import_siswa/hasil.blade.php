@@ -19,7 +19,7 @@
                 <a href="{{ route('import-siswa.create') }}" class="bg-gray-700 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-gray-800">Import lagi</a>
                 <form action="{{ route('import-siswa.unduh', $rekap) }}" method="POST">
                     @csrf
-                    <button type="submit" class="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-green-700">Unduh CSV</button>
+                    <button type="submit" class="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-green-700">Unduh Excel (.xlsx)</button>
                 </form>
             </div>
         </div>

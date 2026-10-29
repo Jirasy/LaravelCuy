@@ -1,0 +1,1063 @@
+diff --git a/app/Http/Controllers/EkstrakurikulerController.php b/app/Http/Controllers/EkstrakurikulerController.php
+index 1fe6608..744f567 100644
+--- a/app/Http/Controllers/EkstrakurikulerController.php
++++ b/app/Http/Controllers/EkstrakurikulerController.php
+@@ -9,6 +9,7 @@
+ use App\Models\EkskulPengunduranDiri;
+ use App\Models\EkskulPrPengumpulan;
+ use App\Models\Ekstrakurikuler;
++use App\Models\JenisEkskul;
+ use App\Models\PendaftaranEkskul;
+ use App\Models\User;
+ use Illuminate\Http\Request;
+@@ -20,10 +21,15 @@
+ 
+ class EkstrakurikulerController extends Controller
+ {
+-    public function index()
++    public function index(Request $request)
+     {
+-        $ekskuls = Ekstrakurikuler::with(['haris', 'pembinaAktif'])
++        // Saringan jenis: hanya jenis yang punya ekskul yang ditawarkan
++        $jenisFilter = JenisEkskul::withCount('ekskuls')->has('ekskuls')->urut()->get();
++        $jenisAktif  = $jenisFilter->firstWhere('kode', $request->query('jenis'));
++
++        $ekskuls = Ekstrakurikuler::with(['haris', 'pembinaAktif', 'jenisEkskul'])
+             ->withCount(['pendaftaran as anggota_count' => fn ($q) => $q->where('status', 'diterima')->where('status_anggota', 'aktif')])
++            ->when($jenisAktif, fn ($q) => $q->where('jenis_ekskul_id', $jenisAktif->id))
+             ->latest()
+             ->get();
+ 
+@@ -34,7 +40,7 @@ public function index()
+             ? collect()
+             : PendaftaranEkskul::where('user_id', Auth::id())->relevanDulu()->get()->unique('ekstrakurikuler_id')->keyBy('ekstrakurikuler_id');
+ 
+-        return view('ekstrakurikuler.index', compact('ekskuls', 'pendaftaranSaya'));
++        return view('ekstrakurikuler.index', compact('ekskuls', 'pendaftaranSaya', 'jenisFilter', 'jenisAktif'));
+     }
+ 
+     // Halaman detail satu ekskul: tab Informasi / Prestasi / Event / Pengumuman / Anggota
+@@ -354,13 +360,13 @@ private function persenHadir(array $ids): array
+         return $hasil;
+     }
+ 
+-    // Kolom yang disimpan. "jenis" (ekskul biasa / OSIS) hanya boleh diubah admin.
++    // Kolom yang disimpan. Jenis ekskul (OSIS, MPK, Pramuka, dst) hanya boleh diubah admin.
+     private function kolomEkskul(array $data): array
+     {
+         $kolom = Arr::only($data, ['nama_ekstrakurikuler', 'pembina', 'deskripsi', 'status']);
+ 
+-        if (Auth::user()->isAdmin() && ! empty($data['jenis'])) {
+-            $kolom['jenis'] = $data['jenis'];
++        if (Auth::user()->isAdmin() && ! empty($data['jenis_ekskul_id'])) {
++            $kolom['jenis_ekskul_id'] = (int) $data['jenis_ekskul_id'];
+         }
+ 
+         return $kolom;
+@@ -391,10 +397,24 @@ private function rules(Request $request, bool $statusWajib): array
+             'hari.*' => ['required', Rule::in($valid)],
+             'deskripsi' => 'nullable|string',
+             'status' => ($statusWajib ? 'required' : 'nullable').'|in:aktif,nonaktif',
+-            'jenis' => ['nullable', Rule::in(['ekskul', 'osis']), function ($atribut, $nilai, $gagal) use ($request) {
+-                // Hanya boleh ada satu ekskul bertipe OSIS
+-                if ($nilai === 'osis' && Ekstrakurikuler::where('jenis', 'osis')->where('id', '!=', (int) $request->route('id'))->exists()) {
+-                    $gagal('Sudah ada ekskul bertipe OSIS. Hanya boleh satu.');
++            'jenis_ekskul_id' => ['nullable', 'integer', function ($atribut, $nilai, $gagal) use ($request) {
++                $jenis = JenisEkskul::find($nilai);
++
++                if (! $jenis) {
++                    return $gagal('Jenis ekskul tidak dikenal.');
++                }
++
++                $idEkskul = (int) $request->route('id');
++                $saatIni  = Ekstrakurikuler::whereKey($idEkskul)->value('jenis_ekskul_id');
++
++                // Jenis nonaktif tidak bisa dipilih lagi, kecuali memang sudah dipakai ekskul ini
++                if (! $jenis->aktif && (int) $nilai !== (int) $saatIni) {
++                    return $gagal("Jenis {$jenis->nama} sudah dinonaktifkan.");
++                }
++
++                // Jenis "hanya satu" (mis. OSIS, MPK): tidak boleh ada ekskul lain dengan jenis yang sama
++                if ($jenis->hanya_satu && Ekstrakurikuler::where('jenis_ekskul_id', $jenis->id)->where('id', '!=', $idEkskul)->exists()) {
++                    $gagal("Sudah ada ekskul berjenis {$jenis->nama}. Jenis ini hanya boleh dimiliki satu ekskul.");
+                 }
+             }],
+         ];
+diff --git a/app/Http/Controllers/JenisEkskulController.php b/app/Http/Controllers/JenisEkskulController.php
+new file mode 100644
+index 0000000..ed9ee3f
+--- /dev/null
++++ b/app/Http/Controllers/JenisEkskulController.php
+@@ -0,0 +1,122 @@
++<?php
++
++namespace App\Http\Controllers;
++
++use App\Models\JenisEkskul;
++use Illuminate\Http\Request;
++use Illuminate\Support\Str;
++use Illuminate\Validation\Rule;
++
++// Mengatur jenis/kategori ekskul (OSIS, MPK, Pramuka, PMR, Paskibra, dst). Hanya admin (dijaga di routes/web.php).
++class JenisEkskulController extends Controller
++{
++    public function index()
++    {
++        $daftar = JenisEkskul::withCount('ekskuls')->urut()->get();
++
++        return view('jenis-ekskul.index', compact('daftar'));
++    }
++
++    private function aturan(?JenisEkskul $jenis = null): array
++    {
++        return [
++            'nama'       => ['required', 'string', 'max:60', Rule::unique('jenis_ekskuls', 'nama')->ignore($jenis?->id)],
++            'urutan'     => ['nullable', 'integer', 'min:0', 'max:99'],
++            'hanya_satu' => ['nullable', 'boolean'],
++            'aktif'      => ['nullable', 'boolean'],
++        ];
++    }
++
++    private function pesan(): array
++    {
++        return [
++            'nama.required' => 'Isi nama jenis ekskul.',
++            'nama.max'      => 'Nama jenis maksimal 60 karakter.',
++            'nama.unique'   => 'Jenis dengan nama itu sudah ada.',
++            'urutan.integer' => 'Urutan harus berupa angka.',
++            'urutan.min'    => 'Urutan minimal 0.',
++            'urutan.max'    => 'Urutan maksimal 99.',
++        ];
++    }
++
++    // Kode unik dari nama (dipakai sebagai pengenal tetap, tidak berubah walau nama diganti)
++    private function buatKode(string $nama): string
++    {
++        $dasar = Str::limit(Str::slug($nama, '_') ?: 'jenis', 24, '');
++        $kode  = $dasar;
++        $i     = 2;
++
++        while (JenisEkskul::where('kode', $kode)->exists()) {
++            $kode = $dasar . '_' . $i++;
++        }
++
++        return $kode;
++    }
++
++    public function store(Request $request)
++    {
++        $data = $request->validate($this->aturan(), $this->pesan());
++
++        JenisEkskul::create([
++            'kode'             => $this->buatKode($data['nama']),
++            'nama'             => $data['nama'],
++            'alur_pendaftaran' => 'langsung',   // alur seleksi CaSis hanya untuk OSIS
++            'hanya_satu'       => $request->boolean('hanya_satu'),
++            'aktif'            => true,
++            'bawaan'           => false,
++            'urutan'           => $data['urutan'] ?? 50,
++        ]);
++
++        return back()->with('success', "Jenis {$data['nama']} ditambahkan.");
++    }
++
++    public function update(Request $request, JenisEkskul $jenis)
++    {
++        $data = $request->validate($this->aturan($jenis), $this->pesan());
++
++        $hanyaSatu = $request->boolean('hanya_satu');
++        $aktif     = $request->boolean('aktif');
++
++        if ($jenis->kode === 'osis') {
++            $hanyaSatu = true;   // alur CaSis hanya mendukung satu ekskul OSIS
++        }
++        if ($jenis->bawaan) {
++            $aktif = true;       // jenis bawaan sistem selalu aktif
++        }
++
++        if ($hanyaSatu && ! $jenis->hanya_satu) {
++            $jumlah = $jenis->ekskuls()->count();
++
++            if ($jumlah > 1) {
++                return back()->withInput()->with('error', "Sudah ada {$jumlah} ekskul berjenis {$jenis->nama}. Sisakan satu dulu sebelum menandainya \"hanya satu\".");
++            }
++        }
++
++        $jenis->update([
++            'nama'       => $data['nama'],
++            'urutan'     => $data['urutan'] ?? $jenis->urutan,
++            'hanya_satu' => $hanyaSatu,
++            'aktif'      => $aktif,
++        ]);
++
++        return back()->with('success', "Jenis {$jenis->nama} diperbarui.");
++    }
++
++    public function destroy(JenisEkskul $jenis)
++    {
++        if ($jenis->bawaan) {
++            return back()->with('error', 'Jenis bawaan sistem tidak bisa dihapus.');
++        }
++
++        $dipakai = $jenis->ekskuls()->count();
++
++        if ($dipakai > 0) {
++            return back()->with('error', "Jenis {$jenis->nama} masih dipakai {$dipakai} ekskul. Pindahkan ekskulnya ke jenis lain dulu, atau cukup nonaktifkan jenisnya.");
++        }
++
++        $nama = $jenis->nama;
++        $jenis->delete();
++
++        return back()->with('success', "Jenis {$nama} dihapus.");
++    }
++}
+diff --git a/app/Http/Controllers/PendaftaranEkskulController.php b/app/Http/Controllers/PendaftaranEkskulController.php
+index 7480090..b2c5bef 100644
+--- a/app/Http/Controllers/PendaftaranEkskulController.php
++++ b/app/Http/Controllers/PendaftaranEkskulController.php
+@@ -54,11 +54,11 @@ public function create(Request $request)
+         $terpilih = $request->query('ekstrakurikuler_id', $request->query('ekskul'));
+ 
+         // Ekskul OSIS punya jalur sendiri (pendaftaran CaSis), tidak lewat form pendaftaran biasa
+-        $osisId = Ekstrakurikuler::where('jenis', 'osis')->value('id');
++        $osisId = Ekstrakurikuler::alurCasis()->value('id');
+         if ($osisId && $terpilih && (int) $terpilih === (int) $osisId) {
+             return redirect()->route('casis.create');
+         }
+-        $ekskuls = $ekskuls->reject(fn ($e) => $e->jenis === 'osis')->values();
++        $ekskuls = $ekskuls->reject(fn ($e) => $e->memakaiCasis())->values();
+ 
+         // Tidak ditawarkan: ekskul yang pendaftarannya ditutup / kuotanya penuh, dan ekskul yang masih
+         // punya pendaftaran berlaku (lihat PendaftaranEkskul::penghalangDaftar). Yang pernah
+@@ -107,7 +107,7 @@ public function store(Request $request)
+             ->findOrFail($data['ekstrakurikuler_id']);
+ 
+         // Ekskul OSIS: pendaftaran lewat form CaSis
+-        if ($ekskul->jenis === 'osis') {
++        if ($ekskul->memakaiCasis()) {
+             return redirect()->route('casis.create');
+         }
+ 
+diff --git a/app/Models/Ekstrakurikuler.php b/app/Models/Ekstrakurikuler.php
+index 6e9b243..55d824e 100644
+--- a/app/Models/Ekstrakurikuler.php
++++ b/app/Models/Ekstrakurikuler.php
+@@ -22,6 +22,7 @@ class Ekstrakurikuler extends Model
+         'pendaftaran_tutup_pada',
+         'kuota',
+         'jenis',
++        'jenis_ekskul_id',
+     ];
+ 
+     protected $casts = [
+@@ -31,6 +32,24 @@ class Ekstrakurikuler extends Model
+ 
+     protected static function booted(): void
+     {
++        // Kolom lama "jenis" (ekskul/osis) dijaga sinkron dengan jenis_ekskul_id supaya kode dan data lama tetap jalan:
++        // - jenis_ekskul_id diubah  -> "jenis" mengikuti alur jenisnya (seleksi_casis = osis, selain itu = ekskul)
++        // - hanya "jenis" yang diubah / jenis_ekskul_id kosong -> jenis_ekskul_id dicari dari kodenya
++        static::saving(function (self $ekskul) {
++            if ($ekskul->jenis_ekskul_id && $ekskul->isDirty('jenis_ekskul_id')) {
++                $alur = JenisEkskul::whereKey($ekskul->jenis_ekskul_id)->value('alur_pendaftaran');
++                $ekskul->jenis = $alur === 'seleksi_casis' ? 'osis' : 'ekskul';
++
++                return;
++            }
++
++            if (! $ekskul->jenis_ekskul_id || $ekskul->isDirty('jenis')) {
++                $kode = $ekskul->jenis === 'osis' ? 'osis' : 'ekskul';
++                $ekskul->jenis = $kode;
++                $ekskul->jenis_ekskul_id = JenisEkskul::where('kode', $kode)->value('id');
++            }
++        });
++
+         // Menghapus ekskul = menghapus juga berkas fisik materi, task, dan galerinya
+         static::deleting(function (self $ekskul) {
+             foreach (['materi', 'pr', 'galeri'] as $folder) {
+@@ -39,6 +58,24 @@ protected static function booted(): void
+         });
+     }
+ 
++    public function jenisEkskul()
++    {
++        return $this->belongsTo(JenisEkskul::class, 'jenis_ekskul_id');
++    }
++
++    // Ekskul yang pendaftarannya lewat seleksi CaSis (saat ini hanya OSIS). Satu-satunya tempat aturan ini ditulis:
++    // kode lain cukup memanggil memakaiCasis() / alurCasis(), jadi memperluas alur CaSis ke jenis lain cukup mengubah di sini.
++    // Dibaca dari kolom "jenis" yang disinkronkan hook di atas, jadi tidak ada query tambahan per kartu.
++    public function memakaiCasis(): bool
++    {
++        return $this->jenis === 'osis';
++    }
++
++    public function scopeAlurCasis($query)
++    {
++        return $query->where('jenis', 'osis');
++    }
++
+     public function pendaftaran()
+     {
+         return $this->hasMany(PendaftaranEkskul::class);
+@@ -108,7 +145,7 @@ public function alasanPendaftaranTutup(): ?string
+         }
+ 
+         // Ekskul OSIS: pendaftaran = pendaftaran CaSis, hanya terbuka saat ada periode rekrutmen yang dibuka
+-        if ($this->jenis === 'osis' && !OsisPeriode::terbuka()->where('ekstrakurikuler_id', $this->id)->exists()) {
++        if ($this->memakaiCasis() && !OsisPeriode::terbuka()->where('ekstrakurikuler_id', $this->id)->exists()) {
+             return 'ditutup';
+         }
+ 
+diff --git a/app/Models/JenisEkskul.php b/app/Models/JenisEkskul.php
+new file mode 100644
+index 0000000..216a6d0
+--- /dev/null
++++ b/app/Models/JenisEkskul.php
+@@ -0,0 +1,49 @@
++<?php
++
++namespace App\Models;
++
++use Illuminate\Database\Eloquent\Model;
++
++// Jenis/kategori ekskul: Ekskul Biasa, OSIS, MPK, Pramuka, PMR, Paskibra, dst. Diatur admin.
++class JenisEkskul extends Model
++{
++    protected $table = 'jenis_ekskuls';
++
++    // Alur pendaftaran yang sudah didukung sistem. "seleksi_casis" hanya untuk OSIS (alurnya terikat satu ekskul OSIS).
++    public const ALUR = [
++        'langsung'      => 'Daftar langsung, disetujui pembina',
++        'seleksi_casis' => 'Seleksi CaSis (khusus OSIS)',
++    ];
++
++    protected $fillable = ['kode', 'nama', 'alur_pendaftaran', 'hanya_satu', 'aktif', 'bawaan', 'urutan'];
++
++    protected function casts(): array
++    {
++        return [
++            'hanya_satu' => 'boolean',
++            'aktif'      => 'boolean',
++            'bawaan'     => 'boolean',
++            'urutan'     => 'integer',
++        ];
++    }
++
++    public function ekskuls()
++    {
++        return $this->hasMany(Ekstrakurikuler::class, 'jenis_ekskul_id');
++    }
++
++    public function scopeAktif($query)
++    {
++        return $query->where('aktif', true);
++    }
++
++    public function scopeUrut($query)
++    {
++        return $query->orderBy('urutan')->orderBy('nama');
++    }
++
++    public function memakaiCasis(): bool
++    {
++        return $this->alur_pendaftaran === 'seleksi_casis';
++    }
++}
+diff --git a/app/Services/OsisService.php b/app/Services/OsisService.php
+index 26521f0..cd55404 100644
+--- a/app/Services/OsisService.php
++++ b/app/Services/OsisService.php
+@@ -21,7 +21,7 @@ class OsisService
+     public function osis(): ?Ekstrakurikuler
+     {
+         if (!$this->osisDimuat) {
+-            $this->osisCache = Ekstrakurikuler::where('jenis', 'osis')->first();
++            $this->osisCache = Ekstrakurikuler::alurCasis()->first();
+             $this->osisDimuat = true;
+         }
+ 
+diff --git a/database/migrations/2026_10_31_090000_create_jenis_ekskuls_table.php b/database/migrations/2026_10_31_090000_create_jenis_ekskuls_table.php
+new file mode 100644
+index 0000000..037b070
+--- /dev/null
++++ b/database/migrations/2026_10_31_090000_create_jenis_ekskuls_table.php
+@@ -0,0 +1,62 @@
++<?php
++
++use Illuminate\Database\Migrations\Migration;
++use Illuminate\Database\Schema\Blueprint;
++use Illuminate\Support\Facades\DB;
++use Illuminate\Support\Facades\Schema;
++
++return new class extends Migration
++{
++    public function up(): void
++    {
++        // Jenis/kategori ekskul yang bisa diatur admin (OSIS, MPK, Pramuka, PMR, Paskibra, dst), bukan lagi enum tetap.
++        Schema::create('jenis_ekskuls', function (Blueprint $table) {
++            $table->id();
++            $table->string('kode', 30)->unique();
++            $table->string('nama', 60);
++            // langsung = daftar lalu disetujui pembina; seleksi_casis = alur CaSis OSIS (string, bukan enum: mudah ditambah alur baru)
++            $table->string('alur_pendaftaran', 20)->default('langsung');
++            $table->boolean('hanya_satu')->default(false);   // hanya boleh ada satu ekskul berjenis ini (mis. OSIS, MPK)
++            $table->boolean('aktif')->default(true);         // nonaktif = tidak bisa dipilih untuk ekskul baru
++            $table->boolean('bawaan')->default(false);       // jenis sistem: tidak bisa dihapus/dinonaktifkan
++            $table->unsignedSmallInteger('urutan')->default(0);
++            $table->timestamps();
++        });
++
++        $sekarang = now();
++        $awal = [
++            ['kode' => 'ekskul',   'nama' => 'Ekskul Biasa', 'alur_pendaftaran' => 'langsung',      'hanya_satu' => false, 'bawaan' => true,  'urutan' => 0],
++            ['kode' => 'osis',     'nama' => 'OSIS',         'alur_pendaftaran' => 'seleksi_casis', 'hanya_satu' => true,  'bawaan' => true,  'urutan' => 1],
++            ['kode' => 'mpk',      'nama' => 'MPK',          'alur_pendaftaran' => 'langsung',      'hanya_satu' => true,  'bawaan' => false, 'urutan' => 2],
++            ['kode' => 'pramuka',  'nama' => 'Pramuka',      'alur_pendaftaran' => 'langsung',      'hanya_satu' => false, 'bawaan' => false, 'urutan' => 3],
++            ['kode' => 'pmr',      'nama' => 'PMR',          'alur_pendaftaran' => 'langsung',      'hanya_satu' => false, 'bawaan' => false, 'urutan' => 4],
++            ['kode' => 'paskibra', 'nama' => 'Paskibra',     'alur_pendaftaran' => 'langsung',      'hanya_satu' => false, 'bawaan' => false, 'urutan' => 5],
++        ];
++
++        DB::table('jenis_ekskuls')->insert(array_map(
++            fn ($baris) => $baris + ['aktif' => true, 'created_at' => $sekarang, 'updated_at' => $sekarang],
++            $awal
++        ));
++
++        Schema::table('ekstrakurikulers', function (Blueprint $table) {
++            $table->foreignId('jenis_ekskul_id')->nullable()->constrained('jenis_ekskuls')->nullOnDelete();
++        });
++
++        // Data lama: kolom "jenis" (ekskul/osis) dipetakan ke jenis baru
++        $idEkskul = DB::table('jenis_ekskuls')->where('kode', 'ekskul')->value('id');
++        $idOsis   = DB::table('jenis_ekskuls')->where('kode', 'osis')->value('id');
++
++        DB::table('ekstrakurikulers')->where('jenis', 'osis')->update(['jenis_ekskul_id' => $idOsis]);
++        DB::table('ekstrakurikulers')->where(fn ($q) => $q->where('jenis', '!=', 'osis')->orWhereNull('jenis'))
++            ->update(['jenis_ekskul_id' => $idEkskul]);
++    }
++
++    public function down(): void
++    {
++        Schema::table('ekstrakurikulers', function (Blueprint $table) {
++            $table->dropConstrainedForeignId('jenis_ekskul_id');
++        });
++
++        Schema::dropIfExists('jenis_ekskuls');
++    }
++};
+diff --git a/resources/views/ekstrakurikuler/_jenis.blade.php b/resources/views/ekstrakurikuler/_jenis.blade.php
+new file mode 100644
+index 0000000..5afd31e
+--- /dev/null
++++ b/resources/views/ekstrakurikuler/_jenis.blade.php
+@@ -0,0 +1,22 @@
++{{-- Pilihan jenis ekskul (khusus admin). Dipakai create & edit. Jenis nonaktif hanya tampil kalau sedang dipakai ekskul ini. --}}
++@php
++    $idSekarang = $ekstrakurikuler->jenis_ekskul_id ?? 0;
++    $daftarJenis = \App\Models\JenisEkskul::urut()
++        ->where(fn ($q) => $q->where('aktif', true)->orWhere('id', $idSekarang))
++        ->get();
++    $terpilih = (int) old('jenis_ekskul_id', $idSekarang ?: ($daftarJenis->firstWhere('kode', 'ekskul')->id ?? 0));
++@endphp
++<div>
++    <label class="block text-sm font-semibold text-gray-700">Jenis ekskul</label>
++    <select name="jenis_ekskul_id" class="w-full border p-2 rounded-lg mt-1">
++        @foreach($daftarJenis as $j)
++            <option value="{{ $j->id }}" {{ $terpilih === $j->id ? 'selected' : '' }}>
++                {{ $j->nama }}{{ $j->memakaiCasis() ? ' (pendaftaran lewat seleksi CaSis)' : '' }}{{ $j->aktif ? '' : ' (nonaktif)' }}
++            </option>
++        @endforeach
++    </select>
++    <p class="text-xs text-gray-500 mt-1">
++        Jenis bertanda "hanya satu" (mis. OSIS, MPK) hanya boleh dimiliki satu ekskul.
++        <a href="{{ route('jenis-ekskul.index') }}" class="underline">Kelola jenis ekskul</a>
++    </p>
++</div>
+diff --git a/resources/views/ekstrakurikuler/_osis.blade.php b/resources/views/ekstrakurikuler/_osis.blade.php
+index 1ea8909..8524218 100644
+--- a/resources/views/ekstrakurikuler/_osis.blade.php
++++ b/resources/views/ekstrakurikuler/_osis.blade.php
+@@ -1,5 +1,5 @@
+ {{-- Variabel: $ekskul, $staff. Hanya untuk ekskul bertipe OSIS. --}}
+-@if($ekskul->jenis === 'osis')
++@if($ekskul->memakaiCasis())
+     @php
+         $layananOsis = app(\App\Services\OsisService::class);
+         $periodeBuka = $layananOsis->periodeBuka();
+diff --git a/resources/views/ekstrakurikuler/_tab_galeri.blade.php b/resources/views/ekstrakurikuler/_tab_galeri.blade.php
+index 734fff5..d8758ac 100644
+--- a/resources/views/ekstrakurikuler/_tab_galeri.blade.php
++++ b/resources/views/ekstrakurikuler/_tab_galeri.blade.php
+@@ -5,7 +5,7 @@
+     <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 mb-6 flex flex-wrap items-center justify-between gap-3 text-sm">
+         <p class="text-gray-700">📸 Dokumentasi kegiatan {{ $ekskul->nama_ekstrakurikuler }}. Foto baru bisa diunggah oleh anggota ekskul ini.</p>
+         @if(!$pendaftaranSaya && $ekskul->pendaftaran_terbuka && !auth()->user()->isStaff())
+-            <a href="{{ $ekskul->jenis === 'osis' ? route('casis.create') : route('pendaftaran.create', ['ekstrakurikuler_id' => $ekskul->id]) }}"
++            <a href="{{ $ekskul->memakaiCasis() ? route('casis.create') : route('pendaftaran.create', ['ekstrakurikuler_id' => $ekskul->id]) }}"
+                class="bg-indigo-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-indigo-700 whitespace-nowrap">Tertarik? Daftar Sekarang</a>
+         @endif
+     </div>
+diff --git a/resources/views/ekstrakurikuler/create.blade.php b/resources/views/ekstrakurikuler/create.blade.php
+index 3328323..50d2434 100644
+--- a/resources/views/ekstrakurikuler/create.blade.php
++++ b/resources/views/ekstrakurikuler/create.blade.php
+@@ -45,14 +45,7 @@
+             @endif
+ 
+             @if(auth()->user()->isAdmin())
+-    <div>
+-        <label class="block text-sm font-semibold text-gray-700">Jenis ekskul</label>
+-        <select name="jenis" class="w-full border p-2 rounded-lg mt-1">
+-            <option value="ekskul" {{ old('jenis', $ekstrakurikuler->jenis ?? 'ekskul') === 'ekskul' ? 'selected' : '' }}>Ekskul biasa</option>
+-            <option value="osis" {{ old('jenis', $ekstrakurikuler->jenis ?? 'ekskul') === 'osis' ? 'selected' : '' }}>OSIS (pendaftaran lewat seleksi CaSis)</option>
+-        </select>
+-        <p class="text-xs text-gray-500 mt-1">Hanya satu ekskul yang boleh bertipe OSIS.</p>
+-    </div>
++    @include('ekstrakurikuler._jenis')
+ @endif
+ 
+             @include('ekstrakurikuler._jadwal', ['awal' => []])
+diff --git a/resources/views/ekstrakurikuler/edit.blade.php b/resources/views/ekstrakurikuler/edit.blade.php
+index 1a84b57..0ae6545 100644
+--- a/resources/views/ekstrakurikuler/edit.blade.php
++++ b/resources/views/ekstrakurikuler/edit.blade.php
+@@ -37,14 +37,7 @@
+     </div>
+ 
+     @if(auth()->user()->isAdmin())
+-    <div>
+-        <label class="block text-sm font-semibold text-gray-700">Jenis ekskul</label>
+-        <select name="jenis" class="w-full border p-2 rounded-lg mt-1">
+-            <option value="ekskul" {{ old('jenis', $ekstrakurikuler->jenis ?? 'ekskul') === 'ekskul' ? 'selected' : '' }}>Ekskul biasa</option>
+-            <option value="osis" {{ old('jenis', $ekstrakurikuler->jenis ?? 'ekskul') === 'osis' ? 'selected' : '' }}>OSIS (pendaftaran lewat seleksi CaSis)</option>
+-        </select>
+-        <p class="text-xs text-gray-500 mt-1">Hanya satu ekskul yang boleh bertipe OSIS.</p>
+-    </div>
++    @include('ekstrakurikuler._jenis')
+     @endif
+ 
+     @php
+diff --git a/resources/views/ekstrakurikuler/index.blade.php b/resources/views/ekstrakurikuler/index.blade.php
+index cff5adf..cc80798 100644
+--- a/resources/views/ekstrakurikuler/index.blade.php
++++ b/resources/views/ekstrakurikuler/index.blade.php
+@@ -59,6 +59,15 @@
+ 
+         @include('ekstrakurikuler._kartu_osis')
+ 
++        @if($jenisFilter->count() > 1)
++            <div class="flex flex-wrap gap-2 mb-4">
++                <a href="{{ route('ekstrakurikuler.index') }}" class="px-3 py-1 rounded-full text-xs font-semibold border {{ $jenisAktif ? 'bg-white text-gray-700 border-gray-300' : 'bg-indigo-600 text-white border-indigo-600' }}">Semua</a>
++                @foreach($jenisFilter as $j)
++                    <a href="{{ route('ekstrakurikuler.index', ['jenis' => $j->kode]) }}" class="px-3 py-1 rounded-full text-xs font-semibold border {{ $jenisAktif && $jenisAktif->id === $j->id ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-700 border-gray-300' }}">{{ $j->nama }} ({{ $j->ekskuls_count }})</a>
++                @endforeach
++            </div>
++        @endif
++
+         <!-- Grid Kartu Ekstrakurikuler -->
+         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+             @forelse($ekskuls as $ekskul)
+@@ -69,8 +78,8 @@
+                         <span class="inline-block px-3 py-1 text-xs font-semibold rounded-full {{ $ekskul->status === 'aktif' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800' }}">
+                             {{ ucfirst($ekskul->status) }}
+                         </span>
+-                        @if($ekskul->jenis === 'osis')
+-                            <span class="inline-block px-2 py-0.5 ml-1 text-xs rounded-full bg-purple-100 text-purple-800">🗳️ OSIS</span>
++                        @if($ekskul->jenisEkskul && $ekskul->jenisEkskul->kode !== 'ekskul')
++                            <span class="inline-block px-2 py-0.5 ml-1 text-xs rounded-full bg-purple-100 text-purple-800">{{ $ekskul->memakaiCasis() ? '🗳️ ' : '' }}{{ $ekskul->jenisEkskul->nama }}</span>
+                         @endif
+                         @if(auth()->user()->isAdmin() && $ekskul->pembinaAktif->isEmpty())
+                             <span class="inline-block px-2 py-0.5 ml-1 text-xs rounded-full bg-red-100 text-red-700">Belum ada pembina</span>
+@@ -94,7 +103,7 @@
+                         $pengguna = auth()->user();
+                         // Pendaftaran terakhir user ini di ekskul ini (hanya siswa yang punya)
+                         $ps = $pendaftaranSaya[$ekskul->id] ?? null;
+-                        $urlDaftar = $ekskul->jenis === 'osis' ? route('casis.create') : route('pendaftaran.create', ['ekstrakurikuler_id' => $ekskul->id]);
++                        $urlDaftar = $ekskul->memakaiCasis() ? route('casis.create') : route('pendaftaran.create', ['ekstrakurikuler_id' => $ekskul->id]);
+ 
+                         // Siswa yang sudah/sedang terdaftar: kartu tidak lagi menjadi kartu "Daftar"
+                         $statusKartu = null;
+diff --git a/resources/views/ekstrakurikuler/show.blade.php b/resources/views/ekstrakurikuler/show.blade.php
+index ee775fa..7119b90 100644
+--- a/resources/views/ekstrakurikuler/show.blade.php
++++ b/resources/views/ekstrakurikuler/show.blade.php
+@@ -101,11 +101,11 @@ class="px-4 py-2 text-sm font-semibold border-b-2 whitespace-nowrap {{ $tab ===
+                             @if($pendaftaranSaya->tanggal_keluar) pada {{ $pendaftaranSaya->tanggal_keluar->format('d-m-Y') }} @endif
+                         </p>
+                         @if($ekskul->pendaftaran_terbuka)
+-                            <a href="{{ $ekskul->jenis === 'osis' ? route('casis.create') : route('pendaftaran.create', ['ekstrakurikuler_id' => $ekskul->id]) }}"
++                            <a href="{{ $ekskul->memakaiCasis() ? route('casis.create') : route('pendaftaran.create', ['ekstrakurikuler_id' => $ekskul->id]) }}"
+                                class="inline-block bg-indigo-600 text-white px-5 py-2 rounded-lg font-semibold hover:bg-indigo-700">Daftar Lagi</a>
+                         @endif
+                     @elseif($ekskul->pendaftaran_terbuka)
+-                        <a href="{{ $ekskul->jenis === 'osis' ? route('casis.create') : route('pendaftaran.create', ['ekstrakurikuler_id' => $ekskul->id]) }}"
++                        <a href="{{ $ekskul->memakaiCasis() ? route('casis.create') : route('pendaftaran.create', ['ekstrakurikuler_id' => $ekskul->id]) }}"
+                            class="inline-block bg-indigo-600 text-white px-5 py-2 rounded-lg font-semibold hover:bg-indigo-700">Daftar Sekarang</a>
+                     @else
+                         <span class="inline-block bg-gray-200 text-gray-500 px-5 py-2 rounded-lg font-semibold cursor-not-allowed select-none">{{ $ekskul->label_pendaftaran }}</span>
+@@ -151,7 +151,7 @@ class="inline-block bg-indigo-600 text-white px-5 py-2 rounded-lg font-semibold
+                 @elseif(!$pendaftaranSaya)
+                     <p class="text-sm mb-4">Daftar dan tunggu persetujuan untuk melihat {{ ['pengumuman' => 'pengumuman', 'absensi' => 'absensi', 'nilai' => 'nilai', 'materi' => 'materi dan task'][$tab] ?? 'daftar anggota' }}.</p>
+                     @if($ekskul->pendaftaran_terbuka)
+-                        <a href="{{ $ekskul->jenis === 'osis' ? route('casis.create') : route('pendaftaran.create', ['ekstrakurikuler_id' => $ekskul->id]) }}"
++                        <a href="{{ $ekskul->memakaiCasis() ? route('casis.create') : route('pendaftaran.create', ['ekstrakurikuler_id' => $ekskul->id]) }}"
+                            class="inline-block bg-indigo-600 text-white px-5 py-2 rounded-lg font-semibold hover:bg-indigo-700">Daftar Sekarang</a>
+                     @endif
+                 @elseif($pendaftaranSaya->status === 'pending')
+diff --git a/resources/views/jenis-ekskul/index.blade.php b/resources/views/jenis-ekskul/index.blade.php
+new file mode 100644
+index 0000000..40c5130
+--- /dev/null
++++ b/resources/views/jenis-ekskul/index.blade.php
+@@ -0,0 +1,93 @@
++<!DOCTYPE html>
++<html lang="id">
++<head>
++    <meta charset="UTF-8">
++    <meta name="viewport" content="width=device-width, initial-scale=1.0">
++    <title>Jenis Ekskul</title>
++    @include('partials.head')
++</head>
++<body class="app-bg p-6">
++    <div class="max-w-4xl mx-auto">
++        @include('partials.navbar')
++
++        <div class="mb-6" data-aos="fade-down">
++            <h1 class="text-3xl font-bold text-gray-800">Jenis Ekskul</h1>
++            <p class="text-gray-600 text-sm">
++                Kategori ekskul di sekolah: OSIS, MPK, Pramuka, PMR, Paskibra, dan seterusnya. Jenis yang ditandai
++                <strong>hanya satu</strong> hanya boleh dimiliki satu ekskul. Pendaftaran lewat seleksi CaSis saat ini khusus OSIS;
++                jenis lain memakai pendaftaran biasa (daftar lalu disetujui pembina).
++            </p>
++        </div>
++
++        @if(session('success'))
++            <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-lg mb-4">{{ session('success') }}</div>
++        @endif
++        @if(session('error'))
++            <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg mb-4">{{ session('error') }}</div>
++        @endif
++        @if($errors->any())
++            <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg mb-4">
++                @foreach($errors->all() as $galat)<p>{{ $galat }}</p>@endforeach
++            </div>
++        @endif
++
++        <div class="space-y-3 mb-8">
++            @foreach($daftar as $j)
++                <div class="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
++                    <form action="{{ route('jenis-ekskul.update', $j) }}" method="POST" class="flex flex-wrap items-end gap-3">
++                        @csrf
++                        @method('PATCH')
++                        <div class="flex-1 min-w-[10rem]">
++                            <label class="block text-xs font-semibold text-gray-600">Nama</label>
++                            <input type="text" name="nama" value="{{ $j->nama }}" maxlength="60" required class="w-full border p-2 rounded-lg text-sm">
++                            <p class="text-xs text-gray-500 mt-1">
++                                {{ \App\Models\JenisEkskul::ALUR[$j->alur_pendaftaran] ?? $j->alur_pendaftaran }}
++                                &middot; {{ $j->ekskuls_count }} ekskul
++                                @if($j->bawaan) &middot; bawaan sistem @endif
++                            </p>
++                        </div>
++                        <div>
++                            <label class="block text-xs font-semibold text-gray-600">Urutan</label>
++                            <input type="number" name="urutan" value="{{ $j->urutan }}" min="0" max="99" class="w-20 border p-2 rounded-lg text-sm">
++                        </div>
++                        <label class="flex items-center gap-1 text-sm text-gray-700">
++                            <input type="checkbox" name="hanya_satu" value="1" {{ $j->hanya_satu ? 'checked' : '' }} {{ $j->kode === 'osis' ? 'disabled' : '' }}> Hanya satu
++                        </label>
++                        <label class="flex items-center gap-1 text-sm text-gray-700">
++                            <input type="checkbox" name="aktif" value="1" {{ $j->aktif ? 'checked' : '' }} {{ $j->bawaan ? 'disabled' : '' }}> Aktif
++                        </label>
++                        <button type="submit" class="bg-indigo-600 text-white px-3 py-2 rounded-lg text-sm font-semibold hover:bg-indigo-700">Simpan</button>
++                    </form>
++
++                    @unless($j->bawaan)
++                        <form action="{{ route('jenis-ekskul.destroy', $j) }}" method="POST" class="mt-2" onsubmit="return confirm('Hapus jenis {{ e($j->nama) }}?')">
++                            @csrf
++                            @method('DELETE')
++                            <button type="submit" class="text-red-600 hover:underline text-xs font-semibold">Hapus jenis ini</button>
++                        </form>
++                    @endunless
++                </div>
++            @endforeach
++        </div>
++
++        <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
++            <h2 class="font-bold text-gray-800 mb-3">Tambah jenis baru</h2>
++            <form action="{{ route('jenis-ekskul.store') }}" method="POST" class="flex flex-wrap items-end gap-3">
++                @csrf
++                <div class="flex-1 min-w-[10rem]">
++                    <label class="block text-xs font-semibold text-gray-600">Nama jenis</label>
++                    <input type="text" name="nama" value="{{ old('nama') }}" maxlength="60" required placeholder="Contoh: Paduan Suara" class="w-full border p-2 rounded-lg text-sm">
++                </div>
++                <div>
++                    <label class="block text-xs font-semibold text-gray-600">Urutan</label>
++                    <input type="number" name="urutan" value="{{ old('urutan', 50) }}" min="0" max="99" class="w-20 border p-2 rounded-lg text-sm">
++                </div>
++                <label class="flex items-center gap-1 text-sm text-gray-700">
++                    <input type="checkbox" name="hanya_satu" value="1" {{ old('hanya_satu') ? 'checked' : '' }}> Hanya satu
++                </label>
++                <button type="submit" class="bg-emerald-600 text-white px-3 py-2 rounded-lg text-sm font-semibold hover:bg-emerald-700">Tambah</button>
++            </form>
++        </div>
++    </div>
++</body>
++</html>
+diff --git a/tests/Feature/JenisEkskulTest.php b/tests/Feature/JenisEkskulTest.php
+new file mode 100644
+index 0000000..3d2a74e
+--- /dev/null
++++ b/tests/Feature/JenisEkskulTest.php
+@@ -0,0 +1,352 @@
++<?php
++
++use App\Models\EkskulPembina;
++use App\Models\Ekstrakurikuler;
++use App\Models\JenisEkskul;
++use App\Models\User;
++use App\Services\OsisService;
++use Illuminate\Foundation\Testing\RefreshDatabase;
++
++uses(RefreshDatabase::class);
++
++beforeEach(function () {
++    $this->withoutVite();
++});
++
++function akunJe(string $role = 'siswa'): User
++{
++    return User::factory()->create(['role' => $role, 'is_active' => true]);
++}
++
++function idJenisJe(string $kode): int
++{
++    return (int) JenisEkskul::where('kode', $kode)->value('id');
++}
++
++function ekskulJe(string $nama, string $kodeJenis = 'ekskul'): Ekstrakurikuler
++{
++    return Ekstrakurikuler::create([
++        'nama_ekstrakurikuler' => $nama,
++        'pembina' => 'Pak Uji',
++        'status' => 'aktif',
++        'jenis_ekskul_id' => idJenisJe($kodeJenis),
++    ]);
++}
++
++function payloadJe(array $tambahan = []): array
++{
++    return array_merge([
++        'nama_ekstrakurikuler' => 'Ekskul Uji',
++        'pembina' => 'Pak Uji',
++        'status' => 'aktif',
++        'hari' => ['senin'],
++        'jadwal' => ['senin' => ['jam_mulai' => '15:00', 'jam_selesai' => '17:00']],
++    ], $tambahan);
++}
++
++// ---------------------------------------------------------------------------
++// Data bawaan & sinkronisasi dengan kolom lama
++// ---------------------------------------------------------------------------
++
++test('jenis bawaan tersedia: hanya OSIS yang memakai seleksi CaSis, OSIS dan MPK hanya satu', function () {
++    $jenis = JenisEkskul::pluck('alur_pendaftaran', 'kode')->all();
++
++    expect(array_keys($jenis))->toEqualCanonicalizing(['ekskul', 'osis', 'mpk', 'pramuka', 'pmr', 'paskibra'])
++        ->and($jenis['osis'])->toBe('seleksi_casis')
++        ->and(collect($jenis)->except('osis')->unique()->values()->all())->toBe(['langsung'])
++        ->and(JenisEkskul::where('hanya_satu', true)->pluck('kode')->sort()->values()->all())->toBe(['mpk', 'osis'])
++        ->and(JenisEkskul::where('bawaan', true)->pluck('kode')->sort()->values()->all())->toBe(['ekskul', 'osis']);
++});
++
++test('kolom lama jenis dan jenis_ekskul_id selalu sinkron', function () {
++    // cara lama (kode lama yang masih mengisi "jenis")
++    $lamaOsis = Ekstrakurikuler::create(['nama_ekstrakurikuler' => 'OSIS', 'pembina' => 'x', 'status' => 'aktif', 'jenis' => 'osis']);
++    $lamaBiasa = Ekstrakurikuler::create(['nama_ekstrakurikuler' => 'Futsal', 'pembina' => 'x', 'status' => 'aktif']);
++
++    expect($lamaOsis->jenis_ekskul_id)->toBe(idJenisJe('osis'))
++        ->and($lamaOsis->memakaiCasis())->toBeTrue()
++        ->and($lamaBiasa->jenis_ekskul_id)->toBe(idJenisJe('ekskul'))
++        ->and($lamaBiasa->jenis)->toBe('ekskul');
++
++    // cara baru: jenis non-OSIS tetap berperilaku "langsung"
++    $pmr = ekskulJe('PMR Sekolah', 'pmr');
++    expect($pmr->jenis)->toBe('ekskul')->and($pmr->memakaiCasis())->toBeFalse();
++
++    // mengganti jenis memperbarui kolom lama, dan sebaliknya
++    $pmr->update(['jenis_ekskul_id' => idJenisJe('osis')]);
++    expect($pmr->fresh()->jenis)->toBe('osis')->and($pmr->fresh()->memakaiCasis())->toBeTrue();
++
++    $pmr->update(['jenis_ekskul_id' => idJenisJe('pramuka')]);
++    expect($pmr->fresh()->jenis)->toBe('ekskul');
++
++    $pmr->update(['jenis' => 'osis']);
++    expect($pmr->fresh()->jenis_ekskul_id)->toBe(idJenisJe('osis'));
++});
++
++// ---------------------------------------------------------------------------
++// Memilih jenis di form ekskul
++// ---------------------------------------------------------------------------
++
++test('admin membuat ekskul dengan jenis PMR, dan kartunya menampilkan jenisnya', function () {
++    $this->actingAs(akunJe('admin'))
++        ->post(route('ekstrakurikuler.store'), payloadJe(['nama_ekstrakurikuler' => 'PMR Garuda', 'jenis_ekskul_id' => idJenisJe('pmr')]))
++        ->assertSessionHasNoErrors();
++
++    $ekskul = Ekstrakurikuler::firstOrFail();
++
++    expect($ekskul->jenis_ekskul_id)->toBe(idJenisJe('pmr'))
++        ->and($ekskul->memakaiCasis())->toBeFalse();
++
++    $this->actingAs(akunJe('admin'))->get(route('ekstrakurikuler.index'))
++        ->assertOk()->assertSee('PMR Garuda')->assertSee('PMR');
++});
++
++test('tanpa memilih jenis, ekskul baru berjenis Ekskul Biasa', function () {
++    $this->actingAs(akunJe('admin'))->post(route('ekstrakurikuler.store'), payloadJe())->assertSessionHasNoErrors();
++
++    expect(Ekstrakurikuler::firstOrFail()->jenis_ekskul_id)->toBe(idJenisJe('ekskul'));
++});
++
++test('pembina tidak bisa menentukan jenis ekskul, hanya admin', function () {
++    $pembina = akunJe('pembina');
++
++    $this->actingAs($pembina)
++        ->post(route('ekstrakurikuler.store'), payloadJe(['jenis_ekskul_id' => idJenisJe('paskibra')]))
++        ->assertSessionHasNoErrors();
++
++    expect(Ekstrakurikuler::firstOrFail()->jenis_ekskul_id)->toBe(idJenisJe('ekskul'));
++});
++
++test('jenis yang tidak dikenal ditolak', function () {
++    $this->actingAs(akunJe('admin'))->post(route('ekstrakurikuler.store'), payloadJe(['jenis_ekskul_id' => 99999]))
++        ->assertSessionHasErrors('jenis_ekskul_id');
++
++    expect(Ekstrakurikuler::count())->toBe(0);
++});
++
++test('jenis "hanya satu" tidak boleh dimiliki dua ekskul, sedangkan jenis lain boleh banyak', function (string $kode, bool $ditolak) {
++    ekskulJe('Pertama', $kode);
++
++    $respons = $this->actingAs(akunJe('admin'))
++        ->post(route('ekstrakurikuler.store'), payloadJe(['nama_ekstrakurikuler' => 'Kedua', 'jenis_ekskul_id' => idJenisJe($kode)]));
++
++    if ($ditolak) {
++        $respons->assertSessionHasErrors('jenis_ekskul_id');
++        expect(Ekstrakurikuler::count())->toBe(1);
++    } else {
++        $respons->assertSessionHasNoErrors();
++        expect(Ekstrakurikuler::count())->toBe(2);
++    }
++})->with([
++    'OSIS' => ['osis', true],
++    'MPK' => ['mpk', true],
++    'Pramuka' => ['pramuka', false],
++    'PMR' => ['pmr', false],
++    'Ekskul Biasa' => ['ekskul', false],
++]);
++
++test('mengedit ekskul yang sudah berjenis hanya-satu tidak dianggap duplikat dirinya sendiri', function () {
++    $mpk = ekskulJe('MPK Sekolah', 'mpk');
++
++    $this->actingAs(akunJe('admin'))
++        ->put(route('ekstrakurikuler.update', $mpk->id), payloadJe(['nama_ekstrakurikuler' => 'MPK Sekolah Baru', 'jenis_ekskul_id' => idJenisJe('mpk')]))
++        ->assertSessionHasNoErrors();
++
++    expect($mpk->fresh()->nama_ekstrakurikuler)->toBe('MPK Sekolah Baru');
++});
++
++test('jenis nonaktif tidak bisa dipilih ekskul baru, tapi ekskul yang sudah memakainya tetap bisa diedit', function () {
++    $paskibra = ekskulJe('Paskibra Sekolah', 'paskibra');
++    JenisEkskul::where('kode', 'paskibra')->update(['aktif' => false]);
++    $admin = akunJe('admin');
++
++    $this->actingAs($admin)->post(route('ekstrakurikuler.store'), payloadJe(['jenis_ekskul_id' => idJenisJe('paskibra')]))
++        ->assertSessionHasErrors('jenis_ekskul_id');
++    expect(Ekstrakurikuler::count())->toBe(1);
++
++    $this->actingAs($admin)
++        ->put(route('ekstrakurikuler.update', $paskibra->id), payloadJe(['nama_ekstrakurikuler' => 'Paskibra Juara', 'jenis_ekskul_id' => idJenisJe('paskibra')]))
++        ->assertSessionHasNoErrors();
++    expect($paskibra->fresh()->nama_ekstrakurikuler)->toBe('Paskibra Juara');
++
++    // form edit tetap menampilkan jenisnya (diberi tanda nonaktif), form tambah tidak menawarkannya
++    $this->actingAs($admin)->get(route('ekstrakurikuler.edit', $paskibra->id))->assertSee('Paskibra (nonaktif)');
++    $this->actingAs($admin)->get(route('ekstrakurikuler.create'))->assertDontSee('Paskibra');
++});
++
++test('form ekskul menampilkan pilihan jenis hanya untuk admin', function () {
++    $this->actingAs(akunJe('admin'))->get(route('ekstrakurikuler.create'))
++        ->assertOk()->assertSee('name="jenis_ekskul_id"', false)->assertSee('Pramuka')->assertSee('Paskibra');
++
++    $this->actingAs(akunJe('pembina'))->get(route('ekstrakurikuler.create'))
++        ->assertOk()->assertDontSee('name="jenis_ekskul_id"', false);
++});
++
++// ---------------------------------------------------------------------------
++// Dampak ke alur pendaftaran & katalog
++// ---------------------------------------------------------------------------
++
++test('hanya ekskul berjenis OSIS yang dialihkan ke jalur CaSis, jenis lain memakai pendaftaran biasa', function () {
++    $osis = ekskulJe('OSIS', 'osis');
++    $pmr = ekskulJe('PMR Garuda', 'pmr');
++    $siswa = akunJe('siswa');
++
++    expect(app(OsisService::class)->osis()->id)->toBe($osis->id);
++
++    $this->actingAs($siswa)->get(route('pendaftaran.create', ['ekstrakurikuler_id' => $osis->id]))
++        ->assertRedirect(route('casis.create'));
++
++    $this->actingAs($siswa)->get(route('pendaftaran.create', ['ekstrakurikuler_id' => $pmr->id]))
++        ->assertOk()->assertSee('PMR Garuda');
++});
++
++test('mengganti jenis sebuah ekskul menjadi OSIS memindahkan jalur CaSis ke ekskul itu', function () {
++    $ekskul = ekskulJe('Wadah Siswa', 'ekskul');
++    expect(app(OsisService::class)->osis())->toBeNull();
++
++    $this->actingAs(akunJe('admin'))
++        ->put(route('ekstrakurikuler.update', $ekskul->id), payloadJe(['nama_ekstrakurikuler' => 'Wadah Siswa', 'jenis_ekskul_id' => idJenisJe('osis')]))
++        ->assertSessionHasNoErrors();
++
++    expect(app(OsisService::class)->osis()->id)->toBe($ekskul->id);
++});
++
++test('katalog menampilkan jenis di kartu dan bisa disaring per jenis', function () {
++    ekskulJe('PMR Garuda', 'pmr');
++    ekskulJe('Pramuka Pandega', 'pramuka');
++    ekskulJe('Futsal Putra', 'ekskul');
++    $admin = akunJe('admin');
++
++    $this->actingAs($admin)->get(route('ekstrakurikuler.index'))
++        ->assertOk()->assertSee('PMR Garuda')->assertSee('Pramuka Pandega')->assertSee('Futsal Putra')
++        ->assertSee('PMR (1)')->assertSee('Pramuka (1)')->assertSee('Ekskul Biasa (1)');
++
++    $this->actingAs($admin)->get(route('ekstrakurikuler.index', ['jenis' => 'pmr']))
++        ->assertOk()->assertSee('PMR Garuda')->assertDontSee('Pramuka Pandega')->assertDontSee('Futsal Putra');
++
++    // kode jenis yang tidak dikenal = tidak menyaring apa pun
++    $this->actingAs($admin)->get(route('ekstrakurikuler.index', ['jenis' => 'asal']))
++        ->assertOk()->assertSee('PMR Garuda')->assertSee('Futsal Putra');
++});
++
++// ---------------------------------------------------------------------------
++// Kelola jenis (admin)
++// ---------------------------------------------------------------------------
++
++test('halaman Jenis Ekskul hanya untuk admin', function () {
++    $this->get(route('jenis-ekskul.index'))->assertRedirect(route('login'));
++    $this->actingAs(akunJe('siswa'))->get(route('jenis-ekskul.index'))->assertForbidden();
++    $this->actingAs(akunJe('pembina'))->get(route('jenis-ekskul.index'))->assertForbidden();
++    $this->actingAs(akunJe('pembina'))->post(route('jenis-ekskul.store'), ['nama' => 'Baru'])->assertForbidden();
++
++    $this->actingAs(akunJe('admin'))->get(route('jenis-ekskul.index'))
++        ->assertOk()->assertSee('Paskibra')->assertSee('Tambah jenis baru');
++
++    expect(JenisEkskul::count())->toBe(6);
++});
++
++test('admin menambah jenis baru: kodenya otomatis unik, alurnya selalu pendaftaran langsung', function () {
++    $admin = akunJe('admin');
++
++    $this->actingAs($admin)->post(route('jenis-ekskul.store'), ['nama' => 'Paduan Suara', 'hanya_satu' => 1, 'urutan' => 7])
++        ->assertSessionHas('success');
++    $this->actingAs($admin)->post(route('jenis-ekskul.store'), ['nama' => 'Paduan-Suara'])
++        ->assertSessionHas('success');   // nama beda, tapi kode dasarnya sama
++
++    $pertama = JenisEkskul::where('nama', 'Paduan Suara')->firstOrFail();
++    $kedua = JenisEkskul::where('nama', 'Paduan-Suara')->firstOrFail();
++
++    expect($pertama->kode)->toBe('paduan_suara')
++        ->and($kedua->kode)->toBe('paduan_suara_2')
++        ->and($pertama->alur_pendaftaran)->toBe('langsung')
++        ->and($pertama->hanya_satu)->toBeTrue()
++        ->and($pertama->bawaan)->toBeFalse()
++        ->and($pertama->urutan)->toBe(7)
++        ->and($kedua->hanya_satu)->toBeFalse();
++});
++
++test('nama jenis wajib, unik, dan tidak boleh terlalu panjang', function (array $isian) {
++    $this->actingAs(akunJe('admin'))->post(route('jenis-ekskul.store'), $isian)->assertSessionHasErrors('nama');
++
++    expect(JenisEkskul::count())->toBe(6);
++})->with([
++    'kosong' => [['nama' => '']],
++    'sudah ada' => [['nama' => 'Pramuka']],
++    'terlalu panjang' => [['nama' => str_repeat('x', 61)]],
++]);
++
++test('jenis non-bawaan bisa diubah namanya dan dinonaktifkan', function () {
++    $pmr = JenisEkskul::where('kode', 'pmr')->firstOrFail();
++
++    $this->actingAs(akunJe('admin'))->patch(route('jenis-ekskul.update', $pmr), ['nama' => 'Palang Merah Remaja', 'urutan' => 9, 'hanya_satu' => 1])
++        ->assertSessionHas('success');
++
++    $pmr->refresh();
++
++    expect($pmr->nama)->toBe('Palang Merah Remaja')
++        ->and($pmr->kode)->toBe('pmr')            // kode tetap
++        ->and($pmr->urutan)->toBe(9)
++        ->and($pmr->hanya_satu)->toBeTrue()
++        ->and($pmr->aktif)->toBeFalse();          // checkbox "aktif" tidak dikirim = dinonaktifkan
++});
++
++test('jenis bawaan tidak bisa dinonaktifkan, dan OSIS selalu hanya-satu dengan alur CaSis', function () {
++    $admin = akunJe('admin');
++
++    foreach (['osis', 'ekskul'] as $kode) {
++        $jenis = JenisEkskul::where('kode', $kode)->firstOrFail();
++        $this->actingAs($admin)->patch(route('jenis-ekskul.update', $jenis), ['nama' => $jenis->nama])->assertSessionHas('success');
++    }
++
++    $osis = JenisEkskul::where('kode', 'osis')->firstOrFail();
++    $biasa = JenisEkskul::where('kode', 'ekskul')->firstOrFail();
++
++    expect($osis->aktif)->toBeTrue()
++        ->and($osis->hanya_satu)->toBeTrue()
++        ->and($osis->alur_pendaftaran)->toBe('seleksi_casis')
++        ->and($biasa->aktif)->toBeTrue();
++});
++
++test('menandai jenis "hanya satu" ditolak kalau sudah ada lebih dari satu ekskul berjenis itu', function () {
++    ekskulJe('PMR A', 'pmr');
++    ekskulJe('PMR B', 'pmr');
++    $pmr = JenisEkskul::where('kode', 'pmr')->firstOrFail();
++
++    $this->actingAs(akunJe('admin'))->patch(route('jenis-ekskul.update', $pmr), ['nama' => 'PMR', 'hanya_satu' => 1, 'aktif' => 1])
++        ->assertSessionHas('error', fn ($m) => str_contains($m, 'Sudah ada 2 ekskul'));
++
++    expect($pmr->fresh()->hanya_satu)->toBeFalse();
++
++    Ekstrakurikuler::where('nama_ekstrakurikuler', 'PMR B')->delete();
++
++    $this->actingAs(akunJe('admin'))->patch(route('jenis-ekskul.update', $pmr), ['nama' => 'PMR', 'hanya_satu' => 1, 'aktif' => 1])
++        ->assertSessionHas('success');
++    expect($pmr->fresh()->hanya_satu)->toBeTrue();
++});
++
++test('jenis hanya bisa dihapus kalau bukan bawaan dan tidak dipakai ekskul mana pun', function () {
++    $admin = akunJe('admin');
++    ekskulJe('PMR Garuda', 'pmr');
++
++    $this->actingAs($admin)->delete(route('jenis-ekskul.destroy', JenisEkskul::where('kode', 'osis')->first()))
++        ->assertSessionHas('error', fn ($m) => str_contains($m, 'bawaan'));
++    $this->actingAs($admin)->delete(route('jenis-ekskul.destroy', JenisEkskul::where('kode', 'pmr')->first()))
++        ->assertSessionHas('error', fn ($m) => str_contains($m, 'masih dipakai 1 ekskul'));
++    expect(JenisEkskul::count())->toBe(6);
++
++    $this->actingAs($admin)->delete(route('jenis-ekskul.destroy', JenisEkskul::where('kode', 'paskibra')->first()))
++        ->assertSessionHas('success');
++    expect(JenisEkskul::where('kode', 'paskibra')->exists())->toBeFalse();
++});
++
++test('menghapus akun pembina atau jenis tidak merusak ekskul: jenis yang terhapus mengembalikan ke Ekskul Biasa saat disimpan lagi', function () {
++    $ekskul = ekskulJe('Ekskul Yatim', 'paskibra');
++
++    // dihapus lewat DB langsung (di luar jalur aman) -> FK nullOnDelete
++    JenisEkskul::where('kode', 'paskibra')->delete();
++    expect($ekskul->fresh()->jenis_ekskul_id)->toBeNull();
++
++    $ekskul->fresh()->update(['nama_ekstrakurikuler' => 'Ekskul Yatim Baru']);
++
++    expect($ekskul->fresh()->jenis_ekskul_id)->toBe(idJenisJe('ekskul'));
++});

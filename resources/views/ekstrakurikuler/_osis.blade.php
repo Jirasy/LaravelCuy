@@ -1,5 +1,5 @@
 {{-- Variabel: $ekskul, $staff. Hanya untuk ekskul bertipe OSIS. --}}
-@if($ekskul->jenis === 'osis')
+@if($ekskul->memakaiCasis())
     @php
         $layananOsis = app(\App\Services\OsisService::class);
         $periodeBuka = $layananOsis->periodeBuka();

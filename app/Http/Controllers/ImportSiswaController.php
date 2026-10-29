@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Exports\AkunSiswaBaruExport;
 use App\Models\KredensialSementara;
 use App\Models\User;
 use App\Notifications\RekapImportSiswa;
@@ -10,7 +11,8 @@ use App\Services\ImportSiswaService;
 use Illuminate\Http\Request;
 use Illuminate\Notifications\DatabaseNotification;
 use Illuminate\Validation\ValidationException;
-use Symfony\Component\HttpFoundation\StreamedResponse;
+use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 // Hanya admin & pembina (dijaga di routes/web.php). Rekap kredensial hanya bisa dibuka oleh pengunggahnya sendiri.
 class ImportSiswaController extends Controller
@@ -119,7 +121,8 @@ class ImportSiswaController extends Controller
         return redirect()->route('import-siswa.hasil', $rekap)->with('rekap_dibuka', $rekap);
     }
 
-    public function unduh(Request $request, string $rekap): StreamedResponse
+    // File .xlsx (bukan CSV): CSV berpemisah koma terbuka berantakan di Excel berpengaturan regional Indonesia (pemisahnya titik koma)
+    public function unduh(Request $request, string $rekap): BinaryFileResponse
     {
         $notif = $this->rekapMilik($request, $rekap);
         $idSiswa = $notif->data['id_siswa'] ?? [];
@@ -129,20 +132,23 @@ class ImportSiswaController extends Controller
         $siswa = User::whereIn('id', $idSiswa)->orderBy('name')->get();
         $kredensial = KredensialSementara::whereIn('user_id', $idSiswa)->get()->keyBy('user_id');
 
-        return response()->streamDownload(function () use ($siswa, $kredensial) {
-            $out = fopen('php://output', 'w');
-            fwrite($out, "\xEF\xBB\xBF"); // BOM supaya Excel membaca UTF-8 dengan benar
-            fputcsv($out, ['Nama', 'Kelas', 'Email login', 'Password sementara'], ',', '"', '');
+        $baris = $siswa->map(function (User $s) use ($kredensial): array {
+            $k = $kredensial->get($s->id);
 
-            foreach ($siswa as $s) {
-                $k = $kredensial->get($s->id);
-                $password = ($k && ! $k->sudahKedaluwarsa()) ? ($k->passwordAsli() ?? '') : '';
+            // Wording sama dengan halaman hasil supaya kolom password tidak pernah kosong tanpa penjelasan
+            $password = match (true) {
+                $k === null => 'Sudah diganti siswa',
+                $k->sudahKedaluwarsa() => 'Kedaluwarsa, reset lewat Kelola User',
+                default => $k->passwordAsli() ?? '',
+            };
 
-                fputcsv($out, [$s->name, $s->kelas, $s->email, $password], ',', '"', '');
-            }
+            return [$s->name, $s->kelas ?? '', $s->email, $password];
+        })->all();
 
-            fclose($out);
-        }, 'akun-siswa-baru-'.now()->format('Ymd-His').'.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
+        return Excel::download(
+            new AkunSiswaBaruExport($baris),
+            'akun-siswa-baru-'.now()->format('Ymd-His').'.xlsx',
+        );
     }
 
     // Hanya notifikasi milik user yang login, jadi admin/pembina lain tidak bisa membuka rekap orang lain (404)

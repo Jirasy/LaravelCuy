@@ -22,6 +22,7 @@ class Ekstrakurikuler extends Model
         'pendaftaran_tutup_pada',
         'kuota',
         'jenis',
+        'jenis_ekskul_id',
     ];
 
     protected $casts = [
@@ -31,12 +32,48 @@ class Ekstrakurikuler extends Model
 
     protected static function booted(): void
     {
+        // Kolom lama "jenis" (ekskul/osis) dijaga sinkron dengan jenis_ekskul_id supaya kode dan data lama tetap jalan:
+        // - jenis_ekskul_id diubah  -> "jenis" mengikuti alur jenisnya (seleksi_casis = osis, selain itu = ekskul)
+        // - hanya "jenis" yang diubah / jenis_ekskul_id kosong -> jenis_ekskul_id dicari dari kodenya
+        static::saving(function (self $ekskul) {
+            if ($ekskul->jenis_ekskul_id && $ekskul->isDirty('jenis_ekskul_id')) {
+                $alur = JenisEkskul::whereKey($ekskul->jenis_ekskul_id)->value('alur_pendaftaran');
+                $ekskul->jenis = $alur === 'seleksi_casis' ? 'osis' : 'ekskul';
+
+                return;
+            }
+
+            if (! $ekskul->jenis_ekskul_id || $ekskul->isDirty('jenis')) {
+                $kode = $ekskul->jenis === 'osis' ? 'osis' : 'ekskul';
+                $ekskul->jenis = $kode;
+                $ekskul->jenis_ekskul_id = JenisEkskul::where('kode', $kode)->value('id');
+            }
+        });
+
         // Menghapus ekskul = menghapus juga berkas fisik materi, task, dan galerinya
         static::deleting(function (self $ekskul) {
             foreach (['materi', 'pr', 'galeri'] as $folder) {
                 Storage::disk('local')->deleteDirectory("{$folder}/{$ekskul->id}");
             }
         });
+    }
+
+    public function jenisEkskul()
+    {
+        return $this->belongsTo(JenisEkskul::class, 'jenis_ekskul_id');
+    }
+
+    // Ekskul yang pendaftarannya lewat seleksi CaSis (saat ini hanya OSIS). Satu-satunya tempat aturan ini ditulis:
+    // kode lain cukup memanggil memakaiCasis() / alurCasis(), jadi memperluas alur CaSis ke jenis lain cukup mengubah di sini.
+    // Dibaca dari kolom "jenis" yang disinkronkan hook di atas, jadi tidak ada query tambahan per kartu.
+    public function memakaiCasis(): bool
+    {
+        return $this->jenis === 'osis';
+    }
+
+    public function scopeAlurCasis($query)
+    {
+        return $query->where('jenis', 'osis');
     }
 
     public function pendaftaran()
@@ -108,7 +145,7 @@ class Ekstrakurikuler extends Model
         }
 
         // Ekskul OSIS: pendaftaran = pendaftaran CaSis, hanya terbuka saat ada periode rekrutmen yang dibuka
-        if ($this->jenis === 'osis' && !OsisPeriode::terbuka()->where('ekstrakurikuler_id', $this->id)->exists()) {
+        if ($this->memakaiCasis() && !OsisPeriode::terbuka()->where('ekstrakurikuler_id', $this->id)->exists()) {
             return 'ditutup';
         }
 

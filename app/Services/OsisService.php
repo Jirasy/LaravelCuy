@@ -21,7 +21,7 @@ class OsisService
     public function osis(): ?Ekstrakurikuler
     {
         if (!$this->osisDimuat) {
-            $this->osisCache = Ekstrakurikuler::where('jenis', 'osis')->first();
+            $this->osisCache = Ekstrakurikuler::alurCasis()->first();
             $this->osisDimuat = true;
         }
 

@@ -24,6 +24,7 @@ use App\Http\Controllers\EkstrakurikulerController;
 use App\Http\Controllers\EmployeController;
 use App\Http\Controllers\HealthController;
 use App\Http\Controllers\ImportSiswaController;
+use App\Http\Controllers\JenisEkskulController;
 use App\Http\Controllers\JihyController;
 use App\Http\Controllers\KeanggotaanController;
 use App\Http\Controllers\kenzoController as KenzoController;
@@ -297,6 +298,7 @@ Route::middleware(['auth', EnsureUserIsActive::class, PaksaGantiPassword::class]
         Route::put('/users/{user}', [UserController::class, 'update'])->name('users.update');
         Route::patch('/users/{user}/toggle', [UserController::class, 'toggleActive'])->name('users.toggle');
         Route::delete('/users/{user}', [UserController::class, 'destroy'])->name('users.destroy');
+        Route::post('/users/massal', [UserController::class, 'massal'])->middleware('throttle:20,1')->name('users.massal');
 
         // Import siswa massal (xlsx/csv/txt/docx): akun siswa + password acak. Rekap hanya bisa dibuka pengunggahnya.
         Route::get('/import-siswa', [ImportSiswaController::class, 'create'])->name('import-siswa.create');
@@ -310,6 +312,12 @@ Route::middleware(['auth', EnsureUserIsActive::class, PaksaGantiPassword::class]
     Route::middleware(RoleMiddleware::class.':admin')->group(function () {
         Route::patch('/users/{user}/role', [UserController::class, 'updateRole'])->name('users.updateRole');
         Route::get('/tautan', [EkskulTautanController::class, 'index'])->name('tautan.index');
+
+        // Jenis/kategori ekskul (OSIS, MPK, Pramuka, PMR, Paskibra, dst)
+        Route::get('/jenis-ekskul', [JenisEkskulController::class, 'index'])->name('jenis-ekskul.index');
+        Route::post('/jenis-ekskul', [JenisEkskulController::class, 'store'])->name('jenis-ekskul.store');
+        Route::patch('/jenis-ekskul/{jenis}', [JenisEkskulController::class, 'update'])->name('jenis-ekskul.update');
+        Route::delete('/jenis-ekskul/{jenis}', [JenisEkskulController::class, 'destroy'])->name('jenis-ekskul.destroy');
 
         // Password sementara akun pembina yang dibuat otomatis (terenkripsi, berbatas waktu)
         Route::get('/kredensial', [KredensialController::class, 'index'])->name('kredensial.index');

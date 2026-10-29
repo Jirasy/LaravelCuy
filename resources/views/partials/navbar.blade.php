@@ -49,6 +49,7 @@
                 <a href="{{ route('import-siswa.create') }}" class="text-gray-700 hover:underline {{ request()->routeIs('import-siswa.*') ? $aktif : '' }}">Import Siswa</a>
                 @if($me->isAdmin())
                     <a href="{{ route('kredensial.index') }}" class="text-gray-700 hover:underline {{ request()->routeIs('kredensial.*') ? $aktif : '' }}">Kredensial</a>
+                    <a href="{{ route('jenis-ekskul.index') }}" class="text-gray-700 hover:underline {{ request()->routeIs('jenis-ekskul.*') ? $aktif : '' }}">Jenis Ekskul</a>
                 @endif
                 @php $menungguKeputusan = \App\Models\EkskulPengunduranDiri::menungguUntuk($me)->count(); @endphp
                 <a href="{{ route('pengunduran.index') }}" class="text-gray-700 hover:underline {{ request()->routeIs('pengunduran.*') ? $aktif : '' }}">

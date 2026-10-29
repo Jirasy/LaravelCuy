@@ -60,20 +60,24 @@
                                         </div>
                                     @endforeach
 
-                                    {{-- Beri jabatan baru --}}
+                                    {{-- Beri jabatan baru: boleh centang lebih dari satu sekaligus --}}
+                                    @php $tersedia = $jabatans->whereNotIn('id', $a->jabatanAktif->pluck('id')); @endphp
                                     @if($jabatans->isEmpty())
                                         <p class="text-xs text-gray-500">Belum ada jabatan. Buat dulu di tab <strong>Struktur</strong>.</p>
+                                    @elseif($tersedia->isEmpty())
+                                        <p class="text-xs text-gray-500">{{ $a->nama_pendaftar }} sudah memegang semua jabatan yang ada.</p>
                                     @else
                                         <form action="{{ route('anggota-jabatan.store', $a->id) }}" method="POST" class="space-y-1">
                                             @csrf
-                                            <select name="jabatan_id" required class="border p-1 rounded text-xs w-full">
-                                                <option value="">-- Beri jabatan --</option>
-                                                @foreach($jabatans->whereNotIn('id', $a->jabatanAktif->pluck('id')) as $opsi)
-                                                    <option value="{{ $opsi->id }}" {{ $opsi->kuota_penuh ? 'disabled' : '' }}>
-                                                        {{ $opsi->label_lengkap }}{{ $opsi->kuota_penuh ? ' (penuh)' : '' }}
-                                                    </option>
+                                            <p class="text-xs font-semibold text-gray-700">Beri jabatan <span class="font-normal text-gray-500">(boleh lebih dari satu)</span></p>
+                                            <div class="max-h-40 space-y-1 overflow-y-auto rounded border p-2">
+                                                @foreach($tersedia as $opsi)
+                                                    <label class="flex items-center gap-2 text-xs {{ $opsi->kuota_penuh ? 'text-gray-400' : 'cursor-pointer' }}">
+                                                        <input type="checkbox" name="jabatan_ids[]" value="{{ $opsi->id }}" class="h-3.5 w-3.5" @disabled($opsi->kuota_penuh)>
+                                                        <span>{{ $opsi->label_lengkap }}{{ $opsi->kuota_penuh ? ' (penuh)' : '' }}</span>
+                                                    </label>
                                                 @endforeach
-                                            </select>
+                                            </div>
                                             <div class="flex gap-2">
                                                 <input type="number" name="periode_mulai" value="{{ date('Y') }}" min="1990" max="{{ date('Y') + 1 }}" title="Tahun mulai menjabat" class="border p-1 rounded text-xs w-24">
                                                 <button type="submit" class="bg-indigo-600 text-white px-3 py-1 rounded text-xs hover:bg-indigo-700">Beri</button>
