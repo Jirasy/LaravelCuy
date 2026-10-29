@@ -17,7 +17,10 @@
                     <h1 class="text-3xl font-bold">Kelola User</h1>
                     <p class="opacity-80 text-sm mt-1">Atur role, aktifkan atau nonaktifkan akun, dan edit data pengguna.</p>
                 </div>
-                <input type="search" id="cari-user" placeholder="Cari nama, email, kelas..." class="field-glass !w-64 !mt-0">
+                <div class="flex flex-wrap items-center gap-3">
+                    <a href="{{ route('import-siswa.create') }}" class="bg-white/90 text-indigo-700 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-white">📥 Import siswa</a>
+                    <input type="search" id="cari-user" placeholder="Cari nama, email, kelas..." class="field-glass !w-64 !mt-0">
+                </div>
             </div>
         </div>
 

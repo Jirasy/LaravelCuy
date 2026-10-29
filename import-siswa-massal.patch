@@ -1,0 +1,1398 @@
+diff --git a/app/Http/Controllers/ImportSiswaController.php b/app/Http/Controllers/ImportSiswaController.php
+new file mode 100644
+index 0000000..6771e06
+--- /dev/null
++++ b/app/Http/Controllers/ImportSiswaController.php
+@@ -0,0 +1,164 @@
++<?php
++
++namespace App\Http\Controllers;
++
++use App\Models\KredensialSementara;
++use App\Models\User;
++use App\Notifications\RekapImportSiswa;
++use App\Services\DaftarSiswaPembaca;
++use App\Services\ImportSiswaService;
++use Illuminate\Http\Request;
++use Illuminate\Notifications\DatabaseNotification;
++use Illuminate\Validation\ValidationException;
++use Symfony\Component\HttpFoundation\StreamedResponse;
++
++// Hanya admin & pembina (dijaga di routes/web.php). Rekap kredensial hanya bisa dibuka oleh pengunggahnya sendiri.
++class ImportSiswaController extends Controller
++{
++    public function create()
++    {
++        return view('import_siswa.create', [
++            'ekstensi' => DaftarSiswaPembaca::ekstensiDidukung(),
++            'maks' => DaftarSiswaPembaca::MAKS_BARIS,
++            'domainDefault' => ImportSiswaService::DOMAIN_EMAIL_DEFAULT,
++        ]);
++    }
++
++    public function proses(Request $request, DaftarSiswaPembaca $pembaca, ImportSiswaService $layanan)
++    {
++        $request->validate([
++            'berkas' => ['required', 'file', 'max:5120', 'extensions:'.implode(',', DaftarSiswaPembaca::ekstensiDidukung())],
++            'domain_email' => ['nullable', 'string', 'max:100', 'regex:/^[a-z0-9]([a-z0-9\-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9\-]*[a-z0-9])?)+$/i'],
++        ], [
++            'berkas.required' => 'Pilih berkas daftar siswa dulu.',
++            'berkas.max' => 'Ukuran berkas maksimal 5 MB.',
++            'berkas.extensions' => 'Format berkas harus salah satu dari: '.implode(', ', DaftarSiswaPembaca::ekstensiDidukung()).'.',
++            'domain_email.regex' => 'Domain email tidak valid, contoh: siswa.sekolahku.sch.id',
++        ]);
++
++        // Hash password (bcrypt) per akun butuh waktu; 500 siswa bisa melewati batas waktu bawaan PHP
++        set_time_limit(300);
++
++        $berkas = $request->file('berkas');
++
++        try {
++            $terbaca = $pembaca->baca($berkas);
++        } catch (ValidationException $e) {
++            throw $e;
++        } catch (\Throwable $e) {
++            report($e);
++
++            throw ValidationException::withMessages([
++                'berkas' => 'Berkas tidak bisa dibaca. Pastikan formatnya benar dan tidak dikunci password.',
++            ]);
++        }
++
++        if ($terbaca['siswa'] === []) {
++            throw ValidationException::withMessages([
++                'berkas' => 'Tidak ada nama siswa yang terbaca. Pastikan ada kolom "Nama" atau satu nama per baris.',
++            ]);
++        }
++
++        $hasil = $layanan->impor(
++            $terbaca['siswa'],
++            $request->user(),
++            $berkas->getClientOriginalName(),
++            $terbaca['diabaikan'],
++            strtolower($request->input('domain_email') ?: ImportSiswaService::DOMAIN_EMAIL_DEFAULT),
++            $request->boolean('izinkan_nama_sama'),
++        );
++
++        $jumlah = count($hasil['dibuat']);
++        $dilewati = count($hasil['dilewati']);
++
++        if ($jumlah === 0) {
++            return back()
++                ->with('error', 'Tidak ada akun baru yang dibuat: semua nama di berkas sudah terdaftar atau kembar.')
++                ->with('dilewati', $hasil['dilewati']);
++        }
++
++        return redirect()
++            ->route('import-siswa.hasil', $hasil['rekap_id'])
++            ->with('success', "Berhasil mengimpor {$jumlah} siswa baru."
++                .($dilewati > 0 ? " {$dilewati} nama dilewati." : ''));
++    }
++
++    public function hasil(Request $request, string $rekap)
++    {
++        $notif = $this->rekapMilik($request, $rekap);
++        $idSiswa = $notif->data['id_siswa'] ?? [];
++
++        $siswa = User::whereIn('id', $idSiswa)->orderBy('name')->get();
++        $kredensial = KredensialSementara::whereIn('user_id', $idSiswa)->get()->keyBy('user_id');
++
++        // Password baru didekripsi setelah tombol "Tampilkan password" ditekan (flash, sekali tampil)
++        $password = [];
++        if (session('rekap_dibuka') === $rekap) {
++            foreach ($kredensial as $idUser => $k) {
++                if (! $k->sudahKedaluwarsa()) {
++                    $password[$idUser] = $k->passwordAsli();
++                }
++            }
++        }
++
++        return view('import_siswa.hasil', [
++            'rekap' => $rekap,
++            'data' => $notif->data,
++            'siswa' => $siswa,
++            'kredensial' => $kredensial,
++            'password' => $password,
++            'dibuka' => session('rekap_dibuka') === $rekap,
++        ]);
++    }
++
++    public function tampilkan(Request $request, string $rekap)
++    {
++        $notif = $this->rekapMilik($request, $rekap);
++        $this->catatDilihat($request, $notif);
++
++        return redirect()->route('import-siswa.hasil', $rekap)->with('rekap_dibuka', $rekap);
++    }
++
++    public function unduh(Request $request, string $rekap): StreamedResponse
++    {
++        $notif = $this->rekapMilik($request, $rekap);
++        $idSiswa = $notif->data['id_siswa'] ?? [];
++
++        $this->catatDilihat($request, $notif);
++
++        $siswa = User::whereIn('id', $idSiswa)->orderBy('name')->get();
++        $kredensial = KredensialSementara::whereIn('user_id', $idSiswa)->get()->keyBy('user_id');
++
++        return response()->streamDownload(function () use ($siswa, $kredensial) {
++            $out = fopen('php://output', 'w');
++            fwrite($out, "\xEF\xBB\xBF"); // BOM supaya Excel membaca UTF-8 dengan benar
++            fputcsv($out, ['Nama', 'Kelas', 'Email login', 'Password sementara'], ',', '"', '');
++
++            foreach ($siswa as $s) {
++                $k = $kredensial->get($s->id);
++                $password = ($k && ! $k->sudahKedaluwarsa()) ? ($k->passwordAsli() ?? '') : '';
++
++                fputcsv($out, [$s->name, $s->kelas, $s->email, $password], ',', '"', '');
++            }
++
++            fclose($out);
++        }, 'akun-siswa-baru-'.now()->format('Ymd-His').'.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
++    }
++
++    // Hanya notifikasi milik user yang login, jadi admin/pembina lain tidak bisa membuka rekap orang lain (404)
++    private function rekapMilik(Request $request, string $rekap): DatabaseNotification
++    {
++        return $request->user()->notifications()
++            ->where('id', $rekap)
++            ->where('type', RekapImportSiswa::class)
++            ->firstOrFail();
++    }
++
++    private function catatDilihat(Request $request, DatabaseNotification $notif): void
++    {
++        KredensialSementara::whereIn('user_id', $notif->data['id_siswa'] ?? [])->update([
++            'terakhir_dilihat_pada' => now(),
++            'terakhir_dilihat_oleh' => $request->user()->id,
++        ]);
++    }
++}
+diff --git a/app/Notifications/RekapImportSiswa.php b/app/Notifications/RekapImportSiswa.php
+new file mode 100644
+index 0000000..5813960
+--- /dev/null
++++ b/app/Notifications/RekapImportSiswa.php
+@@ -0,0 +1,59 @@
++<?php
++
++namespace App\Notifications;
++
++use Illuminate\Notifications\Notification;
++
++// Riwayat pesan privat untuk admin/pembina yang mengunggah berkas. Id notifikasi sengaja diisi sendiri
++// (sama dengan id rekap di URL), jadi halaman rekap cukup mencarinya di notifikasi milik user yang login.
++// Password TIDAK disimpan di sini: tabel notifications tidak terenkripsi. Password ada di kredensial_sementara.
++class RekapImportSiswa extends Notification
++{
++    /**
++     * @param  list<int>  $idSiswa
++     * @param  list<string>  $namaSiswa
++     * @param  list<array{nama: string, alasan: string}>  $dilewati
++     */
++    public function __construct(
++        string $id,
++        private string $namaBerkas,
++        private array $idSiswa,
++        private array $namaSiswa,
++        private array $dilewati,
++        private int $diabaikan,
++    ) {
++        $this->id = $id;
++    }
++
++    public function via(object $notifiable): array
++    {
++        return ['database'];
++    }
++
++    public function toArray(object $notifiable): array
++    {
++        $jumlah = count($this->idSiswa);
++        $tampil = array_slice($this->namaSiswa, 0, 15);
++        $sisa = $jumlah - count($tampil);
++
++        $pesan = "{$jumlah} akun siswa baru dibuat dari berkas \"{$this->namaBerkas}\".\n"
++            .'Nama: '.implode(', ', $tampil).($sisa > 0 ? " dan {$sisa} lainnya" : '').".\n";
++
++        if ($this->dilewati !== []) {
++            $pesan .= count($this->dilewati)." nama dilewati (sudah terdaftar atau kembar di berkas).\n";
++        }
++
++        $pesan .= 'Buka untuk melihat email dan password sementara tiap siswa (tersedia 7 hari).';
++
++        return [
++            'judul' => "Import siswa selesai: {$jumlah} akun dibuat",
++            'pesan' => $pesan,
++            'url' => route('import-siswa.hasil', $this->id, false),
++            'ikon' => '📥',
++            'berkas' => $this->namaBerkas,
++            'id_siswa' => $this->idSiswa,
++            'dilewati' => $this->dilewati,
++            'diabaikan' => $this->diabaikan,
++        ];
++    }
++}
+diff --git a/app/Services/DaftarSiswaPembaca.php b/app/Services/DaftarSiswaPembaca.php
+new file mode 100644
+index 0000000..5352cae
+--- /dev/null
++++ b/app/Services/DaftarSiswaPembaca.php
+@@ -0,0 +1,513 @@
++<?php
++
++namespace App\Services;
++
++use DOMDocument;
++use DOMNode;
++use DOMXPath;
++use Illuminate\Http\UploadedFile;
++use Illuminate\Validation\ValidationException;
++use Maatwebsite\Excel\Excel as TipeExcel;
++use Maatwebsite\Excel\Facades\Excel;
++use RuntimeException;
++use ZipArchive;
++
++/**
++ * Membaca daftar siswa dari berkas unggahan lalu menyaring kolom yang relevan saja.
++ *
++ * - xlsx/xls  : Maatwebsite\Excel (sudah terpasang)
++ * - csv/txt   : dibaca sendiri (pemisah , ; tab | dideteksi otomatis; Excel Indonesia sering memakai ;)
++ * - docx      : dibaca langsung dari word/document.xml (paragraf dan tabel), tanpa paket tambahan
++ * - pdf       : hanya aktif bila paket smalot/pdfparser terpasang (composer require smalot/pdfparser)
++ *
++ * Kolom yang dipakai: Nama (wajib), NISN, Kelas, Email (opsional). Kolom lain (mis. nomor kelompok CAMP) diabaikan.
++ */
++class DaftarSiswaPembaca
++{
++    public const MAKS_BARIS = 500;
++
++    private const EKSTENSI_DASAR = ['xlsx', 'xls', 'csv', 'txt', 'docx'];
++
++    private const POLA_JUDUL_NAMA = '/^(nama(\s+(lengkap|siswa|murid|peserta|santri))?|name|full\s*name|siswa|murid|peserta)$/iu';
++
++    private const POLA_JUDUL_NISN = '/^nisn$/iu';
++
++    private const POLA_JUDUL_KELAS = '/^kelas$/iu';
++
++    private const POLA_JUDUL_EMAIL = '/^e-?mail$/iu';
++
++    // Kata yang bentuknya mirip nama tetapi sebenarnya judul kolom / label
++    private const POLA_BUKAN_NAMA = '/^(no|nomor|nama|name|kelas|kelompok|nisn|jumlah|total|absen|keterangan|ket|jk|jenis kelamin|laki-laki|perempuan)$|^(daftar|rekap|list)\s/iu';
++
++    /**
++     * @return list<string>
++     */
++    public static function ekstensiDidukung(): array
++    {
++        return class_exists(\Smalot\PdfParser\Parser::class)
++            ? [...self::EKSTENSI_DASAR, 'pdf']
++            : self::EKSTENSI_DASAR;
++    }
++
++    /**
++     * @return array{siswa: list<array{nama: string, nisn: ?string, kelas: ?string, email: ?string}>, diabaikan: int}
++     */
++    public function baca(UploadedFile $berkas): array
++    {
++        $ekstensi = strtolower($berkas->getClientOriginalExtension());
++        $jalur = (string) $berkas->getRealPath();
++
++        $baris = match ($ekstensi) {
++            'xlsx', 'xls' => $this->barisSpreadsheet($berkas, $ekstensi),
++            'csv', 'txt' => $this->barisTeks((string) file_get_contents($jalur)),
++            'docx' => $this->barisDocx($jalur),
++            'pdf' => $this->barisPdf($jalur),
++            default => throw ValidationException::withMessages(['berkas' => 'Format berkas tidak didukung.']),
++        };
++
++        $hasil = $this->ekstrak($baris);
++
++        if (count($hasil['siswa']) > self::MAKS_BARIS) {
++            throw ValidationException::withMessages([
++                'berkas' => 'Maksimal '.self::MAKS_BARIS.' nama per unggahan, berkasmu berisi '.count($hasil['siswa']).'. Bagi menjadi beberapa berkas.',
++            ]);
++        }
++
++        return $hasil;
++    }
++
++    // ---------------------------------------------------------------------
++    // Pembacaan per format -> baris-baris sel (list<list<string>>)
++    // ---------------------------------------------------------------------
++
++    /**
++     * @return list<list<string>>
++     */
++    private function barisSpreadsheet(UploadedFile $berkas, string $ekstensi): array
++    {
++        $tipe = $ekstensi === 'xls' ? TipeExcel::XLS : TipeExcel::XLSX;
++
++        // Objek import kosong: toArray() hanya perlu pembaca, bukan logika import
++        $lembar = Excel::toArray(new class {}, $berkas, null, $tipe);
++
++        foreach ($lembar as $baris) {
++            $bersih = array_values(array_map(
++                fn ($b) => array_map(fn ($sel) => $this->teks($sel), array_values((array) $b)),
++                $baris
++            ));
++
++            if ($this->adaIsi($bersih)) {
++                return $bersih;
++            }
++        }
++
++        return [];
++    }
++
++    /**
++     * @return list<list<string>>
++     */
++    private function barisTeks(string $isi): array
++    {
++        $isi = $this->keUtf8($isi);
++
++        $garis = array_values(array_filter(
++            array_map('trim', preg_split('/\R/u', $isi) ?: []),
++            fn ($g) => $g !== ''
++        ));
++
++        $pemisah = $this->deteksiPemisah($garis);
++
++        return array_map(function (string $g) use ($pemisah) {
++            $sel = $pemisah === null ? [$g] : str_getcsv($g, $pemisah, '"', '');
++
++            return array_map(fn ($s) => $this->teks($s), $sel);
++        }, $garis);
++    }
++
++    /**
++     * @return list<list<string>>
++     */
++    private function barisDocx(string $jalur): array
++    {
++        $zip = new ZipArchive;
++
++        if ($zip->open($jalur) !== true) {
++            throw new RuntimeException('Berkas docx tidak bisa dibuka.');
++        }
++
++        $xml = $zip->getFromName('word/document.xml');
++        $zip->close();
++
++        if ($xml === false) {
++            throw new RuntimeException('Isi docx tidak ditemukan.');
++        }
++
++        $dom = new DOMDocument;
++
++        if (! $dom->loadXML($xml, LIBXML_NONET)) {
++            throw new RuntimeException('Isi docx rusak.');
++        }
++
++        $xp = new DOMXPath($dom);
++        $xp->registerNamespace('w', 'http://schemas.openxmlformats.org/wordprocessingml/2006/main');
++
++        $badan = $xp->query('/w:document/w:body')->item(0);
++        $baris = [];
++
++        foreach ($badan?->childNodes ?? [] as $node) {
++            if ($node->nodeName === 'w:tbl') {
++                foreach ($xp->query('./w:tr', $node) as $tr) {
++                    $sel = [];
++                    foreach ($xp->query('./w:tc', $tr) as $tc) {
++                        $sel[] = $this->teks(str_replace("\t", ' ', $this->teksNode($xp, $tc)));
++                    }
++                    $baris[] = $sel;
++                }
++            } elseif ($node->nodeName === 'w:p') {
++                $baris[] = array_map(fn ($s) => $this->teks($s), explode("\t", $this->teksNode($xp, $node)));
++            }
++        }
++
++        return $baris;
++    }
++
++    /**
++     * @return list<list<string>>
++     */
++    private function barisPdf(string $jalur): array
++    {
++        if (! class_exists(\Smalot\PdfParser\Parser::class)) {
++            throw ValidationException::withMessages([
++                'berkas' => 'Pembaca PDF belum dipasang. Gunakan xlsx, csv, txt, atau docx.',
++            ]);
++        }
++
++        $teks = (new \Smalot\PdfParser\Parser)->parseFile($jalur)->getText();
++
++        return $this->barisTeks($teks);
++    }
++
++    // ---------------------------------------------------------------------
++    // Menyaring kolom: judul "Nama" bila ada, kalau tidak ditebak dari isi
++    // ---------------------------------------------------------------------
++
++    /**
++     * @param  list<list<string>>  $baris
++     * @return array{siswa: list<array{nama: string, nisn: ?string, kelas: ?string, email: ?string}>, diabaikan: int}
++     */
++    private function ekstrak(array $baris): array
++    {
++        $baris = array_values(array_filter($baris, fn ($b) => implode('', $b) !== ''));
++
++        // Bentuk 1: beberapa kelompok berdampingan (No | Nama kelompok | Kelas | No | ...)
++        $berdampingan = $this->deteksiBlokBerdampingan($baris);
++
++        if ($berdampingan !== null) {
++            $blok = $berdampingan['blok'];
++            $mulai = $berdampingan['mulai'];
++        } else {
++            // Bentuk 2: ada judul kolom "Nama"; bentuk 3: tidak ada judul, kolom nama ditebak dari isi
++            $kolom = ['nama' => null, 'nisn' => null, 'kelas' => null, 'email' => null];
++            $mulai = 0;
++
++            foreach (array_slice($baris, 0, 15, true) as $i => $b) {
++                $peta = $this->petaJudul($b);
++
++                if ($peta['nama'] !== null) {
++                    $kolom = $peta;
++                    $mulai = $i + 1;
++                    break;
++                }
++            }
++
++            if ($kolom['nama'] === null) {
++                $kolom['nama'] = $this->tebakKolomNama($baris);
++            }
++
++            $blok = $kolom['nama'] === null ? [] : [$kolom];
++        }
++
++        if ($blok === []) {
++            return ['siswa' => [], 'diabaikan' => count($baris)];
++        }
++
++        $siswa = [];
++        $diabaikan = 0;
++
++        foreach ($blok as $kolom) {
++            foreach (array_slice($baris, $mulai) as $b) {
++                $sel = $b[$kolom['nama']] ?? '';
++
++                if ($sel === '') {
++                    continue;
++                }
++
++                $nama = $this->bersihkanNama($sel);
++
++                if ($nama === null) {
++                    $diabaikan++;
++
++                    continue;
++                }
++
++                $siswa[] = [
++                    'nama' => $nama,
++                    'nisn' => $this->ambilNisn($b[$kolom['nisn'] ?? -1] ?? ''),
++                    'kelas' => $this->ambilKelas($b[$kolom['kelas'] ?? -1] ?? ''),
++                    'email' => $this->ambilEmail($b[$kolom['email'] ?? -1] ?? ''),
++                ];
++            }
++        }
++
++        return ['siswa' => $siswa, 'diabaikan' => $diabaikan];
++    }
++
++    /**
++     * Lembar berisi beberapa kelompok yang diletakkan menyamping, mis. 11 kelompok CPD:
++     * "No | Kelompok 1 = <pembina> | Kelas | (kosong) | No | Kelompok 2 = ... | Kelas".
++     * Dikenali dari judul "No" (atau "Kelas") yang berulang di satu baris; kolom nama = kolom sesudah "No".
++     * Judul kolom nama berisi nama pembina/kelompok, jadi tidak pernah dianggap sebagai siswa.
++     *
++     * @param  list<list<string>>  $baris
++     * @return array{blok: list<array{nama: int, nisn: null, kelas: ?int, email: null}>, mulai: int}|null
++     */
++    private function deteksiBlokBerdampingan(array $baris): ?array
++    {
++        foreach (array_slice($baris, 0, 15, true) as $i => $b) {
++            $noKolom = [];
++            $kelasKolom = [];
++
++            foreach ($b as $k => $sel) {
++                $judul = mb_strtolower(trim($sel, " \t:."));
++
++                if ($judul === 'no' || $judul === 'nomor') {
++                    $noKolom[] = $k;
++                } elseif ($judul === 'kelas') {
++                    $kelasKolom[] = $k;
++                }
++            }
++
++            if (count($noKolom) >= 2) {
++                $namaKolom = array_map(fn ($k) => $k + 1, $noKolom);
++            } elseif (count($kelasKolom) >= 2) {
++                $namaKolom = array_filter(array_map(fn ($k) => $k - 1, $kelasKolom), fn ($k) => $k >= 0);
++            } else {
++                continue;
++            }
++
++            $blok = array_map(fn ($k) => [
++                'nama' => $k,
++                'nisn' => null,
++                'kelas' => in_array($k + 1, $kelasKolom, true) ? $k + 1 : null,
++                'email' => null,
++            ], array_values($namaKolom));
++
++            return ['blok' => $blok, 'mulai' => $i + 1];
++        }
++
++        return null;
++    }
++
++    /**
++     * @param  list<string>  $baris
++     * @return array{nama: ?int, nisn: ?int, kelas: ?int, email: ?int}
++     */
++    private function petaJudul(array $baris): array
++    {
++        $peta = ['nama' => null, 'nisn' => null, 'kelas' => null, 'email' => null];
++
++        foreach ($baris as $i => $sel) {
++            $judul = trim($sel, " \t:.");
++
++            if ($peta['nama'] === null && preg_match(self::POLA_JUDUL_NAMA, $judul)) {
++                $peta['nama'] = $i;
++            } elseif ($peta['nisn'] === null && preg_match(self::POLA_JUDUL_NISN, $judul)) {
++                $peta['nisn'] = $i;
++            } elseif ($peta['kelas'] === null && preg_match(self::POLA_JUDUL_KELAS, $judul)) {
++                $peta['kelas'] = $i;
++            } elseif ($peta['email'] === null && preg_match(self::POLA_JUDUL_EMAIL, $judul)) {
++                $peta['email'] = $i;
++            }
++        }
++
++        return $peta;
++    }
++
++    /**
++     * Tanpa judul kolom: pilih kolom dengan nilai "mirip nama" paling beragam.
++     * Kolom kelompok/kelas hanya punya sedikit nilai unik sehingga kalah.
++     *
++     * @param  list<list<string>>  $baris
++     */
++    private function tebakKolomNama(array $baris): ?int
++    {
++        $unik = [];
++
++        foreach ($baris as $b) {
++            foreach ($b as $i => $sel) {
++                $nama = $this->bersihkanNama($sel);
++                if ($nama !== null) {
++                    $unik[$i][mb_strtolower($nama)] = true;
++                }
++            }
++        }
++
++        if ($unik === []) {
++            return null;
++        }
++
++        $skor = array_map('count', $unik);
++        arsort($skor);
++        $terbaik = max($skor);
++
++        // Seri -> kolom paling kiri
++        return (int) min(array_keys(array_filter($skor, fn ($n) => $n === $terbaik)));
++    }
++
++    private function bersihkanNama(string $sel): ?string
++    {
++        $nama = preg_replace('/^\s*\(?\d{1,4}(?:\s*[\.\)\-:]\s*|\s+)(?=\p{L})/u', '', $sel) ?? $sel;
++        $nama = preg_replace('/^[\-\*•·]\s+/u', '', $nama) ?? $nama;
++        $nama = preg_replace('/\s*\([^)]*\)\s*$/u', '', $nama) ?? $nama;
++        $nama = trim($nama, " \t,;");
++
++        $panjang = mb_strlen($nama);
++
++        if ($panjang < 2 || $panjang > 100) {
++            return null;
++        }
++
++        // Hanya huruf, spasi, titik, apostrof, dan strip: angka berarti bukan nama
++        if (! preg_match('/^\p{L}[\p{L}\p{M}\s\.\'’\-]*$/u', $nama)) {
++            return null;
++        }
++
++        if (preg_match(self::POLA_BUKAN_NAMA, $nama)) {
++            return null;
++        }
++
++        // SEMUA HURUF BESAR / kecil semua -> Huruf Awal Besar
++        if ($nama === mb_strtoupper($nama) || $nama === mb_strtolower($nama)) {
++            $nama = mb_convert_case($nama, MB_CASE_TITLE, 'UTF-8');
++        }
++
++        return $nama;
++    }
++
++    private function ambilNisn(string $sel): ?string
++    {
++        $digit = preg_replace('/\D+/', '', $sel) ?? '';
++
++        return strlen($digit) >= 5 && strlen($digit) <= 30 ? $digit : null;
++    }
++
++    private function ambilKelas(string $sel): ?string
++    {
++        $kelas = mb_substr(trim($sel), 0, 50);
++
++        return $kelas === '' ? null : $kelas;
++    }
++
++    private function ambilEmail(string $sel): ?string
++    {
++        $email = mb_strtolower(trim($sel));
++
++        return filter_var($email, FILTER_VALIDATE_EMAIL) ? $email : null;
++    }
++
++    // ---------------------------------------------------------------------
++    // Utilitas
++    // ---------------------------------------------------------------------
++
++    private function teks(mixed $nilai): string
++    {
++        if ($nilai instanceof \DateTimeInterface) {
++            return $nilai->format('Y-m-d');
++        }
++
++        if (! is_scalar($nilai)) {
++            return '';
++        }
++
++        // Excel menyimpan angka (mis. NISN) sebagai float: 3.0012345678E9 -> 3001234567
++        if (is_float($nilai) && floor($nilai) === $nilai) {
++            return number_format($nilai, 0, '', '');
++        }
++
++        return trim(preg_replace('/\s+/u', ' ', (string) $nilai) ?? '');
++    }
++
++    /**
++     * @param  list<list<string>>  $baris
++     */
++    private function adaIsi(array $baris): bool
++    {
++        foreach ($baris as $b) {
++            if (implode('', $b) !== '') {
++                return true;
++            }
++        }
++
++        return false;
++    }
++
++    private function keUtf8(string $isi): string
++    {
++        if (str_starts_with($isi, "\xFF\xFE")) {
++            return mb_convert_encoding(substr($isi, 2), 'UTF-8', 'UTF-16LE');
++        }
++
++        if (str_starts_with($isi, "\xFE\xFF")) {
++            return mb_convert_encoding(substr($isi, 2), 'UTF-8', 'UTF-16BE');
++        }
++
++        $isi = preg_replace('/^\xEF\xBB\xBF/', '', $isi) ?? $isi;
++
++        return mb_check_encoding($isi, 'UTF-8') ? $isi : mb_convert_encoding($isi, 'UTF-8', 'Windows-1252');
++    }
++
++    /**
++     * Pemisah yang muncul di (hampir) semua baris contoh; null = satu kolom saja.
++     *
++     * @param  list<string>  $garis
++     */
++    private function deteksiPemisah(array $garis): ?string
++    {
++        $contoh = array_slice($garis, 0, 20);
++
++        if ($contoh === []) {
++            return null;
++        }
++
++        $terbaik = null;
++        $terbanyak = 0;
++
++        foreach ([';', "\t", '|', ','] as $kandidat) {
++            $jumlah = count(array_filter($contoh, fn ($g) => str_contains($g, $kandidat)));
++
++            if ($jumlah > $terbanyak && $jumlah >= ceil(count($contoh) * 0.6)) {
++                $terbaik = $kandidat;
++                $terbanyak = $jumlah;
++            }
++        }
++
++        return $terbaik;
++    }
++
++    private function teksNode(DOMXPath $xp, DOMNode $node): string
++    {
++        $hasil = '';
++
++        // w:r/w:tab = karakter tab sungguhan (w:pPr/w:tabs/w:tab hanya definisi posisi tab, diabaikan)
++        foreach ($xp->query('.//w:t | .//w:r/w:tab | .//w:r/w:br', $node) as $n) {
++            $hasil .= match ($n->localName) {
++                't' => $n->textContent,
++                'tab' => "\t",
++                default => ' ',
++            };
++        }
++
++        return $hasil;
++    }
++}
+diff --git a/app/Services/ImportSiswaService.php b/app/Services/ImportSiswaService.php
+new file mode 100644
+index 0000000..88c0b78
+--- /dev/null
++++ b/app/Services/ImportSiswaService.php
+@@ -0,0 +1,139 @@
++<?php
++
++namespace App\Services;
++
++use App\Models\KredensialSementara;
++use App\Models\User;
++use App\Notifications\RekapImportSiswa;
++use App\Support\PasswordAcak;
++use Illuminate\Support\Facades\DB;
++use Illuminate\Support\Str;
++
++class ImportSiswaService
++{
++    public const DOMAIN_EMAIL_DEFAULT = 'siswa.local';
++
++    /**
++     * Membuat akun role 'siswa' untuk tiap baris. Semua dalam satu transaksi: kalau ada yang gagal, tidak ada akun yang tersisa.
++     *
++     * Password acak disimpan HASH di users, dan salinan TERENKRIPSI (berlaku 7 hari, terhapus saat siswa mengganti password)
++     * di kredensial_sementara. Isi notifikasi rekap tidak memuat password, hanya tautan ke halaman rekapnya.
++     *
++     * @param  list<array{nama: string, nisn: ?string, kelas: ?string, email: ?string}>  $daftar
++     * @return array{dibuat: list<User>, dilewati: list<array{nama: string, alasan: string}>, rekap_id: ?string}
++     */
++    public function impor(
++        array $daftar,
++        User $pengunggah,
++        string $namaBerkas,
++        int $diabaikan = 0,
++        string $domain = self::DOMAIN_EMAIL_DEFAULT,
++        bool $izinkanNamaSama = false,
++    ): array {
++        return DB::transaction(function () use ($daftar, $pengunggah, $namaBerkas, $diabaikan, $domain, $izinkanNamaSama) {
++            $namaTerdaftar = $izinkanNamaSama ? [] : User::where('role', 'siswa')->pluck('name')
++                ->mapWithKeys(fn ($n) => [mb_strtolower(trim($n)) => true])->all();
++            $nisnTerdaftar = User::whereNotNull('nisn')->pluck('nisn')
++                ->mapWithKeys(fn ($n) => [(string) $n => true])->all();
++            $emailTerpakai = User::pluck('email')
++                ->mapWithKeys(fn ($e) => [mb_strtolower($e) => true])->all();
++
++            $dibuat = [];
++            $dilewati = [];
++            $terlihat = [];
++
++            foreach ($daftar as $baris) {
++                $nama = $baris['nama'];
++                $nisn = $baris['nisn'];
++                $email = $baris['email'];
++
++                $kunci = $nisn ?? mb_strtolower($nama);
++                if (isset($terlihat[$kunci])) {
++                    $dilewati[] = ['nama' => $nama, 'alasan' => 'Muncul lebih dari sekali di berkas'];
++
++                    continue;
++                }
++                $terlihat[$kunci] = true;
++
++                if ($nisn !== null && isset($nisnTerdaftar[$nisn])) {
++                    $dilewati[] = ['nama' => $nama, 'alasan' => "NISN {$nisn} sudah terdaftar"];
++
++                    continue;
++                }
++
++                if ($email !== null && isset($emailTerpakai[$email])) {
++                    $dilewati[] = ['nama' => $nama, 'alasan' => "Email {$email} sudah dipakai"];
++
++                    continue;
++                }
++
++                // Nama sama hanya dianggap duplikat kalau berkas tidak membawa NISN pembeda
++                if ($nisn === null && isset($namaTerdaftar[mb_strtolower($nama)])) {
++                    $dilewati[] = ['nama' => $nama, 'alasan' => 'Siswa dengan nama yang sama sudah terdaftar'];
++
++                    continue;
++                }
++
++                $email ??= $this->buatEmail($nama, $domain, $emailTerpakai);
++                $emailTerpakai[$email] = true;
++                $password = PasswordAcak::buat();
++
++                $user = new User([
++                    'name' => $nama,
++                    'email' => $email,
++                    'password' => $password,      // di-hash otomatis oleh cast 'hashed'
++                    'role' => 'siswa',
++                    'nisn' => $nisn,              // null kalau belum ada di berkas
++                    'kelas' => $baris['kelas'],
++                    'must_change_password' => true,
++                ]);
++                $user->is_active = true;
++                $user->save();
++
++                KredensialSementara::catat($user, $password, null, $pengunggah);
++
++                if ($nisn !== null) {
++                    $nisnTerdaftar[$nisn] = true;
++                }
++
++                $dibuat[] = $user;
++            }
++
++            $rekapId = null;
++
++            if ($dibuat !== []) {
++                $rekapId = (string) Str::uuid();
++
++                $pengunggah->notify(new RekapImportSiswa(
++                    id: $rekapId,
++                    namaBerkas: $namaBerkas,
++                    idSiswa: array_map(fn (User $u) => $u->id, $dibuat),
++                    namaSiswa: array_map(fn (User $u) => $u->name, $dibuat),
++                    dilewati: array_slice($dilewati, 0, 200),
++                    diabaikan: $diabaikan,
++                ));
++            }
++
++            return ['dibuat' => $dibuat, 'dilewati' => $dilewati, 'rekap_id' => $rekapId];
++        });
++    }
++
++    /**
++     * "Budi Santoso" -> budi.santoso@siswa.local, kalau sudah dipakai -> budi.santoso2@siswa.local, dst.
++     *
++     * @param  array<string, true>  $terpakai
++     */
++    private function buatEmail(string $nama, string $domain, array $terpakai): string
++    {
++        $dasar = Str::limit(Str::slug($nama, '.'), 40, '');
++        $dasar = trim($dasar, '.') ?: 'siswa';
++
++        $email = "{$dasar}@{$domain}";
++
++        for ($i = 2; isset($terpakai[$email]); $i++) {
++            $email = "{$dasar}{$i}@{$domain}";
++        }
++
++        return $email;
++    }
++}
+diff --git a/resources/views/import_siswa/create.blade.php b/resources/views/import_siswa/create.blade.php
+new file mode 100644
+index 0000000..d137825
+--- /dev/null
++++ b/resources/views/import_siswa/create.blade.php
+@@ -0,0 +1,90 @@
++<!DOCTYPE html>
++<html lang="id">
++<head>
++    <meta charset="UTF-8">
++    <meta name="viewport" content="width=device-width, initial-scale=1.0">
++    <title>Import Siswa</title>
++    @include('partials.head')
++</head>
++<body class="app-bg p-6">
++    <div class="max-w-2xl mx-auto">
++        @include('partials.navbar')
++
++        <div class="bg-white p-8 rounded-xl shadow-sm border border-gray-200">
++            <div class="flex justify-between items-center mb-2">
++                <h1 class="text-2xl font-bold text-gray-800">Import Data Siswa</h1>
++                <a href="{{ route('users.index') }}" class="text-gray-600 hover:underline text-sm">← Kelola User</a>
++            </div>
++            <p class="text-sm text-gray-600 mb-5">
++                Unggah daftar nama siswa. Sistem membuatkan akun role <b>siswa</b> dengan password acak untuk tiap nama,
++                lalu mengirim rekapnya ke notifikasimu.
++            </p>
++
++            @if(session('error'))
++                <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg mb-4">{{ session('error') }}</div>
++            @endif
++            @if($errors->any())
++                <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg mb-4">
++                    <ul class="list-disc pl-5 text-sm">
++                        @foreach($errors->all() as $e)<li>{{ $e }}</li>@endforeach
++                    </ul>
++                </div>
++            @endif
++
++            @if(session('dilewati'))
++                <div class="bg-amber-50 border border-amber-300 rounded-lg px-4 py-3 mb-4">
++                    <p class="text-sm font-semibold text-amber-900 mb-1">Nama yang dilewati:</p>
++                    <ul class="list-disc pl-5 text-sm text-amber-900 max-h-48 overflow-y-auto">
++                        @foreach(session('dilewati') as $d)
++                            <li>{{ $d['nama'] }} <span class="text-amber-700">— {{ $d['alasan'] }}</span></li>
++                        @endforeach
++                    </ul>
++                </div>
++            @endif
++
++            <form action="{{ route('import-siswa.proses') }}" method="POST" enctype="multipart/form-data" class="space-y-4">
++                @csrf
++
++                <div>
++                    <label class="block text-sm font-semibold text-gray-700">Berkas daftar siswa</label>
++                    <input type="file" name="berkas" required
++                           accept="{{ collect($ekstensi)->map(fn ($e) => '.'.$e)->implode(',') }}"
++                           class="w-full border p-2 rounded-lg mt-1 bg-white text-sm">
++                    <p class="text-xs text-gray-500 mt-1">
++                        Format: {{ implode(', ', $ekstensi) }}. Maksimal 5 MB dan {{ $maks }} nama per unggahan.
++                    </p>
++                </div>
++
++                <div class="bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 text-sm text-gray-700 space-y-1">
++                    <p class="font-semibold">Cara sistem membaca berkas</p>
++                    <ul class="list-disc pl-5 text-xs text-gray-600 space-y-0.5">
++                        <li>Kolom yang dipakai: <b>Nama</b> (wajib), serta <b>NISN</b>, <b>Kelas</b>, <b>Email</b> kalau ada.
++                            Kolom lain (mis. nomor kelompok CAMP) diabaikan.</li>
++                        <li>Tanpa judul kolom, sistem menebak kolom nama. Untuk berkas teks/Word cukup satu nama per baris (boleh bernomor).</li>
++                        <li>NISN dikosongkan bila tidak ada di berkas; bisa dilengkapi nanti lewat Kelola User.</li>
++                        <li>Tiap siswa mendapat email login otomatis (mis. <code>budi.santoso@{{ $domainDefault }}</code>) kecuali berkas sudah memuat email,
++                            dan wajib mengganti password saat login pertama.</li>
++                    </ul>
++                </div>
++
++                <div>
++                    <label class="block text-sm font-semibold text-gray-700">Domain email siswa <span class="font-normal text-gray-500">(opsional)</span></label>
++                    <input type="text" name="domain_email" value="{{ old('domain_email') }}" placeholder="{{ $domainDefault }}"
++                           class="w-full border p-2 rounded-lg mt-1 focus:ring focus:ring-indigo-200">
++                </div>
++
++                <label class="flex items-start gap-2 text-sm text-gray-700">
++                    <input type="checkbox" name="izinkan_nama_sama" value="1" class="mt-1" @checked(old('izinkan_nama_sama'))>
++                    <span>Tetap buat akun walau nama sama dengan siswa yang sudah ada
++                        <span class="block text-xs text-gray-500">Biarkan kosong untuk mencegah akun ganda kalau berkas yang sama terunggah dua kali.</span>
++                    </span>
++                </label>
++
++                <button type="submit" class="bg-indigo-600 text-white px-5 py-2 rounded-lg font-semibold hover:bg-indigo-700">
++                    Import sekarang
++                </button>
++            </form>
++        </div>
++    </div>
++</body>
++</html>
+diff --git a/resources/views/import_siswa/hasil.blade.php b/resources/views/import_siswa/hasil.blade.php
+new file mode 100644
+index 0000000..7999532
+--- /dev/null
++++ b/resources/views/import_siswa/hasil.blade.php
+@@ -0,0 +1,103 @@
++<!DOCTYPE html>
++<html lang="id">
++<head>
++    <meta charset="UTF-8">
++    <meta name="viewport" content="width=device-width, initial-scale=1.0">
++    <title>Hasil Import Siswa</title>
++    @include('partials.head')
++</head>
++<body class="app-bg p-6">
++    <div class="max-w-4xl mx-auto">
++        @include('partials.navbar')
++
++        <div class="flex flex-wrap justify-between items-center gap-3 mb-6" data-aos="fade-down">
++            <div>
++                <h1 class="text-3xl font-bold text-gray-800">Hasil Import Siswa</h1>
++                <p class="text-gray-600 text-sm">Berkas: {{ $data['berkas'] ?? '-' }}</p>
++            </div>
++            <div class="flex gap-2">
++                <a href="{{ route('import-siswa.create') }}" class="bg-gray-700 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-gray-800">Import lagi</a>
++                <form action="{{ route('import-siswa.unduh', $rekap) }}" method="POST">
++                    @csrf
++                    <button type="submit" class="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-green-700">Unduh CSV</button>
++                </form>
++            </div>
++        </div>
++
++        @if(session('success'))
++            <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-lg mb-4">{{ session('success') }}</div>
++        @endif
++        @if(session('error'))
++            <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg mb-4">{{ session('error') }}</div>
++        @endif
++
++        <div class="bg-amber-50 border border-amber-300 text-amber-900 text-sm px-4 py-3 rounded-lg mb-4">
++            Password sementara disimpan terenkripsi selama {{ \App\Models\KredensialSementara::MASA_BERLAKU_HARI }} hari dan terhapus otomatis
++            begitu siswa mengganti passwordnya. Bagikan ke siswa lewat jalur yang aman, jangan ditempel di grup umum.
++        </div>
++
++        <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm mb-4">
++            <div class="flex flex-wrap justify-between items-center gap-3 mb-3">
++                <h2 class="font-semibold text-gray-900">{{ $siswa->count() }} akun siswa baru</h2>
++                @if(! $dibuka)
++                    <form action="{{ route('import-siswa.tampilkan', $rekap) }}" method="POST">
++                        @csrf
++                        <button type="submit" class="bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-sm font-semibold hover:bg-indigo-700">Tampilkan password</button>
++                    </form>
++                @else
++                    <span class="text-xs text-gray-500">Password tampil sekali. Muat ulang halaman untuk menyembunyikannya.</span>
++                @endif
++            </div>
++
++            <div class="overflow-x-auto">
++                <table class="w-full text-sm">
++                    <thead>
++                        <tr class="text-left text-gray-500 border-b">
++                            <th class="py-2 pr-3">Nama</th>
++                            <th class="py-2 pr-3">Kelas</th>
++                            <th class="py-2 pr-3">Email login</th>
++                            <th class="py-2">Password sementara</th>
++                        </tr>
++                    </thead>
++                    <tbody>
++                        @foreach($siswa as $s)
++                            @php $k = $kredensial->get($s->id); @endphp
++                            <tr class="border-b last:border-0">
++                                <td class="py-2 pr-3 font-medium text-gray-900">{{ $s->name }}</td>
++                                <td class="py-2 pr-3 text-gray-600">{{ $s->kelas ?? '-' }}</td>
++                                <td class="py-2 pr-3 text-gray-700">{{ $s->email }}</td>
++                                <td class="py-2">
++                                    @if(! $k)
++                                        <span class="text-xs text-gray-500">Sudah diganti siswa</span>
++                                    @elseif($k->sudahKedaluwarsa())
++                                        <span class="text-xs text-red-600">Kedaluwarsa, reset lewat Kelola User</span>
++                                    @elseif($dibuka && ($password[$s->id] ?? null))
++                                        <code class="font-mono font-bold text-gray-900 select-all">{{ $password[$s->id] }}</code>
++                                    @else
++                                        <span class="text-gray-400">••••••••••••</span>
++                                    @endif
++                                </td>
++                            </tr>
++                        @endforeach
++                    </tbody>
++                </table>
++            </div>
++        </div>
++
++        @if(! empty($data['dilewati']))
++            <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
++                <h2 class="font-semibold text-gray-900 mb-2">{{ count($data['dilewati']) }} nama dilewati</h2>
++                <ul class="list-disc pl-5 text-sm text-gray-700 space-y-0.5">
++                    @foreach($data['dilewati'] as $d)
++                        <li>{{ $d['nama'] }} <span class="text-gray-500">— {{ $d['alasan'] }}</span></li>
++                    @endforeach
++                </ul>
++            </div>
++        @endif
++
++        @if(($data['diabaikan'] ?? 0) > 0)
++            <p class="text-xs text-gray-500 mt-3">{{ $data['diabaikan'] }} baris di berkas tidak dikenali sebagai nama dan diabaikan.</p>
++        @endif
++    </div>
++</body>
++</html>
+diff --git a/resources/views/partials/navbar.blade.php b/resources/views/partials/navbar.blade.php
+index a45aff0..d825531 100644
+--- a/resources/views/partials/navbar.blade.php
++++ b/resources/views/partials/navbar.blade.php
+@@ -46,6 +46,7 @@
+             @endif
+             @if($me->isStaff())
+                 <a href="{{ route('users.index') }}" class="text-gray-700 hover:underline {{ request()->routeIs('users.*') ? $aktif : '' }}">Kelola User</a>
++                <a href="{{ route('import-siswa.create') }}" class="text-gray-700 hover:underline {{ request()->routeIs('import-siswa.*') ? $aktif : '' }}">Import Siswa</a>
+                 @if($me->isAdmin())
+                     <a href="{{ route('kredensial.index') }}" class="text-gray-700 hover:underline {{ request()->routeIs('kredensial.*') ? $aktif : '' }}">Kredensial</a>
+                 @endif
+diff --git a/resources/views/users/index.blade.php b/resources/views/users/index.blade.php
+index 90ab00a..066ea34 100644
+--- a/resources/views/users/index.blade.php
++++ b/resources/views/users/index.blade.php
+@@ -17,7 +17,10 @@
+                     <h1 class="text-3xl font-bold">Kelola User</h1>
+                     <p class="opacity-80 text-sm mt-1">Atur role, aktifkan atau nonaktifkan akun, dan edit data pengguna.</p>
+                 </div>
+-                <input type="search" id="cari-user" placeholder="Cari nama, email, kelas..." class="field-glass !w-64 !mt-0">
++                <div class="flex flex-wrap items-center gap-3">
++                    <a href="{{ route('import-siswa.create') }}" class="bg-white/90 text-indigo-700 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-white">📥 Import siswa</a>
++                    <input type="search" id="cari-user" placeholder="Cari nama, email, kelas..." class="field-glass !w-64 !mt-0">
++                </div>
+             </div>
+         </div>
+ 
+diff --git a/routes/web.php b/routes/web.php
+index 7f738d5..fd6900a 100644
+--- a/routes/web.php
++++ b/routes/web.php
+@@ -24,6 +24,7 @@
+ use App\Http\Controllers\EkstrakurikulerController;
+ use App\Http\Controllers\EmployeController;
+ use App\Http\Controllers\HealthController;
++use App\Http\Controllers\ImportSiswaController;
+ use App\Http\Controllers\JihyController;
+ use App\Http\Controllers\KeanggotaanController;
+ use App\Http\Controllers\kenzoController as KenzoController;
+@@ -296,6 +297,13 @@
+         Route::put('/users/{user}', [UserController::class, 'update'])->name('users.update');
+         Route::patch('/users/{user}/toggle', [UserController::class, 'toggleActive'])->name('users.toggle');
+         Route::delete('/users/{user}', [UserController::class, 'destroy'])->name('users.destroy');
++
++        // Import siswa massal (xlsx/csv/txt/docx): akun siswa + password acak. Rekap hanya bisa dibuka pengunggahnya.
++        Route::get('/import-siswa', [ImportSiswaController::class, 'create'])->name('import-siswa.create');
++        Route::post('/import-siswa', [ImportSiswaController::class, 'proses'])->middleware('throttle:5,10')->name('import-siswa.proses');
++        Route::get('/import-siswa/{rekap}', [ImportSiswaController::class, 'hasil'])->where('rekap', '[0-9a-fA-F\-]{36}')->name('import-siswa.hasil');
++        Route::post('/import-siswa/{rekap}/tampilkan', [ImportSiswaController::class, 'tampilkan'])->where('rekap', '[0-9a-fA-F\-]{36}')->middleware('throttle:10,1')->name('import-siswa.tampilkan');
++        Route::post('/import-siswa/{rekap}/unduh', [ImportSiswaController::class, 'unduh'])->where('rekap', '[0-9a-fA-F\-]{36}')->middleware('throttle:10,1')->name('import-siswa.unduh');
+     });
+ 
+     // Admin aja
+diff --git a/tests/Feature/ImportSiswaTest.php b/tests/Feature/ImportSiswaTest.php
+new file mode 100644
+index 0000000..73491af
+--- /dev/null
++++ b/tests/Feature/ImportSiswaTest.php
+@@ -0,0 +1,234 @@
++<?php
++
++use App\Models\KredensialSementara;
++use App\Models\User;
++use App\Notifications\RekapImportSiswa;
++use App\Services\ImportSiswaService;
++use Illuminate\Foundation\Testing\RefreshDatabase;
++use Illuminate\Http\UploadedFile;
++use Illuminate\Support\Facades\Hash;
++
++uses(RefreshDatabase::class);
++
++beforeEach(function () {
++    $this->withoutVite();
++});
++
++function akunImp(string $role = 'admin'): User
++{
++    return User::factory()->create(['role' => $role, 'is_active' => true]);
++}
++
++function unggahImp($test, User $oleh, string $nama, string $isi)
++{
++    return $test->actingAs($oleh)->post(route('import-siswa.proses'), [
++        'berkas' => UploadedFile::fake()->createWithContent($nama, $isi),
++    ]);
++}
++
++function berkasDocxImp(array $baris): UploadedFile
++{
++    $xml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
++        .'<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>'
++        .'<w:p><w:r><w:t>Daftar Peserta</w:t></w:r></w:p><w:tbl>';
++
++    foreach ($baris as $b) {
++        $xml .= '<w:tr>';
++        foreach ($b as $sel) {
++            $xml .= '<w:tc><w:p><w:r><w:t>'.htmlspecialchars($sel).'</w:t></w:r></w:p></w:tc>';
++        }
++        $xml .= '</w:tr>';
++    }
++
++    $xml .= '</w:tbl></w:body></w:document>';
++
++    $jalur = tempnam(sys_get_temp_dir(), 'docx');
++    $zip = new ZipArchive;
++    $zip->open($jalur, ZipArchive::CREATE | ZipArchive::OVERWRITE);
++    $zip->addFromString('word/document.xml', $xml);
++    $zip->close();
++
++    return new UploadedFile($jalur, 'peserta.docx', null, null, true);
++}
++
++test('hanya admin dan pembina yang bisa membuka fitur import siswa', function () {
++    $this->get(route('import-siswa.create'))->assertRedirect(route('login'));
++
++    $this->actingAs(akunImp('siswa'))->get(route('import-siswa.create'))->assertForbidden();
++    $this->actingAs(akunImp('siswa'))->post(route('import-siswa.proses'))->assertForbidden();
++
++    $this->actingAs(akunImp('pembina'))->get(route('import-siswa.create'))->assertOk();
++    $this->actingAs(akunImp('admin'))->get(route('import-siswa.create'))->assertOk();
++});
++
++test('csv dengan pemisah titik koma: kolom kelompok CAMP diabaikan, akun siswa dibuat dengan password acak', function () {
++    $admin = akunImp();
++
++    $isi = "No;Nama Siswa;Kelompok CAMP\n1;BUDI SANTOSO;Kelompok 1\n2;siti aminah;Kelompok 2\n3;Andi Wijaya;Kelompok 1\n";
++
++    $respons = unggahImp($this, $admin, 'siswa.csv', $isi);
++
++    $notif = $admin->notifications()->first();
++    $respons->assertRedirect(route('import-siswa.hasil', $notif->id))
++        ->assertSessionHas('success', 'Berhasil mengimpor 3 siswa baru.');
++
++    expect(User::where('role', 'siswa')->orderBy('name')->pluck('name')->all())
++        ->toBe(['Andi Wijaya', 'Budi Santoso', 'Siti Aminah']);
++
++    $budi = User::where('name', 'Budi Santoso')->first();
++    expect($budi->nisn)->toBeNull()
++        ->and($budi->must_change_password)->toBeTrue()
++        ->and($budi->email)->toBe('budi.santoso@siswa.local');
++
++    $password = KredensialSementara::where('user_id', $budi->id)->first()->passwordAsli();
++    expect(strlen($password))->toBeGreaterThanOrEqual(12)
++        ->and(Hash::check($password, $budi->password))->toBeTrue();
++
++    // Rekap masuk ke notifikasi pengunggah, tanpa memuat password
++    expect($notif->type)->toBe(RekapImportSiswa::class)
++        ->and($notif->data['pesan'])->toContain('Budi Santoso')
++        ->and($notif->data['pesan'])->not->toContain($password);
++});
++
++test('beberapa kelompok berdampingan dibaca semua, judul kelompok (nama pembina) tidak dianggap siswa', function () {
++    $isi = "\n"
++        ."No;Kelompok 1 = Pak Andi, S.Pd.;Kelas;;No;Kelompok 2 = Bu Sari, S.Kom.;Kelas\n"
++        ."1;Adilla Ufairah;X;;1;Adrian Shadra;X\n"
++        ."2;Febry Intania;X;;2;Firliano Azzami;XI\n"
++        ."3;Kiagus Ahmad;XI;;3;Batrisya Rahmalia ( X DKV );XI\n";
++
++    unggahImp($this, akunImp(), 'kelompok.csv', $isi)
++        ->assertSessionHas('success', 'Berhasil mengimpor 6 siswa baru.');
++
++    expect(User::where('role', 'siswa')->pluck('name')->all())
++        ->not->toContain('Pak Andi')
++        ->toContain('Adrian Shadra', 'Batrisya Rahmalia')
++        ->and(User::where('name', 'Firliano Azzami')->value('kelas'))->toBe('XI')
++        ->and(User::where('name', 'Adilla Ufairah')->value('kelas'))->toBe('X');
++});
++
++test('txt satu nama per baris dengan penomoran dibaca benar', function () {
++    $admin = akunImp('pembina');
++
++    unggahImp($this, $admin, 'siswa.txt', "1. Rina Putri\n2) Dewi Lestari\n3 Agus Salim\n")
++        ->assertSessionHas('success', 'Berhasil mengimpor 3 siswa baru.');
++
++    expect(User::where('role', 'siswa')->orderBy('name')->pluck('name')->all())
++        ->toBe(['Agus Salim', 'Dewi Lestari', 'Rina Putri']);
++});
++
++test('NISN dibaca bila ada, dan NISN yang sudah terdaftar dilewati', function () {
++    $admin = akunImp();
++
++    unggahImp($this, $admin, 'a.csv', "Nama,NISN,Kelas\nBudi Hartono,0012345678,X-1\nCitra Dewi,,X-2\n");
++
++    expect(User::where('name', 'Budi Hartono')->value('nisn'))->toBe('0012345678')
++        ->and(User::where('name', 'Citra Dewi')->value('nisn'))->toBeNull()
++        ->and(User::where('name', 'Citra Dewi')->value('kelas'))->toBe('X-2');
++
++    unggahImp($this, $admin, 'b.csv', "Nama,NISN\nOrang Lain,0012345678\n")
++        ->assertSessionHas('dilewati', fn ($d) => $d[0]['alasan'] === 'NISN 0012345678 sudah terdaftar');
++
++    expect(User::where('role', 'siswa')->count())->toBe(2);
++});
++
++test('mengunggah berkas yang sama dua kali tidak membuat akun ganda, kecuali diizinkan', function () {
++    $admin = akunImp();
++    $isi = "Nama\nBambang Pamungkas\nSusi Susanti\n";
++
++    unggahImp($this, $admin, 'siswa.csv', $isi);
++    expect(User::where('role', 'siswa')->count())->toBe(2);
++
++    unggahImp($this, $admin, 'siswa.csv', $isi)
++        ->assertSessionHas('error')
++        ->assertSessionHas('dilewati', fn ($d) => count($d) === 2);
++    expect(User::where('role', 'siswa')->count())->toBe(2);
++
++    $this->actingAs($admin)->post(route('import-siswa.proses'), [
++        'berkas' => UploadedFile::fake()->createWithContent('siswa.csv', $isi),
++        'izinkan_nama_sama' => '1',
++    ])->assertSessionHas('success');
++
++    expect(User::where('role', 'siswa')->count())->toBe(4)
++        ->and(User::where('email', 'bambang.pamungkas2@siswa.local')->exists())->toBeTrue();
++});
++
++test('xlsx dibaca lewat Laravel Excel dan kolom tak relevan diabaikan', function () {
++    $sheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet;
++    $sheet->getActiveSheet()->fromArray([
++        ['No', 'Nama Lengkap', 'NISN', 'Kelompok CAMP'],
++        [1, 'Dewi Sartika', 3001234567, 'A'],
++        [2, 'Joko Susilo', null, 'B'],
++    ], null, 'A1');
++
++    $jalur = tempnam(sys_get_temp_dir(), 'xlsx');
++    (new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($sheet))->save($jalur);
++
++    $this->actingAs(akunImp())->post(route('import-siswa.proses'), [
++        'berkas' => new UploadedFile($jalur, 'daftar.xlsx', null, null, true),
++    ])->assertSessionHas('success', 'Berhasil mengimpor 2 siswa baru.');
++
++    expect(User::where('name', 'Dewi Sartika')->value('nisn'))->toBe('3001234567')
++        ->and(User::where('name', 'Joko Susilo')->value('nisn'))->toBeNull();
++});
++
++test('docx berisi tabel dibaca, paragraf judul diabaikan', function () {
++    $berkas = berkasDocxImp([['No', 'Nama', 'Kelompok'], ['1', 'Hendra Gunawan', '3'], ['2', 'Maya Sari', '1']]);
++
++    $this->actingAs(akunImp())->post(route('import-siswa.proses'), ['berkas' => $berkas])
++        ->assertSessionHas('success', 'Berhasil mengimpor 2 siswa baru.');
++
++    expect(User::where('role', 'siswa')->orderBy('name')->pluck('name')->all())->toBe(['Hendra Gunawan', 'Maya Sari']);
++});
++
++test('berkas tanpa nama atau berformat salah ditolak dan tidak membuat akun', function () {
++    $admin = akunImp();
++
++    unggahImp($this, $admin, 'kosong.csv', "123\n456\n")->assertSessionHasErrors('berkas');
++    unggahImp($this, $admin, 'virus.exe', 'abc')->assertSessionHasErrors('berkas');
++
++    expect(User::where('role', 'siswa')->count())->toBe(0)
++        ->and($admin->notifications()->count())->toBe(0);
++});
++
++test('rekap kredensial hanya bisa dibuka pengunggah, password tampil sekali setelah tombol ditekan', function () {
++    $admin = akunImp();
++    $lain = akunImp('pembina');
++
++    unggahImp($this, $admin, 'siswa.csv', "Nama\nTono Sugiarto\n");
++    $notif = $admin->notifications()->first();
++    $password = KredensialSementara::first()->passwordAsli();
++
++    $this->actingAs($lain)->get(route('import-siswa.hasil', $notif->id))->assertNotFound();
++
++    $this->actingAs($admin)->get(route('import-siswa.hasil', $notif->id))
++        ->assertOk()->assertSee('Tono Sugiarto')->assertDontSee($password);
++
++    $this->actingAs($admin)->post(route('import-siswa.tampilkan', $notif->id))
++        ->assertRedirect(route('import-siswa.hasil', $notif->id));
++
++    $this->actingAs($admin)->get(route('import-siswa.hasil', $notif->id))->assertSee($password);
++    $this->actingAs($admin)->get(route('import-siswa.hasil', $notif->id))->assertDontSee($password);
++
++    $csv = $this->actingAs($admin)->post(route('import-siswa.unduh', $notif->id));
++    $csv->assertOk();
++    expect($csv->streamedContent())->toContain('tono.sugiarto@siswa.local')->toContain($password);
++});
++
++test('siswa hasil import bisa login dan wajib mengganti password sementara', function () {
++    $admin = akunImp();
++
++    app(ImportSiswaService::class)->impor(
++        [['nama' => 'Wati Kusuma', 'nisn' => null, 'kelas' => null, 'email' => null]],
++        $admin,
++        'siswa.csv',
++    );
++
++    $siswa = User::where('name', 'Wati Kusuma')->firstOrFail();
++    $password = KredensialSementara::where('user_id', $siswa->id)->firstOrFail()->passwordAsli();
++
++    $this->post(route('login.process'), ['email' => $siswa->email, 'password' => $password])->assertRedirect();
++    $this->assertAuthenticatedAs($siswa);
++
++    $this->get(route('ekstrakurikuler.index'))->assertRedirect(route('pengaturan.edit'));
++});

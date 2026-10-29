@@ -9,7 +9,6 @@ use App\Http\Controllers\BeresController;
 use App\Http\Controllers\CarsController;
 use App\Http\Controllers\CasisController;
 use App\Http\Controllers\Controller;
-use App\Http\Controllers\KredensialController;
 use App\Http\Controllers\EkskulEventController;
 use App\Http\Controllers\EkskulFotoController;
 use App\Http\Controllers\EkskulJabatanController;
@@ -24,9 +23,11 @@ use App\Http\Controllers\EkskulTugasController;
 use App\Http\Controllers\EkstrakurikulerController;
 use App\Http\Controllers\EmployeController;
 use App\Http\Controllers\HealthController;
+use App\Http\Controllers\ImportSiswaController;
 use App\Http\Controllers\JihyController;
 use App\Http\Controllers\KeanggotaanController;
 use App\Http\Controllers\kenzoController as KenzoController;
+use App\Http\Controllers\KredensialController;
 use App\Http\Controllers\LaporanController;
 use App\Http\Controllers\MateriAksesController;
 use App\Http\Controllers\NilaiController;
@@ -208,7 +209,7 @@ Route::middleware(['auth', EnsureUserIsActive::class, PaksaGantiPassword::class]
     Route::post('/pendaftaran/store', [PendaftaranEkskulController::class, 'store'])->name('pendaftaran.store');
 
     // Admin & pembina aja
-    Route::middleware(RoleMiddleware::class . ':admin,pembina')->group(function () {
+    Route::middleware(RoleMiddleware::class.':admin,pembina')->group(function () {
         Route::get('/ekstrakurikuler/create', [EkstrakurikulerController::class, 'create'])->name('ekstrakurikuler.create');
         Route::post('/ekstrakurikuler/store', [EkstrakurikulerController::class, 'store'])->name('ekstrakurikuler.store');
         Route::get('/ekstrakurikuler/{id}/edit', [EkstrakurikulerController::class, 'edit'])->name('ekstrakurikuler.edit');
@@ -296,10 +297,17 @@ Route::middleware(['auth', EnsureUserIsActive::class, PaksaGantiPassword::class]
         Route::put('/users/{user}', [UserController::class, 'update'])->name('users.update');
         Route::patch('/users/{user}/toggle', [UserController::class, 'toggleActive'])->name('users.toggle');
         Route::delete('/users/{user}', [UserController::class, 'destroy'])->name('users.destroy');
+
+        // Import siswa massal (xlsx/csv/txt/docx): akun siswa + password acak. Rekap hanya bisa dibuka pengunggahnya.
+        Route::get('/import-siswa', [ImportSiswaController::class, 'create'])->name('import-siswa.create');
+        Route::post('/import-siswa', [ImportSiswaController::class, 'proses'])->middleware('throttle:5,10')->name('import-siswa.proses');
+        Route::get('/import-siswa/{rekap}', [ImportSiswaController::class, 'hasil'])->where('rekap', '[0-9a-fA-F\-]{36}')->name('import-siswa.hasil');
+        Route::post('/import-siswa/{rekap}/tampilkan', [ImportSiswaController::class, 'tampilkan'])->where('rekap', '[0-9a-fA-F\-]{36}')->middleware('throttle:10,1')->name('import-siswa.tampilkan');
+        Route::post('/import-siswa/{rekap}/unduh', [ImportSiswaController::class, 'unduh'])->where('rekap', '[0-9a-fA-F\-]{36}')->middleware('throttle:10,1')->name('import-siswa.unduh');
     });
 
     // Admin aja
-    Route::middleware(RoleMiddleware::class . ':admin')->group(function () {
+    Route::middleware(RoleMiddleware::class.':admin')->group(function () {
         Route::patch('/users/{user}/role', [UserController::class, 'updateRole'])->name('users.updateRole');
         Route::get('/tautan', [EkskulTautanController::class, 'index'])->name('tautan.index');
 

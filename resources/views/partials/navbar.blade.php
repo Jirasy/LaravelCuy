@@ -46,6 +46,7 @@
             @endif
             @if($me->isStaff())
                 <a href="{{ route('users.index') }}" class="text-gray-700 hover:underline {{ request()->routeIs('users.*') ? $aktif : '' }}">Kelola User</a>
+                <a href="{{ route('import-siswa.create') }}" class="text-gray-700 hover:underline {{ request()->routeIs('import-siswa.*') ? $aktif : '' }}">Import Siswa</a>
                 @if($me->isAdmin())
                     <a href="{{ route('kredensial.index') }}" class="text-gray-700 hover:underline {{ request()->routeIs('kredensial.*') ? $aktif : '' }}">Kredensial</a>
                 @endif
