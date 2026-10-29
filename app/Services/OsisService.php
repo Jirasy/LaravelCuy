@@ -11,6 +11,9 @@ use App\Models\User;
 // Aturan alur OSIS & CaSis dikumpulkan di sini supaya konsisten.
 class OsisService
 {
+    // Status kepengurusan yang boleh dicatat manual
+    public const STATUS_PENGURUS = ['aktif' => 'Masih menjabat', 'selesai' => 'Purna tugas'];
+
     private ?Ekstrakurikuler $osisCache = null;
     private bool $osisDimuat = false;
 
@@ -84,9 +87,39 @@ class OsisService
         return collect($perlu)->mapWithKeys(fn ($tipe) => [$tipe => in_array($tipe, $sudah, true)])->all();
     }
 
-    // Diterima -> otomatis menjadi anggota (pengurus) ekskul OSIS
-    public function jadikanPengurus(User $user, string $alasan, ?string $angkatan = null): PendaftaranEkskul
+    // Cek aturan sebelum mencatat/mengoreksi kepengurusan secara manual. Mengembalikan pesan galat, atau null kalau boleh.
+    // $kecualiId = baris yang sedang dikoreksi (tidak dihitung sebagai duplikat dirinya sendiri).
+    public function periksaSusulan(User $siswa, string $angkatan, string $status, ?int $kecualiId = null): ?string
     {
+        $baris = PendaftaranEkskul::where('ekstrakurikuler_id', $this->osis()->id)
+            ->where('user_id', $siswa->id)
+            ->where('status', 'diterima')
+            ->whereIn('status_anggota', array_keys(self::STATUS_PENGURUS))
+            ->when($kecualiId, fn ($q) => $q->where('id', '!=', $kecualiId))
+            ->get();
+
+        if ($baris->contains(fn ($b) => $b->angkatan_ekskul === $angkatan)) {
+            return "{$siswa->name} sudah tercatat di angkatan {$angkatan}. Gunakan Koreksi untuk mengubahnya.";
+        }
+
+        if ($status === 'aktif' && $baris->contains(fn ($b) => $b->status_anggota === 'aktif')) {
+            return "{$siswa->name} sudah tercatat sebagai pengurus OSIS yang masih menjabat. Ubah dulu statusnya lewat Koreksi.";
+        }
+
+        return null;
+    }
+
+    // Menjadi anggota (pengurus) ekskul OSIS. Dari seleksi CaSis (status aktif, angkatan = nama periode) maupun
+    // dicatat manual untuk angkatan lain / yang sudah purna tugas ($status = 'selesai').
+    public function jadikanPengurus(
+        User $user,
+        string $alasan,
+        ?string $angkatan = null,
+        ?int $tahunMulai = null,
+        ?int $tahunSelesai = null,
+        string $status = 'aktif',
+        ?int $susulanOleh = null,
+    ): PendaftaranEkskul {
         $osis = $this->osis();
 
         return PendaftaranEkskul::create([
@@ -98,9 +131,11 @@ class OsisService
             'nisn'               => $user->nisn,
             'alasan_mendaftar'   => $alasan,
             'status'             => 'diterima',
-            'status_anggota'     => 'aktif',
-            'tahun_mulai'        => now()->year,
+            'status_anggota'     => $status,
+            'tahun_mulai'        => $tahunMulai ?? now()->year,
+            'tahun_selesai'      => $tahunSelesai,
             'angkatan_ekskul'    => $angkatan,
+            'dibuat_susulan_oleh' => $susulanOleh,
         ]);
     }
 }

@@ -74,7 +74,7 @@
                                 <td class="p-3 text-gray-500">{{ $loop->iteration }}</td>
                                 <td class="p-3">
                                     <span class="font-semibold">{{ $a->nama_pendaftar }}</span>
-                                    <span class="block text-xs text-gray-500">{{ $a->kelas ?? '-' }}@if($a->status_anggota !== 'aktif') &middot; sudah keluar @endif</span>
+                                    <span class="block text-xs text-gray-500">{{ $a->kelas ?? '-' }}@if($a->status_anggota === 'selesai') &middot; purna tugas @elseif($a->status_anggota !== 'aktif') &middot; sudah keluar @endif</span>
                                 </td>
                                 <td class="p-3">
                                     <div class="flex flex-wrap gap-x-4 gap-y-1">

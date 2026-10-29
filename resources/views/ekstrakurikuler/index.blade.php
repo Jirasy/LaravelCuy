@@ -55,6 +55,8 @@
             </div>
         @endif
 
+        @include('ekstrakurikuler._kredensial_baru')
+
         @include('ekstrakurikuler._kartu_osis')
 
         <!-- Grid Kartu Ekstrakurikuler -->

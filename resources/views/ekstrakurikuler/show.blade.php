@@ -91,6 +91,10 @@
                             @if($pendaftaranSaya->tanggal_keluar) pada {{ $pendaftaranSaya->tanggal_keluar->format('d-m-Y') }} @endif.
                             <span class="text-gray-500">Kamu tidak bisa mendaftar lagi ke ekskul ini.</span>
                         </p>
+                    @elseif($pendaftaranSaya && $pendaftaranSaya->status_anggota === 'selesai')
+                        <p class="text-sm text-gray-600">
+                            Masa kepengurusanmu @if($pendaftaranSaya->angkatan_ekskul) (angkatan {{ $pendaftaranSaya->angkatan_ekskul }}) @endif sudah selesai.
+                        </p>
                     @elseif($pendaftaranSaya)
                         <p class="text-sm text-gray-600 mb-3">
                             Kamu sudah keluar dari ekskul ini

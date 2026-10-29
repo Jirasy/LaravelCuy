@@ -11,6 +11,7 @@ use App\Services\OsisService;
 use App\Support\Pemberitahuan;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 
 // Rekrutmen OSIS: siswa mendaftar sebagai CaSis, lalu dinilai tiga unsur (pembina OSIS, admin, senior).
@@ -331,7 +332,38 @@ class CasisController extends Controller
         return back()->with('success', "{$user->name} dimasukkan ke jalur CaSis. Ia diminta melengkapi formulirnya.");
     }
 
-    // Menetapkan siswa langsung menjadi pengurus OSIS (tanpa seleksi), mis. untuk kasus khusus
+    // Aturan isian kepengurusan manual (dipakai untuk catat susulan dan koreksi)
+    private function aturanPengurus(): array
+    {
+        return [
+            'angkatan'      => ['required', 'string', 'max:20'],
+            'tahun_mulai'   => ['required', 'integer', 'min:1990', 'max:' . (now()->year + 1)],
+            'tahun_selesai' => ['nullable', 'integer', 'gte:tahun_mulai', 'max:' . (now()->year + 10), 'required_if:status,selesai'],
+            'status'        => ['required', Rule::in(array_keys(OsisService::STATUS_PENGURUS))],
+            'catatan'       => ['nullable', 'string', 'max:200'],
+        ];
+    }
+
+    private function pesanPengurus(): array
+    {
+        return [
+            'angkatan.required'         => 'Isi angkatan kepengurusan, mis. 2024/2025.',
+            'angkatan.max'              => 'Angkatan maksimal 20 karakter.',
+            'tahun_mulai.required'      => 'Isi tahun mulai menjabat.',
+            'tahun_mulai.integer'       => 'Tahun mulai harus berupa angka.',
+            'tahun_mulai.min'           => 'Tahun mulai tidak masuk akal.',
+            'tahun_mulai.max'           => 'Tahun mulai tidak boleh jauh di masa depan.',
+            'tahun_selesai.required_if' => 'Pengurus yang sudah purna tugas wajib diisi tahun selesainya.',
+            'tahun_selesai.gte'         => 'Tahun selesai tidak boleh lebih awal dari tahun mulai.',
+            'tahun_selesai.integer'     => 'Tahun selesai harus berupa angka.',
+            'status.required'           => 'Pilih status kepengurusan.',
+            'status.in'                 => 'Status kepengurusan tidak dikenal.',
+            'catatan.max'               => 'Catatan maksimal 200 karakter.',
+        ];
+    }
+
+    // Menetapkan siswa langsung menjadi pengurus OSIS (tanpa seleksi CaSis). Dipakai untuk pengurus angkatan lalu yang
+    // baru diinput (telat input): admin/pembina memilih angkatan, tahun, dan statusnya (masih menjabat / purna tugas).
     public function jadikanPengurus(Request $request, User $user, OsisService $osis)
     {
         abort_unless($osis->bolehMemutuskan($request->user()), 403);
@@ -340,34 +372,108 @@ class CasisController extends Controller
             return back()->with('error', 'Hanya siswa dengan akun aktif yang bisa dijadikan pengurus OSIS.');
         }
 
-        if ($osis->pengurusAktif($user)) {
-            return back()->with('error', "{$user->name} sudah menjadi pengurus OSIS.");
+        $cek = Validator::make($request->all(), $this->aturanPengurus(), $this->pesanPengurus());
+
+        if ($cek->fails()) {
+            return back()->withInput()->with('error', $cek->errors()->first());
         }
 
-        DB::transaction(function () use ($user, $request, $osis) {
-            $osis->jadikanPengurus($user, 'Ditetapkan langsung oleh ' . $request->user()->name, null);
+        $d = $cek->validated();
 
-            // Kalau ia masih punya pendaftaran CaSis yang berjalan, tandai selesai agar tidak dobel
-            CasisPendaftaran::where('user_id', $user->id)
-                ->whereIn('status', ['draft', 'diajukan'])
-                ->whereHas('periode', fn ($q) => $q->whereIn('status', ['rekrutmen', 'seleksi']))
-                ->update([
-                    'status'            => 'diterima',
-                    'diputuskan_oleh'   => $request->user()->id,
-                    'catatan_keputusan' => 'Ditetapkan langsung sebagai pengurus OSIS.',
-                    'diputuskan_pada'   => now(),
-                ]);
+        if ($pesan = $osis->periksaSusulan($user, $d['angkatan'], $d['status'])) {
+            return back()->withInput()->with('error', $pesan);
+        }
+
+        $alasan = 'Ditetapkan langsung oleh ' . $request->user()->name . (filled($d['catatan'] ?? null) ? ': ' . $d['catatan'] : '');
+        $aktif  = $d['status'] === 'aktif';
+
+        DB::transaction(function () use ($user, $request, $osis, $d, $alasan, $aktif) {
+            $osis->jadikanPengurus(
+                $user,
+                $alasan,
+                $d['angkatan'],
+                (int) $d['tahun_mulai'],
+                isset($d['tahun_selesai']) ? (int) $d['tahun_selesai'] : null,
+                $d['status'],
+                $request->user()->id,
+            );
+
+            // Kalau ia masih punya pendaftaran CaSis yang berjalan, tandai selesai agar tidak dobel.
+            // Hanya untuk yang masih menjabat: mencatat riwayat purna tugas tidak boleh mengganggu seleksi yang sedang berjalan.
+            if ($aktif) {
+                CasisPendaftaran::where('user_id', $user->id)
+                    ->whereIn('status', ['draft', 'diajukan'])
+                    ->whereHas('periode', fn ($q) => $q->whereIn('status', ['rekrutmen', 'seleksi']))
+                    ->update([
+                        'status'            => 'diterima',
+                        'diputuskan_oleh'   => $request->user()->id,
+                        'catatan_keputusan' => 'Ditetapkan langsung sebagai pengurus OSIS.',
+                        'diputuskan_pada'   => now(),
+                    ]);
+            }
         });
 
         Pemberitahuan::kirim(
             [$user],
-            'Kamu menjadi pengurus OSIS',
-            "{$request->user()->name} menetapkanmu sebagai pengurus OSIS.",
+            $aktif ? 'Kamu menjadi pengurus OSIS' : 'Riwayat kepengurusan OSIS dicatat',
+            $aktif
+                ? "{$request->user()->name} menetapkanmu sebagai pengurus OSIS angkatan {$d['angkatan']}."
+                : "{$request->user()->name} mencatat kepengurusan OSIS angkatan {$d['angkatan']} ({$d['tahun_mulai']}-{$d['tahun_selesai']}) di riwayatmu.",
             route('ekstrakurikuler.show', $osis->osis()->id, false),
             '🏛️',
             $request->user()->id
         );
 
-        return back()->with('success', "{$user->name} sekarang pengurus OSIS.");
+        return back()->with('success', $aktif
+            ? "{$user->name} sekarang pengurus OSIS angkatan {$d['angkatan']}."
+            : "Kepengurusan OSIS {$user->name} angkatan {$d['angkatan']} dicatat sebagai purna tugas.");
+    }
+
+    // Mengoreksi angkatan/tahun/status kepengurusan OSIS yang sudah tercatat (mis. salah angkatan atau telat diperbarui)
+    public function koreksiPengurus(Request $request, PendaftaranEkskul $pendaftaran, OsisService $osis)
+    {
+        abort_unless($osis->bolehMemutuskan($request->user()), 403);
+
+        $ekskulOsis = $osis->osis();
+
+        abort_unless(
+            $ekskulOsis
+            && (int) $pendaftaran->ekstrakurikuler_id === (int) $ekskulOsis->id
+            && $pendaftaran->user_id
+            && $pendaftaran->status === 'diterima'
+            && array_key_exists($pendaftaran->status_anggota, OsisService::STATUS_PENGURUS),
+            404
+        );
+
+        $cek = Validator::make($request->all(), $this->aturanPengurus(), $this->pesanPengurus());
+
+        if ($cek->fails()) {
+            return back()->withInput()->with('error', $cek->errors()->first());
+        }
+
+        $d     = $cek->validated();
+        $siswa = $pendaftaran->user;
+
+        if ($pesan = $osis->periksaSusulan($siswa, $d['angkatan'], $d['status'], $pendaftaran->id)) {
+            return back()->withInput()->with('error', $pesan);
+        }
+
+        $pendaftaran->update([
+            'angkatan_ekskul' => $d['angkatan'],
+            'tahun_mulai'     => (int) $d['tahun_mulai'],
+            'tahun_selesai'   => isset($d['tahun_selesai']) ? (int) $d['tahun_selesai'] : null,
+            'status_anggota'  => $d['status'],
+        ]);
+
+        Pemberitahuan::kirim(
+            [$siswa],
+            'Data kepengurusan OSIS dikoreksi',
+            "{$request->user()->name} memperbarui data kepengurusan OSIS-mu: angkatan {$d['angkatan']}, " . OsisService::STATUS_PENGURUS[$d['status']] . '.',
+            route('ekstrakurikuler.show', $ekskulOsis->id, false),
+            '✏️',
+            $request->user()->id
+        );
+
+        return back()->with('success', "Data kepengurusan OSIS {$siswa->name} diperbarui.");
     }
 }

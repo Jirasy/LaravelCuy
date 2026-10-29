@@ -27,6 +27,7 @@ class PendaftaranEkskul extends Model
         'akses_materi',
         'tanggal_keluar',
         'alasan',
+        'dibuat_susulan_oleh',
     ];
 
     public function user()
@@ -72,15 +73,25 @@ class PendaftaranEkskul extends Model
         return $query->where('status', 'diterima')->where('status_anggota', 'aktif');
     }
 
+    // Baris yang paling relevan lebih dulu: anggota aktif didahulukan, baru yang terbaru. Dipakai saat satu siswa
+    // punya beberapa baris di ekskul yang sama (mis. riwayat angkatan OSIS), supaya yang aktif tidak kalah oleh
+    // baris riwayat yang kebetulan dibuat belakangan.
+    public function scopeRelevanDulu($query)
+    {
+        return $query
+            ->orderByRaw("CASE WHEN status = 'diterima' AND status_anggota = 'aktif' THEN 0 ELSE 1 END")
+            ->orderByDesc('id');
+    }
+
     // ---- Anti-double registration ----
     // Siswa TIDAK boleh mendaftar lagi ke ekskul yang sama kalau masih ada pendaftaran yang berlaku:
-    // menunggu, anggota aktif, ditolak, atau dikeluarkan. Satu-satunya pengecualian: status_anggota
-    // "keluar" (mengundurkan diri yang sudah disetujui). Dikeluarkan hanya bisa didaftarkan ulang oleh admin/pembina.
+    // menunggu, anggota aktif, ditolak, atau dikeluarkan. Pengecualian: status_anggota "keluar" (mengundurkan diri
+    // yang sudah disetujui) dan "selesai" (purna tugas). Dikeluarkan hanya bisa didaftarkan ulang oleh admin/pembina.
     public static function penghalangDaftar(int $userId, int $ekskulId): ?self
     {
         return static::where('user_id', $userId)
             ->where('ekstrakurikuler_id', $ekskulId)
-            ->where('status_anggota', '!=', 'keluar')
+            ->whereNotIn('status_anggota', ['keluar', 'selesai'])
             ->latest('id')
             ->first();
     }
@@ -89,7 +100,7 @@ class PendaftaranEkskul extends Model
     public static function idEkskulTerhalang(int $userId): \Illuminate\Support\Collection
     {
         return static::where('user_id', $userId)
-            ->where('status_anggota', '!=', 'keluar')
+            ->whereNotIn('status_anggota', ['keluar', 'selesai'])
             ->pluck('ekstrakurikuler_id')
             ->unique()
             ->values();

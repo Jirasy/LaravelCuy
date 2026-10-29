@@ -77,7 +77,11 @@
                         </div>
                         @if($r->status === 'diterima' && $r->status_anggota !== 'aktif')
                             <span class="px-2.5 py-0.5 text-xs font-semibold rounded-full {{ $r->status_anggota === 'dikeluarkan' ? 'bg-red-100 text-red-800' : 'bg-gray-200 text-gray-700' }}">
-                                {{ $r->status_anggota === 'dikeluarkan' ? 'Dikeluarkan' : 'Sudah keluar' }}@if($r->tanggal_keluar) · {{ $r->tanggal_keluar->format('d-m-Y') }}@endif
+                                @if($r->status_anggota === 'selesai')
+                                    Purna tugas @if($r->angkatan_ekskul) · {{ $r->angkatan_ekskul }} @endif
+                                @else
+                                    {{ $r->status_anggota === 'dikeluarkan' ? 'Dikeluarkan' : 'Sudah keluar' }}@if($r->tanggal_keluar) · {{ $r->tanggal_keluar->format('d-m-Y') }}@endif
+                                @endif
                             </span>
                         @else
                             @include('partials.status-badge', ['status' => $r->status, 'label' => $r->status_label])

@@ -30,8 +30,19 @@
 
             <div>
                 <label class="block text-sm font-semibold text-gray-700">Nama Pembina</label>
-                <input type="text" name="pembina" placeholder="Contoh: Pak Herman" required class="w-full border p-2 rounded-lg mt-1 focus:ring focus:ring-indigo-200">
+                <input type="text" name="pembina" value="{{ old('pembina') }}" placeholder="Contoh: Pak Herman" required class="w-full border p-2 rounded-lg mt-1 focus:ring focus:ring-indigo-200">
             </div>
+
+            @if(auth()->user()->isAdmin())
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700">Email Pembina <span class="font-normal text-gray-500">(opsional)</span></label>
+                    <input type="email" name="email_pembina" value="{{ old('email_pembina') }}" placeholder="pembina@sekolah.sch.id" class="w-full border p-2 rounded-lg mt-1 focus:ring focus:ring-indigo-200">
+                    <p class="text-xs text-gray-500 mt-1">
+                        Diisi: sistem otomatis membuat akun pembina dengan password acak yang langsung terhubung ke ekskul ini.
+                        Kalau email itu sudah milik pembina aktif, akunnya hanya dihubungkan. Kosongkan kalau akunnya belum ada.
+                    </p>
+                </div>
+            @endif
 
             @if(auth()->user()->isAdmin())
     <div>

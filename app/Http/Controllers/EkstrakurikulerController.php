@@ -32,7 +32,7 @@ class EkstrakurikulerController extends Controller
         // Admin & pembina bukan siswa: tidak punya pendaftaran.
         $pendaftaranSaya = Auth::user()->isStaff()
             ? collect()
-            : PendaftaranEkskul::where('user_id', Auth::id())->orderBy('id')->get()->keyBy('ekstrakurikuler_id');
+            : PendaftaranEkskul::where('user_id', Auth::id())->relevanDulu()->get()->unique('ekstrakurikuler_id')->keyBy('ekstrakurikuler_id');
 
         return view('ekstrakurikuler.index', compact('ekskuls', 'pendaftaranSaya'));
     }
@@ -53,7 +53,7 @@ class EkstrakurikulerController extends Controller
         // Pendaftaran milik user yang sedang login (kalau ada)
         $pendaftaranSaya = PendaftaranEkskul::where('ekstrakurikuler_id', $ekskul->id)
             ->where('user_id', $user->id)
-            ->latest()
+            ->relevanDulu()
             ->first();
 
         // Pengumuman & daftar anggota: hanya admin/pembina dan anggota yang sudah disetujui.
@@ -249,7 +249,9 @@ class EkstrakurikulerController extends Controller
         $data = $request->validate($this->rules($request, false), $this->messages());
         $data['status'] = $data['status'] ?? 'aktif';
 
-        DB::transaction(function () use ($data) {
+        $akun = null;
+
+        DB::transaction(function () use ($data, &$akun) {
             $ekskul = Ekstrakurikuler::create(
                 $this->kolomEkskul($data)
             );
@@ -257,12 +259,29 @@ class EkstrakurikulerController extends Controller
             // Pembina yang membuat ekskul otomatis ditugaskan sebagai pembinanya
             if (Auth::user()->isPembina()) {
                 $ekskul->pembinas()->attach(Auth::id(), ['mulai' => now()->toDateString()]);
+            } elseif (Auth::user()->isAdmin() && ! empty($data['email_pembina'])) {
+                // Akun pembina dibuat/dihubungkan otomatis (gagal = seluruh pembuatan ekskul dibatalkan)
+                $akun = app(\App\Services\PembinaAkunService::class)
+                    ->tugaskan($ekskul, $data['pembina'], $data['email_pembina'], Auth::user());
             }
             $ekskul->syncJadwal($this->susunJadwal($data));
         });
 
-        return redirect()->route('ekstrakurikuler.index')
+        $balik = redirect()->route('ekstrakurikuler.index')
             ->with('success', 'Ekstrakurikuler berhasil ditambahkan!');
+
+        if ($akun && $akun['baru']) {
+            // Tampil sekali; setelahnya admin membukanya dari halaman Kredensial
+            $balik->with('kredensial', [
+                'nama'     => $akun['user']->name,
+                'email'    => $akun['user']->email,
+                'password' => $akun['password'],
+            ]);
+        } elseif ($akun) {
+            $balik->with('success', "Ekstrakurikuler berhasil ditambahkan! {$akun['user']->name} (pembina yang sudah ada) ditugaskan ke ekskul ini.");
+        }
+
+        return $balik;
     }
 
     public function edit($id)
@@ -379,6 +398,11 @@ class EkstrakurikulerController extends Controller
                 }
             }],
         ];
+
+        // Hanya saat membuat ekskul: admin boleh mengisi email untuk membuatkan akun pembina otomatis
+        if (! $statusWajib) {
+            $rules['email_pembina'] = ['nullable', 'email', 'max:255'];
+        }
 
         // Jam wajib diisi untuk SETIAP hari yang dipilih
         $dipilih = array_intersect(array_filter((array) $request->input('hari', []), 'is_string'), $valid);

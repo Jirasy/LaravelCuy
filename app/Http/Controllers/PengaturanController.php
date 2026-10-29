@@ -104,6 +104,9 @@ class PengaturanController extends Controller
         // di-hash oleh cast; password sementara dianggap sudah diganti
         $request->user()->update(['password' => $request->password, 'must_change_password' => false]);
 
+        // Password sementara yang tersimpan untuk admin tidak berlaku lagi -> hapus
+        \App\Models\KredensialSementara::where('user_id', $request->user()->id)->delete();
+
         return back()->with('success', 'Password berhasil diganti.');
     }
 

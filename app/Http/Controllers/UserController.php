@@ -34,8 +34,30 @@ class UserController extends Controller
                 ->latest()
                 ->first();
 
+            $boleh = $layanan->bolehMemutuskan($request->user());
+            $riwayat = collect();
+            $angkatan = [];
+
+            // Riwayat kepengurusan OSIS tiap siswa + saran angkatan, hanya dimuat untuk yang berhak mengubahnya
+            if ($boleh) {
+                $riwayat = PendaftaranEkskul::where('ekstrakurikuler_id', $ekskulOsis->id)
+                    ->where('status', 'diterima')
+                    ->whereIn('status_anggota', array_keys(OsisService::STATUS_PENGURUS))
+                    ->whereNotNull('user_id')
+                    ->orderByDesc('tahun_mulai')
+                    ->orderByDesc('id')
+                    ->get()
+                    ->groupBy('user_id');
+
+                $angkatan = $riwayat->flatten()->pluck('angkatan_ekskul')
+                    ->merge(OsisPeriode::where('ekstrakurikuler_id', $ekskulOsis->id)->pluck('nama'))
+                    ->filter()->unique()->sortDesc()->values()->all();
+            }
+
             $infoOsis = [
                 'ada' => true,
+                'riwayat' => $riwayat,
+                'angkatan' => $angkatan,
                 'periode' => $periode,
                 'pengurus' => PendaftaranEkskul::anggotaAktif()
                     ->where('ekstrakurikuler_id', $ekskulOsis->id)
@@ -45,7 +67,7 @@ class UserController extends Controller
                 'casis' => $periode
                     ? CasisPendaftaran::where('osis_periode_id', $periode->id)->pluck('status', 'user_id')->all()
                     : [],
-                'boleh' => $layanan->bolehMemutuskan($request->user()),
+                'boleh' => $boleh,
             ];
         }
 
@@ -80,6 +102,11 @@ class UserController extends Controller
         } elseif ($user->id !== Auth::id()) {
             // Password sementara dari admin/pembina: user wajib menggantinya saat login berikutnya
             $data['must_change_password'] = true;
+        }
+
+        if (isset($data['password'])) {
+            // Password lama yang tersimpan di Kredensial sudah tidak berlaku
+            \App\Models\KredensialSementara::where('user_id', $user->id)->delete();
         }
 
         $user->update($data); // password di-hash otomatis oleh cast 'hashed'

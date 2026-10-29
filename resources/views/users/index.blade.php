@@ -124,17 +124,14 @@
                                         </details>
                                     @endif
 
-                                    @if(($infoOsis['ada'] ?? false) && ($infoOsis['boleh'] ?? false) && $u->role === 'siswa' && $u->is_active && !in_array($u->id, $infoOsis['pengurus'], true))
-                                        @if($infoOsis['periode'] && !isset($infoOsis['casis'][$u->id]))
+                                    @if(($infoOsis['ada'] ?? false) && ($infoOsis['boleh'] ?? false) && $u->role === 'siswa' && $u->is_active)
+                                        @if(!in_array($u->id, $infoOsis['pengurus'], true) && $infoOsis['periode'] && !isset($infoOsis['casis'][$u->id]))
                                             <form action="{{ route('casis.masukkan', $u->id) }}" method="POST" onsubmit="return confirm('Masukkan {{ e($u->name) }} ke jalur CaSis OSIS? Ia akan diminta melengkapi formulir pendaftaran.')">
                                                 @csrf
                                                 <button type="submit" class="bg-purple-600 text-white px-3 py-1 rounded text-xs font-semibold hover:bg-purple-700">Masukkan ke jalur CaSis</button>
                                             </form>
                                         @endif
-                                        <form action="{{ route('casis.pengurus', $u->id) }}" method="POST" onsubmit="return confirm('Jadikan {{ e($u->name) }} pengurus OSIS secara langsung, tanpa seleksi?')">
-                                            @csrf
-                                            <button type="submit" class="bg-slate-700 text-white px-3 py-1 rounded text-xs font-semibold hover:bg-slate-800">Jadikan pengurus OSIS</button>
-                                        </form>
+                                        @include('users._osis_susulan', ['u' => $u, 'infoOsis' => $infoOsis])
                                     @endif
                                     @can('kelola', $u)
                                         <a href="{{ route('users.edit', $u->id) }}" class="bg-yellow-500 text-white px-3 py-1 rounded text-xs font-semibold hover:bg-yellow-600">Edit</a>
@@ -176,5 +173,12 @@
             });
         });
     </script>
+    @if(($infoOsis['ada'] ?? false) && ($infoOsis['boleh'] ?? false))
+        <datalist id="angkatan-osis">
+            @foreach($infoOsis['angkatan'] as $angkatan)
+                <option value="{{ $angkatan }}"></option>
+            @endforeach
+        </datalist>
+    @endif
 </body>
 </html>
