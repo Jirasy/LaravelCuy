@@ -38,6 +38,23 @@ class CasisPendaftaran extends Model
         return $this->hasMany(CasisReview::class, 'casis_pendaftaran_id');
     }
 
+    public function hasils()
+    {
+        return $this->hasMany(SeleksiHasil::class, 'casis_pendaftaran_id');
+    }
+
+    // Tahap yang sedang dijalani: tahap pertama (berurutan) yang belum ada hasilnya. Null kalau sudah tidak dalam proses.
+    public function tahapSekarang(): ?SeleksiTahap
+    {
+        if ($this->status !== 'diajukan') {
+            return null;
+        }
+
+        $sudah = $this->hasils()->pluck('seleksi_tahap_id')->all();
+
+        return $this->periode->tahapSemua()->first(fn ($t) => ! in_array($t->id, $sudah, true));
+    }
+
     public function pemutus()
     {
         return $this->belongsTo(User::class, 'diputuskan_oleh');

@@ -22,7 +22,7 @@
         @forelse($anggotaOpsi as $a)
             <label class="inline-flex items-center gap-2 px-3 py-1.5 border rounded-lg text-sm cursor-pointer hover:bg-gray-50">
                 <input type="checkbox" name="anggota[]" value="{{ $a->id }}" {{ in_array($a->id, $dipilih) ? 'checked' : '' }}>
-                {{ $a->nama_pendaftar }}
+                {{ $a->nama_tampil }}
             </label>
         @empty
             <span class="text-xs text-gray-500">Belum ada anggota yang disetujui.</span>

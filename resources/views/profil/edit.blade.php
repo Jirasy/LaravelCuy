@@ -86,7 +86,7 @@
 
             <div class="flex justify-end gap-2">
                 <a href="{{ route('profil.show') }}" class="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-semibold hover:bg-gray-300">Batal</a>
-                <button type="submit" class="bg-indigo-600 text-white px-5 py-2 rounded-lg font-semibold hover:bg-indigo-700">Simpan Profil</button>
+                <button type="submit" class="bg-emerald-600 text-white px-5 py-2 rounded-lg font-semibold hover:bg-emerald-700">Simpan Profil</button>
             </div>
         </form>
 
@@ -132,7 +132,7 @@
                     @csrf
                     <input type="text" name="nama" value="{{ old('nama') }}" maxlength="30" required placeholder="Contoh: Kiki"
                            class="flex-1 min-w-[10rem] border p-2 rounded-lg">
-                    <button type="submit" class="bg-indigo-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-indigo-700">Tambah</button>
+                    <button type="submit" class="bg-emerald-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-emerald-700">Tambah</button>
                 </form>
             @else
                 <p class="text-xs text-amber-600">Batas {{ $maksPanggilan }} nama panggilan tercapai. Hapus salah satu kalau mau menambah.</p>

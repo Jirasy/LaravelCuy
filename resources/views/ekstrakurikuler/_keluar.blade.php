@@ -38,7 +38,7 @@
                     <p class="text-xs text-gray-500">
                         Statusmu baru resmi keluar setelah disetujui {{ $sayaPembina ? 'admin' : 'pembina atau admin' }}. Sebelum itu kamu tetap tercatat sebagai {{ $sayaPembina ? 'pembina' : 'anggota' }}.
                     </p>
-                    <button type="submit" class="bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-red-700">Kirim Pengajuan</button>
+                    <button type="submit" class="bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-emerald-700">Kirim Pengajuan</button>
                 </form>
             </details>
         @endif

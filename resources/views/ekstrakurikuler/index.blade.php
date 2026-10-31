@@ -31,9 +31,13 @@
                 <p class="text-gray-600 text-sm">{{ auth()->user()->isStaff() ? 'Kelola ekstrakurikuler sekolah di sini.' : 'Pilih dan daftar ekstrakurikuler sekolahmu di sini.' }}</p>
             </div>
             <div class="space-x-2">
-                @if(auth()->user()->isStaff())
-                <a href="{{ route('ekstrakurikuler.create') }}" class="bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-blue-700">
+                @if(auth()->user()->isAdmin())
+                <a href="{{ route('ekstrakurikuler.create') }}" class="bg-emerald-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-emerald-700">
                     + Tambah Ekskul
+                </a>
+                @else
+                <a href="{{ route('komunitas.create') }}" class="bg-emerald-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-emerald-700">
+                    🌱 Buat Komunitas
                 </a>
                 @endif
                 <a href="{{ route('pendaftaran.index') }}" class="bg-gray-700 text-white px-4 py-2 rounded-lg font-semibold hover:bg-gray-800">
@@ -78,7 +82,9 @@
                         <span class="inline-block px-3 py-1 text-xs font-semibold rounded-full {{ $ekskul->status === 'aktif' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800' }}">
                             {{ ucfirst($ekskul->status) }}
                         </span>
-                        @if($ekskul->jenisEkskul && $ekskul->jenisEkskul->kode !== 'ekskul')
+                        @if($ekskul->jenisEkskul && $ekskul->jenisEkskul->isKomunitas())
+                            <span class="inline-block px-2 py-0.5 ml-1 text-xs rounded-full bg-amber-100 text-amber-800">🌱 Komunitas &middot; belum resmi</span>
+                        @elseif($ekskul->jenisEkskul && $ekskul->jenisEkskul->kode !== 'ekskul')
                             <span class="inline-block px-2 py-0.5 ml-1 text-xs rounded-full bg-purple-100 text-purple-800">{{ $ekskul->memakaiCasis() ? '🗳️ ' : '' }}{{ $ekskul->jenisEkskul->nama }}</span>
                         @endif
                         @if(auth()->user()->isAdmin() && $ekskul->pembinaAktif->isEmpty())
@@ -103,7 +109,7 @@
                         $pengguna = auth()->user();
                         // Pendaftaran terakhir user ini di ekskul ini (hanya siswa yang punya)
                         $ps = $pendaftaranSaya[$ekskul->id] ?? null;
-                        $urlDaftar = $ekskul->memakaiCasis() ? route('casis.create') : route('pendaftaran.create', ['ekstrakurikuler_id' => $ekskul->id]);
+                        $urlDaftar = $ekskul->memakaiCasis() ? route('casis.create', $ekskul->id) : route('pendaftaran.create', ['ekstrakurikuler_id' => $ekskul->id]);
 
                         // Siswa yang sudah/sedang terdaftar: kartu tidak lagi menjadi kartu "Daftar"
                         $statusKartu = null;
@@ -126,7 +132,7 @@
                             <p class="text-xs text-center text-gray-500">{{ $ekskul->pendaftaran_terbuka ? 'Pendaftaran dibuka' : $ekskul->label_pendaftaran }}</p>
                         @elseif($statusKartu)
                             <p class="text-sm text-center font-semibold border rounded-lg py-2 px-3 {{ $statusKartu[1] }}">{{ $statusKartu[0] }}</p>
-                            <a href="{{ route('ekstrakurikuler.show', $ekskul->id) }}" class="block w-full text-center bg-indigo-600 text-white py-2 rounded-lg font-semibold hover:bg-indigo-700 transition">
+                            <a href="{{ route('ekstrakurikuler.show', $ekskul->id) }}" class="block w-full text-center bg-sky-600 text-white py-2 rounded-lg font-semibold hover:bg-sky-700 transition">
                                 Lihat Informasi
                             </a>
                         @else
@@ -144,7 +150,7 @@
 
                         @can('kelola', $ekskul)
                         <div class="flex space-x-2 pt-1">
-                            <a href="{{ route('ekstrakurikuler.edit', $ekskul->id) }}" class="{{ auth()->user()->isAdmin() ? 'w-1/2' : 'w-full' }} text-center bg-yellow-500 text-white py-1.5 rounded-lg text-sm font-semibold hover:bg-yellow-600">
+                            <a href="{{ route('ekstrakurikuler.edit', $ekskul->id) }}" class="{{ auth()->user()->isAdmin() ? 'w-1/2' : 'w-full' }} text-center bg-indigo-600 text-white py-1.5 rounded-lg text-sm font-semibold hover:bg-indigo-700">
                                 Edit
                             </a>
                             @if(auth()->user()->isAdmin())<form action="{{ route('ekstrakurikuler.destroy', $ekskul->id) }}" method="POST" class="w-1/2" onsubmit="return confirm('Yakin hapus ekskul ini?')">

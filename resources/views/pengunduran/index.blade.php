@@ -70,7 +70,7 @@
                         @method('PATCH')
                         <textarea name="catatan" rows="2" placeholder="Catatan (wajib diisi kalau menolak)" class="w-full border p-2 rounded-lg text-sm"></textarea>
                         <div class="flex gap-2">
-                            <button type="submit" name="keputusan" value="setuju" class="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-green-700"
+                            <button type="submit" name="keputusan" value="setuju" class="bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-emerald-700"
                                     onclick="return confirm('Setujui pengunduran diri ini? Statusnya langsung berubah jadi keluar.')">Setujui</button>
                             <button type="submit" name="keputusan" value="tolak" class="bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-red-700">Tolak</button>
                         </div>

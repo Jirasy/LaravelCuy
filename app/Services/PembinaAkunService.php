@@ -62,9 +62,55 @@ class PembinaAkunService
         });
     }
 
-    private function beritahu(Ekstrakurikuler $ekskul, User $pembina, User $admin, bool $baru): void
+    /**
+     * Menambah akun pembina satu per satu dari Kelola User.
+     * - dengan ekskul: persis alur "tambah ekskul" (akun baru atau akun pembina aktif yang ada ditugaskan ke ekskul itu)
+     * - tanpa ekskul: akun baru saja (email yang sudah terdaftar ditolak); ekskulnya bisa ditugaskan belakangan
+     *
+     * Password acak disimpan terenkripsi di kredensial_sementara (7 hari, terhapus saat pembina mengganti passwordnya).
+     * Notifikasi untuk admin TIDAK memuat password (tabel notifications tidak terenkripsi); admin membukanya di halaman Kredensial.
+     *
+     * @return array{user: User, password: ?string, baru: bool}
+     */
+    public function buatManual(string $nama, string $email, User $admin, ?Ekstrakurikuler $ekskul = null): array
     {
-        $namaEkskul = $ekskul->nama_ekstrakurikuler;
+        if ($ekskul) {
+            return $this->tugaskan($ekskul, $nama, $email, $admin);
+        }
+
+        $email = mb_strtolower(trim($email));
+
+        return DB::transaction(function () use ($nama, $email, $admin) {
+            if (User::where('email', $email)->lockForUpdate()->exists()) {
+                throw ValidationException::withMessages([
+                    'email_pembina' => "Email {$email} sudah terdaftar. Gunakan email lain.",
+                ]);
+            }
+
+            $password = PasswordAcak::buat();
+
+            $user = new User([
+                'name'                 => $nama,
+                'email'                => $email,
+                'password'             => $password,     // di-hash otomatis oleh cast
+                'role'                 => 'pembina',
+                'must_change_password' => true,
+            ]);
+            $user->is_active = true;
+            $user->save();
+
+            KredensialSementara::catat($user, $password, null, $admin);
+
+            $this->beritahu(null, $user, $admin, true);
+
+            return ['user' => $user, 'password' => $password, 'baru' => true];
+        });
+    }
+
+    private function beritahu(?Ekstrakurikuler $ekskul, User $pembina, User $admin, bool $baru): void
+    {
+        $namaEkskul = $ekskul?->nama_ekstrakurikuler;
+        $untuk      = $namaEkskul ? " untuk ekskul {$namaEkskul}" : '';
 
         if ($baru) {
             // Admin: TIDAK memuat password. Password dibuka lewat halaman Kredensial (terenkripsi, berbatas waktu).
@@ -72,7 +118,7 @@ class PembinaAkunService
             Pemberitahuan::kirim(
                 $semuaAdmin,
                 'Akun pembina dibuat',
-                "Akun pembina {$pembina->name} ({$pembina->email}) untuk ekskul {$namaEkskul} dibuat oleh {$admin->name}.\n"
+                "Akun pembina {$pembina->name} ({$pembina->email}){$untuk} dibuat oleh {$admin->name}.\n"
                 . 'Password sementara bisa dibuka di halaman Kredensial selama ' . KredensialSementara::MASA_BERLAKU_HARI
                 . ' hari, dan terhapus otomatis setelah pembina mengganti passwordnya.',
                 route('kredensial.index', [], false),
@@ -82,7 +128,7 @@ class PembinaAkunService
             Pemberitahuan::kirim(
                 [$pembina],
                 'Selamat datang, Pembina!',
-                "Akun pembinamu untuk ekskul {$namaEkskul} sudah dibuat oleh {$admin->name}.\n"
+                "Akun pembinamu{$untuk} sudah dibuat oleh {$admin->name}.\n"
                 . "Email login: {$pembina->email}\n"
                 . 'Demi keamanan, segera ganti password sementara dari admin lewat halaman Pengaturan.',
                 route('pengaturan.edit', [], false),

@@ -62,7 +62,7 @@
                 <p class="text-xs text-gray-500 mt-1">Namamu tidak ditampilkan ke admin maupun pembina. Akunmu tetap tercatat di sistem hanya untuk membatasi penyalahgunaan, dan kamu tetap bisa melihat balasannya di sini.</p>
             </div>
 
-            <button type="submit" class="bg-indigo-600 text-white px-5 py-2 rounded-lg font-semibold hover:bg-indigo-700">Kirim</button>
+            <button type="submit" class="bg-emerald-600 text-white px-5 py-2 rounded-lg font-semibold hover:bg-emerald-700">Kirim</button>
         </form>
 
         <h2 class="text-sm font-semibold text-gray-500 uppercase mb-2">Kirimanmu</h2>

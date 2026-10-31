@@ -13,7 +13,7 @@
             <h1 class="text-3xl font-bold text-gray-800">{{ auth()->user()->isStaff() ? 'Data Pendaftaran Ekskul' : 'Pendaftaran Saya' }}</h1>
             <div class="space-x-2">
                 @unless(auth()->user()->isStaff())
-                    <a href="{{ route('pendaftaran.create') }}" class="bg-indigo-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-indigo-700">+ Daftar Baru</a>
+                    <a href="{{ route('pendaftaran.create') }}" class="bg-emerald-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-emerald-700">+ Daftar Baru</a>
                 @endunless
                 <a href="{{ route('ekstrakurikuler.index') }}" class="text-gray-600 hover:underline text-sm">← Katalog</a>
             </div>

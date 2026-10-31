@@ -50,7 +50,7 @@
                                     <form action="{{ route('profil.tag.update', $t->id) }}" method="POST" class="mt-2 flex gap-2">
                                         @csrf @method('PATCH')
                                         <input type="text" name="teks" value="{{ $t->teks }}" maxlength="30" required class="border p-1.5 rounded-lg text-sm">
-                                        <button type="submit" class="bg-amber-500 text-white px-3 py-1.5 rounded-lg font-semibold hover:bg-amber-600">Simpan</button>
+                                        <button type="submit" class="bg-emerald-600 text-white px-3 py-1.5 rounded-lg font-semibold hover:bg-emerald-700">Simpan</button>
                                     </form>
                                 </details>
                             @endif

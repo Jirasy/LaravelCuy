@@ -12,4 +12,4 @@
 </div>
 <input type="url" name="url" required maxlength="500" placeholder="https://..." class="w-full border p-2 rounded-lg text-sm">
 <p class="text-xs text-gray-500">Harus diawali https:// dan sesuai platform yang dipilih (mis. YouTube hanya youtube.com / youtu.be).</p>
-<button type="submit" class="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-indigo-700">Simpan Tautan</button>
+<button type="submit" class="bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-emerald-700">Simpan Tautan</button>

@@ -40,6 +40,26 @@ class PendaftaranEkskul extends Model
         return $this->belongsTo(Ekstrakurikuler::class);
     }
 
+    // Nama, kelas, dan NISN anggota untuk DITAMPILKAN: diambil dari akun (relasi user) supaya selalu terbaru.
+    // Kolom nama_pendaftar/kelas/nisn di tabel ini hanya salinan saat mendaftar; dipakai sebagai cadangan kalau
+    // pendaftaran tidak terhubung ke akun (data lama/manual) atau akunnya belum punya kelas/NISN.
+    // Pemanggil sebaiknya memuat relasi user (with('user')); kalau belum dimuat, salinan yang dipakai
+    // (tidak memicu query tambahan per baris).
+    public function getNamaTampilAttribute(): string
+    {
+        return ($this->relationLoaded('user') ? $this->user?->name : null) ?: (string) $this->nama_pendaftar;
+    }
+
+    public function getKelasTampilAttribute(): ?string
+    {
+        return ($this->relationLoaded('user') ? $this->user?->kelas : null) ?: $this->kelas;
+    }
+
+    public function getNisnTampilAttribute(): ?string
+    {
+        return ($this->relationLoaded('user') ? $this->user?->nisn : null) ?: $this->nisn;
+    }
+
     // Semua penetapan jabatan (termasuk yang sudah selesai) = riwayat jabatan
     public function penetapanJabatans()
     {

@@ -69,7 +69,7 @@
                                    class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
                         </div>
 
-                        <button type="submit" class="bg-indigo-600 text-white px-4 py-2 rounded-lg text-xs font-semibold hover:bg-indigo-700">Simpan pilihan</button>
+                        <button type="submit" class="bg-emerald-600 text-white px-4 py-2 rounded-lg text-xs font-semibold hover:bg-emerald-700">Simpan pilihan</button>
                     </form>
 
                     @if($pilihan)

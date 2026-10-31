@@ -57,7 +57,7 @@
 
             <div class="flex justify-end space-x-2 pt-4">
                 <a href="{{ route('ekstrakurikuler.index') }}" class="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-semibold hover:bg-gray-300">Batal</a>
-                <button type="submit" class="bg-blue-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-blue-700">Simpan Data</button>
+                <button type="submit" class="bg-emerald-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-emerald-700">Simpan Data</button>
             </div>
         </form>
     </div>

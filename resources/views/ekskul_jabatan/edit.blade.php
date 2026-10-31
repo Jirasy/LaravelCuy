@@ -28,7 +28,7 @@
                 @include('ekstrakurikuler._form_jabatan', ['jabatan' => $jabatan])
                 <div class="flex justify-end space-x-2 pt-2">
                     <a href="{{ route('ekstrakurikuler.show', ['id' => $jabatan->ekstrakurikuler_id, 'tab' => 'struktur']) }}" class="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-semibold hover:bg-gray-300">Batal</a>
-                    <button type="submit" class="bg-yellow-500 text-white px-6 py-2 rounded-lg font-semibold hover:bg-yellow-600">Perbarui</button>
+                    <button type="submit" class="bg-indigo-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-indigo-700">Perbarui</button>
                 </div>
             </form>
         </div>

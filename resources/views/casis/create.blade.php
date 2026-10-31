@@ -6,7 +6,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pendaftaran CaSis OSIS</title>
+    <title>Pendaftaran {{ $ekskul->label_calon }} {{ $ekskul->nama_ekstrakurikuler }}</title>
     @include('partials.head')
 </head>
 <body class="app-bg p-6">
@@ -14,8 +14,8 @@
         @include('partials.navbar')
 
         <div class="mb-6" data-aos="fade-down">
-            <h1 class="text-3xl font-bold text-gray-800">Pendaftaran CaSis OSIS</h1>
-            <p class="text-gray-600 text-sm">Calon Siswa OSIS diseleksi oleh pembina OSIS, admin, dan pengurus OSIS angkatan sebelumnya.</p>
+            <h1 class="text-3xl font-bold text-gray-800">Pendaftaran {{ $ekskul->label_calon }} {{ $ekskul->nama_ekstrakurikuler }}</h1>
+            <p class="text-gray-600 text-sm">Pendaftar diseleksi bertahap oleh pembina, admin, dan senior {{ $ekskul->nama_ekstrakurikuler }}.</p>
         </div>
 
         @if(session('success'))
@@ -32,11 +32,11 @@
 
         @if($sudahPengurus)
             <div class="bg-white p-8 rounded-xl border border-gray-200 text-center text-gray-700 mb-6" data-aos="fade-up">
-                🏛️ Kamu sudah tercatat sebagai pengurus OSIS.
+                🏛️ Kamu sudah tercatat sebagai anggota {{ $ekskul->nama_ekstrakurikuler }}.
             </div>
         @elseif(!$periode)
             <div class="bg-white p-8 rounded-xl border border-gray-200 text-center text-gray-600 mb-6" data-aos="fade-up">
-                Pendaftaran CaSis sedang ditutup. Pantau notifikasi untuk pengumuman periode berikutnya.
+                Pendaftaran {{ $ekskul->label_calon }} sedang ditutup. Pantau notifikasi untuk pengumuman periode berikutnya.
             </div>
         @else
             <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 mb-6" data-aos="fade-up">
@@ -53,12 +53,12 @@
 
                 @if($casis && $casis->didaftarkan_oleh && $casis->status === 'draft')
                     <div class="bg-indigo-50 border border-indigo-200 text-indigo-900 rounded-lg px-4 py-3 text-sm mb-4">
-                        Kamu didaftarkan ke jalur OSIS oleh admin atau pembina. Lengkapi formulir di bawah ini lalu klik <strong>Ajukan pendaftaran</strong>.
+                        Kamu didaftarkan ke jalur seleksi ini oleh admin atau pembina. Lengkapi formulir di bawah ini lalu klik <strong>Ajukan pendaftaran</strong>.
                     </div>
                 @endif
 
                 @if(!$casis || $casis->bisa_diubah)
-                    <form action="{{ route('casis.simpan') }}" method="POST" class="space-y-4">
+                    <form action="{{ route('casis.simpan', $ekskul->id) }}" method="POST" class="space-y-4">
                         @csrf
                         <div>
                             <label class="block text-sm font-semibold text-gray-700">Motivasi <span class="font-normal text-gray-400">(wajib, minimal 50 karakter)</span></label>
@@ -74,16 +74,16 @@
                         </div>
 
                         <div class="flex flex-wrap gap-2">
-                            <button type="submit" name="aksi" value="simpan" class="bg-gray-700 text-white px-5 py-2 rounded-lg font-semibold hover:bg-gray-800">Simpan draft</button>
+                            <button type="submit" name="aksi" value="simpan" class="bg-emerald-600 text-white px-5 py-2 rounded-lg font-semibold hover:bg-emerald-700">Simpan draft</button>
                             <button type="submit" name="aksi" value="ajukan" class="bg-indigo-600 text-white px-5 py-2 rounded-lg font-semibold hover:bg-indigo-700"
-                                    onclick="return confirm('Ajukan pendaftaran CaSis? Setelah masa pendaftaran ditutup, isinya tidak bisa diubah lagi.')">
+                                    onclick="return confirm('Ajukan pendaftaran? Setelah masa pendaftaran ditutup, isinya tidak bisa diubah lagi.')">
                                 {{ $casis && $casis->status === 'diajukan' ? 'Perbarui pengajuan' : 'Ajukan pendaftaran' }}
                             </button>
                         </div>
                     </form>
 
                     @if($casis)
-                        <form action="{{ route('casis.mundur') }}" method="POST" class="mt-3" onsubmit="return confirm('Batalkan pendaftaran CaSis-mu?')">
+                        <form action="{{ route('casis.mundur', $ekskul->id) }}" method="POST" class="mt-3" onsubmit="return confirm('Batalkan pendaftaranmu?')">
                             @csrf
                             <button type="submit" class="text-sm text-red-600 hover:underline">Batalkan pendaftaran</button>
                         </form>
@@ -99,8 +99,44 @@
             </div>
         @endif
 
+        {{-- Progres seleksi: tahap, jadwal, tempat, dan hasilmu di tiap tahap --}}
+        @if($progres && $tahaps->isNotEmpty())
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 mb-6" data-aos="fade-up">
+                <div class="flex flex-wrap justify-between items-center gap-2 mb-3">
+                    <h2 class="font-bold text-gray-800">Tahap seleksi periode {{ $progres->periode->nama }}</h2>
+                    @include('partials.status-badge', ['status' => $badgeStatus[$progres->status], 'label' => \App\Models\CasisPendaftaran::STATUS[$progres->status]])
+                </div>
+                @php $tahapSekarang = $progres->tahapSekarang(); @endphp
+                <ol class="space-y-2">
+                    @foreach($tahaps as $t)
+                        @php
+                            $h = $hasils->get($t->id);
+                            $sedang = $tahapSekarang && $tahapSekarang->id === $t->id;
+                        @endphp
+                        <li class="border rounded-lg p-3 {{ $sedang ? 'border-indigo-300 bg-indigo-50' : 'border-gray-200' }}">
+                            <div class="flex flex-wrap justify-between items-center gap-2">
+                                <p class="font-semibold text-gray-900">{{ $t->urutan }}. {{ $t->nama }}</p>
+                                @if($h)
+                                    <span class="px-2 py-0.5 text-xs rounded-full {{ $h->hasil === 'lolos' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800' }}">{{ \App\Models\SeleksiHasil::HASIL[$h->hasil] }}</span>
+                                @elseif($sedang)
+                                    <span class="px-2 py-0.5 text-xs rounded-full bg-indigo-100 text-indigo-800">Sedang berjalan</span>
+                                @else
+                                    <span class="px-2 py-0.5 text-xs rounded-full bg-gray-100 text-gray-500">Menunggu</span>
+                                @endif
+                            </div>
+                            <p class="text-xs text-gray-600 mt-1">
+                                {{ $t->waktu_teks ?? 'Jadwal belum ditentukan' }}@if($t->tempat) &middot; {{ $t->tempat }}@endif
+                            </p>
+                            @if($t->keterangan)<p class="text-xs text-gray-600 mt-1 whitespace-pre-line">{{ $t->keterangan }}</p>@endif
+                            @if($h && $h->catatan)<p class="text-xs text-gray-700 mt-1 whitespace-pre-line">Catatan: {{ $h->catatan }}</p>@endif
+                        </li>
+                    @endforeach
+                </ol>
+            </div>
+        @endif
+
         @if($riwayat->isNotEmpty())
-            <h2 class="text-sm font-semibold text-gray-500 uppercase mb-2">Riwayat pendaftaran CaSis</h2>
+            <h2 class="text-sm font-semibold text-gray-500 uppercase mb-2">Riwayat pendaftaran</h2>
             <div class="space-y-2">
                 @foreach($riwayat as $r)
                     <div class="bg-white px-5 py-4 rounded-xl border border-gray-200">

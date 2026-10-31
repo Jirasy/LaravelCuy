@@ -27,7 +27,7 @@
                         @endforeach
                     </select>
                 </div>
-                <button type="submit" class="bg-amber-500 text-white px-3 py-1 rounded font-semibold hover:bg-amber-600">Simpan koreksi</button>
+                <button type="submit" class="bg-indigo-600 text-white px-3 py-1 rounded font-semibold hover:bg-indigo-700">Simpan koreksi</button>
             </form>
         @endforeach
 

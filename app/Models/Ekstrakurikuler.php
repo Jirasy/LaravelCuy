@@ -23,30 +23,33 @@ class Ekstrakurikuler extends Model
         'kuota',
         'jenis',
         'jenis_ekskul_id',
+        'dibuat_oleh',
+        'diresmikan_pada',
+        'diresmikan_oleh',
     ];
 
     protected $casts = [
         'pendaftaran_dibuka'     => 'boolean',
         'pendaftaran_tutup_pada' => 'datetime',
+        'diresmikan_pada'        => 'datetime',
     ];
 
     protected static function booted(): void
     {
-        // Kolom lama "jenis" (ekskul/osis) dijaga sinkron dengan jenis_ekskul_id supaya kode dan data lama tetap jalan:
-        // - jenis_ekskul_id diubah  -> "jenis" mengikuti alur jenisnya (seleksi_casis = osis, selain itu = ekskul)
-        // - hanya "jenis" yang diubah / jenis_ekskul_id kosong -> jenis_ekskul_id dicari dari kodenya
+        // Kolom lama "jenis" (ekskul/osis) hanya penanda kompatibilitas dan dijaga sinkron dengan jenis_ekskul_id:
+        // - jenis_ekskul_id diubah  -> "jenis" = osis kalau tipenya Organisasi, selain itu ekskul
+        // - hanya "jenis" yang diubah / jenis_ekskul_id kosong -> jenis_ekskul_id dicari dari kodenya (osis = Organisasi)
         static::saving(function (self $ekskul) {
             if ($ekskul->jenis_ekskul_id && $ekskul->isDirty('jenis_ekskul_id')) {
-                $alur = JenisEkskul::whereKey($ekskul->jenis_ekskul_id)->value('alur_pendaftaran');
-                $ekskul->jenis = $alur === 'seleksi_casis' ? 'osis' : 'ekskul';
+                $kategori = JenisEkskul::whereKey($ekskul->jenis_ekskul_id)->value('kategori');
+                $ekskul->jenis = $kategori === 'organisasi' ? 'osis' : 'ekskul';
 
                 return;
             }
 
             if (! $ekskul->jenis_ekskul_id || $ekskul->isDirty('jenis')) {
-                $kode = $ekskul->jenis === 'osis' ? 'osis' : 'ekskul';
-                $ekskul->jenis = $kode;
-                $ekskul->jenis_ekskul_id = JenisEkskul::where('kode', $kode)->value('id');
+                $ekskul->jenis = $ekskul->jenis === 'osis' ? 'osis' : 'ekskul';
+                $ekskul->jenis_ekskul_id = JenisEkskul::where('kode', $ekskul->jenis === 'osis' ? 'organisasi' : 'ekskul')->value('id');
             }
         });
 
@@ -63,17 +66,48 @@ class Ekstrakurikuler extends Model
         return $this->belongsTo(JenisEkskul::class, 'jenis_ekskul_id');
     }
 
-    // Ekskul yang pendaftarannya lewat seleksi CaSis (saat ini hanya OSIS). Satu-satunya tempat aturan ini ditulis:
-    // kode lain cukup memanggil memakaiCasis() / alurCasis(), jadi memperluas alur CaSis ke jenis lain cukup mengubah di sini.
-    // Dibaca dari kolom "jenis" yang disinkronkan hook di atas, jadi tidak ada query tambahan per kartu.
+    // Ekskul yang pendaftarannya lewat seleksi bertahap: semua ekskul bertipe Ekskul Seleksi atau Organisasi.
+    // Satu-satunya tempat aturan ini ditulis: kode lain cukup memanggil memakaiCasis() / alurCasis().
+    // (Nama "Casis" dipertahankan dari versi OSIS-saja; sekarang berlaku untuk semua tipe berseleksi.)
     public function memakaiCasis(): bool
     {
-        return $this->jenis === 'osis';
+        return (bool) $this->jenisEkskul?->memakaiCasis();
     }
 
     public function scopeAlurCasis($query)
     {
-        return $query->where('jenis', 'osis');
+        return $query->whereHas('jenisEkskul', fn ($q) => $q->where('alur_pendaftaran', 'seleksi'));
+    }
+
+    public function scopeOrganisasi($query)
+    {
+        return $query->whereHas('jenisEkskul', fn ($q) => $q->where('kategori', 'organisasi'));
+    }
+
+    public function isOrganisasi(): bool
+    {
+        return (bool) $this->jenisEkskul?->isOrganisasi();
+    }
+
+    // Komunitas = ekskul baru lahir yang belum diresmikan admin
+    public function isKomunitas(): bool
+    {
+        return (bool) $this->jenisEkskul?->isKomunitas();
+    }
+
+    public function pembuat()
+    {
+        return $this->belongsTo(User::class, 'dibuat_oleh');
+    }
+
+    // Sebutan pendaftar seleksi: "CaSis" untuk OSIS, "Calon Pengurus" untuk organisasi lain, "Calon Anggota" untuk ekskul seleksi
+    public function getLabelCalonAttribute(): string
+    {
+        if (stripos((string) $this->nama_ekstrakurikuler, 'osis') !== false) {
+            return 'CaSis';
+        }
+
+        return $this->isOrganisasi() ? 'Calon Pengurus' : 'Calon Anggota';
     }
 
     public function pendaftaran()
@@ -144,7 +178,7 @@ class Ekstrakurikuler extends Model
             return 'ditutup';
         }
 
-        // Ekskul OSIS: pendaftaran = pendaftaran CaSis, hanya terbuka saat ada periode rekrutmen yang dibuka
+        // Ekskul berseleksi: pendaftaran = pendaftaran seleksi, hanya terbuka saat ada periode rekrutmen yang dibuka
         if ($this->memakaiCasis() && !OsisPeriode::terbuka()->where('ekstrakurikuler_id', $this->id)->exists()) {
             return 'ditutup';
         }

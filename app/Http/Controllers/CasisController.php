@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\CasisPendaftaran;
 use App\Models\CasisReview;
+use App\Models\Ekstrakurikuler;
 use App\Models\OsisPeriode;
 use App\Models\PendaftaranEkskul;
 use App\Models\User;
@@ -14,37 +15,50 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 
-// Rekrutmen OSIS: siswa mendaftar sebagai CaSis, lalu dinilai tiga unsur (pembina OSIS, admin, senior).
+// Seleksi masuk ekskul berseleksi (Ekskul Seleksi & Organisasi, mis. CaSis OSIS): siswa mendaftar, lalu melewati tahap
+// seleksi satu per satu. Di tiap tahap dinilai tiga unsur (pembina, admin, senior); hasil tahap diputuskan admin atau pembina.
 class CasisController extends Controller
 {
     // ================= Siswa =================
 
-    public function create(Request $request, OsisService $osis)
+    public function create(Request $request, Ekstrakurikuler $ekskul, OsisService $osis)
     {
         $user = $request->user();
-        abort_unless($user->role === 'siswa', 403, 'Pendaftaran CaSis khusus siswa.');
+        abort_unless($user->role === 'siswa', 403, 'Pendaftaran seleksi khusus siswa.');
+        abort_unless($ekskul->memakaiCasis(), 404);
 
-        $periode      = $osis->periodeBuka();
-        $casis        = $periode ? CasisPendaftaran::where('osis_periode_id', $periode->id)->where('user_id', $user->id)->first() : null;
-        $sudahPengurus = $osis->pengurusAktif($user);
-        $riwayat      = CasisPendaftaran::with('periode')->where('user_id', $user->id)->latest()->get();
+        $periode       = $osis->periodeBuka($ekskul);
+        $casis         = $periode ? CasisPendaftaran::where('osis_periode_id', $periode->id)->where('user_id', $user->id)->first() : null;
+        $sudahPengurus = $osis->pengurusAktif($user, $ekskul);
+        $riwayat       = CasisPendaftaran::with('periode')
+            ->where('user_id', $user->id)
+            ->whereHas('periode', fn ($q) => $q->where('ekstrakurikuler_id', $ekskul->id))
+            ->latest()
+            ->get();
 
-        return view('casis.create', compact('periode', 'casis', 'sudahPengurus', 'riwayat'));
+        // Progres tahap: dari pendaftaran terbaru yang masih berjalan atau sudah ada hasilnya
+        $progres = $riwayat->first(fn ($c) => in_array($c->status, ['diajukan', 'diterima', 'ditolak'], true));
+        $tahaps  = $progres ? $osis->tahapPeriode($progres->periode) : collect();
+        $hasils  = $progres ? $progres->hasils()->get()->keyBy('seleksi_tahap_id') : collect();
+
+        return view('casis.create', compact('ekskul', 'periode', 'casis', 'sudahPengurus', 'riwayat', 'progres', 'tahaps', 'hasils'));
     }
 
     // Simpan sebagai draft atau ajukan
-    public function simpan(Request $request, OsisService $osis)
+    public function simpan(Request $request, Ekstrakurikuler $ekskul, OsisService $osis)
     {
         $user = $request->user();
-        abort_unless($user->role === 'siswa', 403, 'Pendaftaran CaSis khusus siswa.');
+        abort_unless($user->role === 'siswa', 403, 'Pendaftaran seleksi khusus siswa.');
+        abort_unless($ekskul->memakaiCasis(), 404);
 
-        $periode = $osis->periodeBuka();
+        $label   = $ekskul->label_calon;
+        $periode = $osis->periodeBuka($ekskul);
         if (!$periode) {
-            return back()->with('error', 'Pendaftaran CaSis sedang ditutup.');
+            return back()->with('error', "Pendaftaran {$label} sedang ditutup.");
         }
 
-        if ($osis->pengurusAktif($user)) {
-            return back()->with('error', 'Kamu sudah menjadi pengurus OSIS.');
+        if ($osis->pengurusAktif($user, $ekskul)) {
+            return back()->with('error', "Kamu sudah menjadi anggota {$ekskul->nama_ekstrakurikuler}.");
         }
 
         $casis = CasisPendaftaran::where('osis_periode_id', $periode->id)->where('user_id', $user->id)->first();
@@ -78,26 +92,27 @@ class CasisController extends Controller
 
         if ($ajukan && $sebelumnya !== 'diajukan') {
             Pemberitahuan::kirim(
-                Pemberitahuan::pengelola($periode->ekstrakurikuler),
-                'Pendaftar CaSis baru',
-                "{$user->name} mengajukan pendaftaran CaSis OSIS {$periode->nama}.",
-                route('casis.index', ['periode' => $periode->id], false),
+                Pemberitahuan::pengelola($ekskul),
+                "Pendaftar {$label} baru",
+                "{$user->name} mengajukan pendaftaran {$label} {$ekskul->nama_ekstrakurikuler} {$periode->nama}.",
+                route('casis.index', [$ekskul->id, 'periode' => $periode->id], false),
                 '🗳️',
                 $user->id
             );
         }
 
-        return back()->with('success', $ajukan ? 'Pendaftaran CaSis diajukan. Tunggu proses seleksi.' : 'Draft tersimpan.');
+        return back()->with('success', $ajukan ? "Pendaftaran {$label} diajukan. Tunggu proses seleksi." : 'Draft tersimpan.');
     }
 
-    public function mundur(Request $request)
+    public function mundur(Request $request, Ekstrakurikuler $ekskul)
     {
-        $user = $request->user();
+        $user  = $request->user();
+        $label = $ekskul->label_calon;
 
-        $casis = CasisPendaftaran::with('periode.ekstrakurikuler')
+        $casis = CasisPendaftaran::with('periode')
             ->where('user_id', $user->id)
             ->whereIn('status', ['draft', 'diajukan'])
-            ->whereHas('periode', fn ($q) => $q->whereIn('status', ['rekrutmen', 'seleksi']))
+            ->whereHas('periode', fn ($q) => $q->where('ekstrakurikuler_id', $ekskul->id)->whereIn('status', ['rekrutmen', 'seleksi']))
             ->latest()
             ->first();
 
@@ -108,65 +123,71 @@ class CasisController extends Controller
         $casis->update(['status' => 'mengundurkan_diri']);
 
         Pemberitahuan::kirim(
-            Pemberitahuan::pengelola($casis->periode->ekstrakurikuler),
-            'CaSis mengundurkan diri',
-            "{$user->name} mengundurkan diri dari pendaftaran CaSis {$casis->periode->nama}.",
-            route('casis.index', ['periode' => $casis->osis_periode_id], false),
+            Pemberitahuan::pengelola($ekskul),
+            "{$label} mengundurkan diri",
+            "{$user->name} mengundurkan diri dari pendaftaran {$label} {$ekskul->nama_ekstrakurikuler} {$casis->periode->nama}.",
+            route('casis.index', [$ekskul->id, 'periode' => $casis->osis_periode_id], false),
             '↩️',
             $user->id
         );
 
-        return back()->with('success', 'Pendaftaran CaSis dibatalkan.');
+        return back()->with('success', "Pendaftaran {$label} dibatalkan.");
     }
 
     // ================= Penilai & pengelola =================
 
-    // Pusat seleksi: daftar periode, pendaftar, dan (untuk pengelola) pengaturan periode + senior
-    public function index(Request $request, OsisService $osis)
+    // Pusat seleksi satu ekskul: daftar periode, tahap, pendaftar, dan (untuk pengelola) pengaturan periode + senior
+    public function index(Request $request, Ekstrakurikuler $ekskul, OsisService $osis)
     {
         $user = $request->user();
-        $ekskulOsis = $osis->osis();
+        abort_unless($ekskul->memakaiCasis(), 404);
 
-        if (!$ekskulOsis) {
-            abort_unless($user->isStaff(), 403);
-
-            return view('casis.index', ['ekskulOsis' => null]);
-        }
-
-        $bolehKelola = $osis->bolehMemutuskan($user);
-        $jadiSenior  = OsisPeriode::where('ekstrakurikuler_id', $ekskulOsis->id)
+        $bolehKelola = $osis->bolehMemutuskan($user, $ekskul);
+        $jadiSenior  = OsisPeriode::where('ekstrakurikuler_id', $ekskul->id)
             ->whereHas('seniors', fn ($q) => $q->where('users.id', $user->id))
             ->exists();
 
-        abort_unless($bolehKelola || $jadiSenior || $user->isAdmin(), 403, 'Halaman ini untuk pengelola OSIS dan penilai CaSis.');
+        abort_unless($bolehKelola || $jadiSenior || $user->isAdmin(), 403, 'Halaman ini untuk pengelola ekskul dan penilai seleksi.');
 
-        $periodes = OsisPeriode::where('ekstrakurikuler_id', $ekskulOsis->id)->withCount('casis')->latest()->get();
+        $periodes = OsisPeriode::where('ekstrakurikuler_id', $ekskul->id)->withCount('casis')->latest()->get();
         $periode  = $periodes->firstWhere('id', (int) $request->query('periode')) ?? $periodes->first();
 
         $pendaftar = collect();
         $sudahSaya = [];
         $tipeSaya  = null;
         $kandidatSenior = collect();
+        $tahaps    = collect();
+        $posisi    = [];
 
         if ($periode) {
             $periode->load('seniors');
             $tipeSaya = $osis->tipeReviewer($user, $periode);
+            $tahaps   = $osis->tahapPeriode($periode);
 
             $urutan = ['diajukan', 'diterima', 'ditolak', 'draft', 'mengundurkan_diri'];
-            $pendaftar = CasisPendaftaran::with(['user', 'reviews'])
+            $pendaftar = CasisPendaftaran::with(['user', 'reviews', 'hasils'])
                 ->where('osis_periode_id', $periode->id)
                 ->get()
                 ->sortBy(fn ($c) => array_search($c->status, $urutan))
                 ->values();
 
-            $sudahSaya = CasisReview::where('reviewer_id', $user->id)
-                ->whereIn('casis_pendaftaran_id', $pendaftar->pluck('id'))
-                ->pluck('casis_pendaftaran_id')
+            // Posisi tiap pendaftar: tahap yang sedang dijalani (null kalau sudah diputuskan / belum diajukan)
+            foreach ($pendaftar as $c) {
+                $sudahTahap = $c->hasils->pluck('seleksi_tahap_id')->all();
+                $posisi[$c->id] = $c->status === 'diajukan'
+                    ? $tahaps->first(fn ($t) => !in_array($t->id, $sudahTahap, true))
+                    : null;
+            }
+
+            // Penilaian milikku yang sudah masuk, per tahap yang sedang dijalani pendaftar
+            $sudahSaya = $pendaftar
+                ->filter(fn ($c) => $posisi[$c->id] && $c->reviews->contains(fn ($r) => $r->reviewer_id === $user->id && $r->seleksi_tahap_id === $posisi[$c->id]->id))
+                ->pluck('id')
                 ->all();
 
             if ($bolehKelola) {
                 $kandidatSenior = PendaftaranEkskul::anggotaAktif()
-                    ->where('ekstrakurikuler_id', $ekskulOsis->id)
+                    ->where('ekstrakurikuler_id', $ekskul->id)
                     ->whereNotNull('user_id')
                     ->whereNotIn('user_id', $periode->seniors->pluck('id'))
                     ->whereNotIn('user_id', $pendaftar->pluck('user_id'))
@@ -175,34 +196,42 @@ class CasisController extends Controller
             }
         }
 
-        return view('casis.index', compact('ekskulOsis', 'periodes', 'periode', 'pendaftar', 'sudahSaya', 'tipeSaya', 'bolehKelola', 'kandidatSenior'));
+        return view('casis.index', compact('ekskul', 'periodes', 'periode', 'pendaftar', 'sudahSaya', 'tipeSaya', 'bolehKelola', 'kandidatSenior', 'tahaps', 'posisi'));
     }
 
-    // Detail pendaftar + form penilaian. Penilai baru bisa melihat penilaian unsur lain setelah menilai sendiri.
+    // Detail pendaftar + form penilaian tahap yang sedang dijalani. Penilai baru bisa melihat penilaian unsur lain
+    // di tahap itu setelah menilai sendiri; penilaian tahap yang sudah lewat selalu terbuka bagi penilai.
     public function show(Request $request, CasisPendaftaran $casis, OsisService $osis)
     {
         $user    = $request->user();
         $periode = $casis->periode()->with('ekstrakurikuler')->first();
+        $ekskul  = $periode->ekstrakurikuler;
 
         abort_if($casis->user_id === $user->id, 403, 'Kamu tidak bisa membuka penilaian pendaftaranmu sendiri.');
 
         $tipe = $osis->tipeReviewer($user, $periode);
-        abort_unless($tipe, 403, 'Kamu bukan penilai CaSis periode ini.');
+        abort_unless($tipe, 403, 'Kamu bukan penilai seleksi periode ini.');
 
-        $casis->load(['user', 'reviews.reviewer']);
+        $casis->load(['user', 'reviews.reviewer', 'hasils.pemutus']);
 
-        $saya       = $casis->reviews->firstWhere('reviewer_id', $user->id);
-        $lihatSemua = (bool) $saya;
-        $syarat     = $osis->syarat($casis);
+        $tahaps        = $osis->tahapPeriode($periode);
+        $tahapSekarang = $casis->tahapSekarang();
 
-        $bolehMemutuskan = $osis->bolehMemutuskan($user)
-            && $casis->status === 'diajukan'
-            && $periode->status === 'seleksi'
+        $saya       = $tahapSekarang ? $casis->reviews->first(fn ($r) => $r->reviewer_id === $user->id && $r->seleksi_tahap_id === $tahapSekarang->id) : null;
+        $lihatSemua = !$tahapSekarang || (bool) $saya;
+        $syarat     = $tahapSekarang ? $osis->syarat($casis, $tahapSekarang) : [];
+
+        $bolehMenilai = $tahapSekarang && $periode->status === 'seleksi';
+
+        $bolehMemutuskan = $bolehMenilai
+            && $osis->bolehMemutuskan($user, $ekskul)
             && collect($syarat)->every(fn ($v) => $v);
 
-        $bolehMenilai = $casis->status === 'diajukan' && $periode->status === 'seleksi';
+        $hasils = $casis->hasils->keyBy('seleksi_tahap_id');
 
-        return view('casis.show', compact('casis', 'periode', 'tipe', 'saya', 'lihatSemua', 'syarat', 'bolehMemutuskan', 'bolehMenilai'));
+        return view('casis.show', compact(
+            'casis', 'periode', 'ekskul', 'tipe', 'saya', 'lihatSemua', 'syarat', 'bolehMemutuskan', 'bolehMenilai', 'tahaps', 'tahapSekarang', 'hasils'
+        ));
     }
 
     public function review(Request $request, CasisPendaftaran $casis, OsisService $osis)
@@ -213,9 +242,11 @@ class CasisController extends Controller
         abort_if($casis->user_id === $user->id, 403, 'Kamu tidak bisa menilai pendaftaranmu sendiri.');
 
         $tipe = $osis->tipeReviewer($user, $periode);
-        abort_unless($tipe, 403, 'Kamu bukan penilai CaSis periode ini.');
+        abort_unless($tipe, 403, 'Kamu bukan penilai seleksi periode ini.');
 
-        if ($casis->status !== 'diajukan' || $periode->status !== 'seleksi') {
+        $tahap = $casis->tahapSekarang();
+
+        if (!$tahap || $periode->status !== 'seleksi') {
             return back()->with('error', 'Penilaian hanya bisa dilakukan saat tahap seleksi untuk pendaftar yang berstatus diajukan.');
         }
 
@@ -226,28 +257,33 @@ class CasisController extends Controller
         ], ['skor.between' => 'Skor harus antara 0 sampai 100.']);
 
         CasisReview::updateOrCreate(
-            ['casis_pendaftaran_id' => $casis->id, 'reviewer_id' => $user->id],
+            ['casis_pendaftaran_id' => $casis->id, 'reviewer_id' => $user->id, 'seleksi_tahap_id' => $tahap->id],
             ['tipe' => $tipe, 'skor' => $data['skor'], 'rekomendasi' => $data['rekomendasi'], 'catatan' => trim($data['catatan'] ?? '') ?: null]
         );
 
-        return back()->with('success', 'Penilaianmu tersimpan.');
+        return back()->with('success', "Penilaianmu untuk tahap {$tahap->nama} tersimpan.");
     }
 
-    // Keputusan akhir: admin atau pembina OSIS, setelah semua unsur yang wajib sudah menilai
+    // Hasil tahap yang sedang dijalani: admin atau pembina ekskul, setelah semua unsur yang wajib sudah menilai.
+    // Tidak lolos = ditolak; lolos di tahap terakhir = diterima; lolos di tahap lain = lanjut ke tahap berikutnya.
     public function putuskan(Request $request, CasisPendaftaran $casis, OsisService $osis)
     {
         $user    = $request->user();
         $periode = $casis->periode()->with('ekstrakurikuler')->first();
+        $ekskul  = $periode->ekstrakurikuler;
+        $label   = $ekskul->label_calon;
 
-        abort_unless($osis->bolehMemutuskan($user), 403);
+        abort_unless($osis->bolehMemutuskan($user, $ekskul), 403);
         abort_if($casis->user_id === $user->id, 403);
 
-        if ($casis->status !== 'diajukan' || $periode->status !== 'seleksi') {
+        $tahap = $casis->tahapSekarang();
+
+        if (!$tahap || $periode->status !== 'seleksi') {
             return back()->with('error', 'Pendaftar ini tidak bisa diputuskan pada tahap sekarang.');
         }
 
         $casis->load('reviews');
-        $kurang = collect($osis->syarat($casis))->reject(fn ($v) => $v)->keys()
+        $kurang = collect($osis->syarat($casis, $tahap))->reject(fn ($v) => $v)->keys()
             ->map(fn ($t) => CasisReview::TIPE[$t])->all();
 
         if ($kurang) {
@@ -255,38 +291,32 @@ class CasisController extends Controller
         }
 
         $data = $request->validate([
-            'keputusan' => ['required', Rule::in(['terima', 'tolak'])],
+            'keputusan' => ['required', Rule::in(['lolos', 'tolak'])],
             'catatan'   => ['nullable', 'string', 'max:1000', Rule::requiredIf($request->input('keputusan') === 'tolak')],
         ], ['catatan.required' => 'Beri catatan alasan penolakan.']);
 
-        $terima = $data['keputusan'] === 'terima';
+        $lolos   = $data['keputusan'] === 'lolos';
+        $catatan = trim($data['catatan'] ?? '') ?: null;
 
-        DB::transaction(function () use ($casis, $user, $terima, $data, $periode, $osis) {
-            $casis->update([
-                'status'            => $terima ? 'diterima' : 'ditolak',
-                'diputuskan_oleh'   => $user->id,
-                'catatan_keputusan' => trim($data['catatan'] ?? '') ?: null,
-                'diputuskan_pada'   => now(),
-            ]);
+        $hasil = $osis->tetapkanHasil($casis, $tahap, $lolos ? 'lolos' : 'tidak_lolos', $catatan, $user);
 
-            if ($terima && !$osis->pengurusAktif($casis->user)) {
-                $osis->jadikanPengurus($casis->user, "Lolos seleksi CaSis {$periode->nama}", $periode->nama);
-            }
-        });
+        if ($hasil['status'] === 'diterima') {
+            Pemberitahuan::kirim([$casis->user], "Selamat, kamu lolos seleksi {$ekskul->nama_ekstrakurikuler}!", "Kamu diterima di {$ekskul->nama_ekstrakurikuler} periode {$periode->nama}.", route('ekstrakurikuler.show', $ekskul->id, false), '🎉', $user->id);
+        } elseif ($hasil['status'] === 'ditolak') {
+            Pemberitahuan::kirim([$casis->user], "Hasil seleksi {$ekskul->nama_ekstrakurikuler}", "Pendaftaran {$label} {$periode->nama} belum diterima pada tahap {$tahap->nama}." . ($catatan ? " Catatan: {$catatan}" : ''), route('casis.create', $ekskul->id, false), '📄', $user->id);
+        } else {
+            $berikut = $hasil['berikut'];
+            Pemberitahuan::kirim([$casis->user], "Lolos tahap {$tahap->nama}", "Kamu lanjut ke tahap berikutnya: {$berikut->ringkasan}.", route('casis.create', $ekskul->id, false), '✅', $user->id);
+        }
 
-        Pemberitahuan::kirim(
-            [$casis->user],
-            $terima ? 'Selamat, kamu lolos CaSis!' : 'Hasil seleksi CaSis',
-            $terima
-                ? "Kamu diterima sebagai pengurus OSIS periode {$periode->nama}."
-                : "Pendaftaran CaSis {$periode->nama} belum diterima." . ($casis->catatan_keputusan ? " Catatan: {$casis->catatan_keputusan}" : ''),
-            route('casis.create', [], false),
-            $terima ? '🎉' : '📄',
-            $user->id
-        );
+        $pesan = match ($hasil['status']) {
+            'diterima' => ' lolos semua tahap dan diterima.',
+            'ditolak'  => ' tidak lolos dan ditolak.',
+            default    => " lolos tahap {$tahap->nama}, lanjut ke {$hasil['berikut']->nama}.",
+        };
 
-        return redirect()->route('casis.index', ['periode' => $periode->id])
-            ->with('success', $casis->user->name . ($terima ? ' diterima sebagai pengurus OSIS.' : ' tidak diterima.'));
+        return redirect()->route('casis.index', [$ekskul->id, 'periode' => $periode->id])
+            ->with('success', ($casis->user->name ?? 'Pendaftar') . $pesan);
     }
 
     // ================= Dari Kelola User =================
@@ -324,7 +354,7 @@ class CasisController extends Controller
             [$user],
             'Kamu didaftarkan ke jalur OSIS',
             "{$request->user()->name} memasukkanmu ke jalur CaSis OSIS {$periode->nama}. Lengkapi formulir pendaftaranmu.",
-            route('casis.create', [], false),
+            route('casis.create', [$osis->osis()->id], false),
             '🗳️',
             $request->user()->id
         );
@@ -403,7 +433,7 @@ class CasisController extends Controller
             if ($aktif) {
                 CasisPendaftaran::where('user_id', $user->id)
                     ->whereIn('status', ['draft', 'diajukan'])
-                    ->whereHas('periode', fn ($q) => $q->whereIn('status', ['rekrutmen', 'seleksi']))
+                    ->whereHas('periode', fn ($q) => $q->where('ekstrakurikuler_id', $osis->osis()->id)->whereIn('status', ['rekrutmen', 'seleksi']))
                     ->update([
                         'status'            => 'diterima',
                         'diputuskan_oleh'   => $request->user()->id,

@@ -20,7 +20,7 @@
                 <input type="text" name="topik" maxlength="200" placeholder="opsional" class="w-full border p-2 rounded-lg text-sm">
             </div>
         </div>
-        <button type="submit" class="bg-indigo-600 text-white px-5 py-2 rounded-lg font-semibold hover:bg-indigo-700">Buat &amp; isi absensi</button>
+        <button type="submit" class="bg-emerald-600 text-white px-5 py-2 rounded-lg font-semibold hover:bg-emerald-700">Buat &amp; isi absensi</button>
     </form>
 
     @include('ekstrakurikuler._laporan_tombol', ['jenis' => 'absensi'])
@@ -41,7 +41,7 @@
                     </p>
                 </div>
                 <div class="flex gap-2">
-                    <a href="{{ route('absensi.edit', $p->id) }}" class="bg-yellow-500 text-white px-3 py-1 rounded text-xs font-semibold hover:bg-yellow-600">{{ $p->total_count > 0 ? 'Ubah absensi' : 'Isi absensi' }}</a>
+                    <a href="{{ route('absensi.edit', $p->id) }}" class="{{ $p->total_count > 0 ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-emerald-600 hover:bg-emerald-700' }} text-white px-3 py-1 rounded text-xs font-semibold">{{ $p->total_count > 0 ? 'Ubah absensi' : 'Isi absensi' }}</a>
                     <form action="{{ route('pertemuan.destroy', $p->id) }}" method="POST" onsubmit="return confirm('Hapus pertemuan ini? Catatan kehadirannya ikut terhapus.')">
                         @csrf
                         @method('DELETE')

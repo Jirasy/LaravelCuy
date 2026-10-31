@@ -25,11 +25,11 @@
             <a href="{{ route('pendaftaran.index') }}" class="text-gray-700 hover:underline {{ request()->routeIs('pendaftaran.*') ? $aktif : '' }}">Pendaftaran</a>
             @php $dataNav = \App\Support\NavbarData::untuk($me); @endphp
             @if($dataNav['casisDraft'])
-                <a href="{{ route('casis.create') }}" class="text-red-600 font-semibold hover:underline">Lengkapi CaSis</a>
+                <a href="{{ route('casis.create', $dataNav['casisDraftEkskul']) }}" class="text-red-600 font-semibold hover:underline">Lengkapi pendaftaran seleksi</a>
             @endif
             @if($dataNav['casisTugas'] > 0)
-                <a href="{{ route('casis.index') }}" class="text-gray-700 hover:underline {{ request()->routeIs('casis.*') ? $aktif : '' }}">
-                    Seleksi CaSis
+                <a href="{{ route('casis.index', $dataNav['casisTugasEkskul']) }}" class="text-gray-700 hover:underline {{ request()->routeIs('casis.*') ? $aktif : '' }}">
+                    Seleksi
                     <span class="ml-0.5 px-1.5 py-0.5 text-xs rounded-full bg-red-600 text-white">{{ $dataNav['casisTugas'] }}</span>
                 </a>
             @endif
@@ -49,7 +49,7 @@
                 <a href="{{ route('import-siswa.create') }}" class="text-gray-700 hover:underline {{ request()->routeIs('import-siswa.*') ? $aktif : '' }}">Import Siswa</a>
                 @if($me->isAdmin())
                     <a href="{{ route('kredensial.index') }}" class="text-gray-700 hover:underline {{ request()->routeIs('kredensial.*') ? $aktif : '' }}">Kredensial</a>
-                    <a href="{{ route('jenis-ekskul.index') }}" class="text-gray-700 hover:underline {{ request()->routeIs('jenis-ekskul.*') ? $aktif : '' }}">Jenis Ekskul</a>
+                    <a href="{{ route('jenis-ekskul.index') }}" class="text-gray-700 hover:underline {{ request()->routeIs('jenis-ekskul.*') ? $aktif : '' }}">Tipe Ekskul</a>
                 @endif
                 @php $menungguKeputusan = \App\Models\EkskulPengunduranDiri::menungguUntuk($me)->count(); @endphp
                 <a href="{{ route('pengunduran.index') }}" class="text-gray-700 hover:underline {{ request()->routeIs('pengunduran.*') ? $aktif : '' }}">

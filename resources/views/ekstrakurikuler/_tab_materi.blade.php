@@ -26,7 +26,7 @@
                 <form action="{{ route('materi.akses-semua', $ekskul->id) }}" method="POST" onsubmit="return confirm('Cabut akses materi dari semua anggota?')">
                     @csrf
                     <input type="hidden" name="aksi" value="cabut">
-                    <button type="submit" class="bg-gray-600 text-white px-3 py-1.5 rounded text-xs font-semibold hover:bg-gray-700">Cabut semua</button>
+                    <button type="submit" class="bg-red-600 text-white px-3 py-1.5 rounded text-xs font-semibold hover:bg-red-700">Cabut semua</button>
                 </form>
             </div>
 
@@ -76,7 +76,7 @@
                     </div>
                 </div>
             </div>
-            <button type="submit" class="bg-indigo-600 text-white px-5 py-2 rounded-lg font-semibold hover:bg-indigo-700">Simpan Materi</button>
+            <button type="submit" class="bg-emerald-600 text-white px-5 py-2 rounded-lg font-semibold hover:bg-emerald-700">Simpan Materi</button>
         </form>
 
         {{-- ===== Buat Task ===== --}}
@@ -95,7 +95,7 @@
                     <input type="number" name="nilai_maks" min="10" max="100" value="100" class="w-full border p-2 rounded-lg text-sm">
                 </div>
             </div>
-            <button type="submit" class="bg-teal-600 text-white px-5 py-2 rounded-lg font-semibold hover:bg-teal-700">Buat Task</button>
+            <button type="submit" class="bg-emerald-600 text-white px-5 py-2 rounded-lg font-semibold hover:bg-emerald-700">Buat Task</button>
         </form>
     @endif
 
@@ -212,9 +212,9 @@
                 @elseif($m->jenis === 'dokumen')
                     <div class="flex flex-wrap gap-2 mt-3">
                         @if($m->mime === 'application/pdf')
-                            <a href="{{ route('materi.berkas', $m->id) }}" target="_blank" class="bg-indigo-600 text-white px-3 py-1.5 rounded text-sm font-semibold hover:bg-indigo-700">Buka PDF</a>
+                            <a href="{{ route('materi.berkas', $m->id) }}" target="_blank" class="bg-sky-600 text-white px-3 py-1.5 rounded text-sm font-semibold hover:bg-sky-700">Buka PDF</a>
                         @endif
-                        <a href="{{ route('materi.berkas', ['materi' => $m->id, 'unduh' => 1]) }}" class="bg-gray-700 text-white px-3 py-1.5 rounded text-sm font-semibold hover:bg-gray-800">Unduh {{ $m->nama_berkas }}</a>
+                        <a href="{{ route('materi.berkas', ['materi' => $m->id, 'unduh' => 1]) }}" class="bg-teal-600 text-white px-3 py-1.5 rounded text-sm font-semibold hover:bg-teal-700">Unduh {{ $m->nama_berkas }}</a>
                     </div>
                 @else
                     @if($m->youtube_id)

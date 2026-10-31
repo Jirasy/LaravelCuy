@@ -11,7 +11,7 @@
         <h2 class="font-bold text-gray-800">Tambah Event / Acara</h2>
         @include('ekstrakurikuler._form_event', ['event' => null])
         <div class="text-right">
-            <button type="submit" class="bg-indigo-600 text-white px-5 py-2 rounded-lg font-semibold hover:bg-indigo-700">Simpan Event</button>
+            <button type="submit" class="bg-emerald-600 text-white px-5 py-2 rounded-lg font-semibold hover:bg-emerald-700">Simpan Event</button>
         </div>
     </form>
 @endif
@@ -34,7 +34,7 @@
                             </div>
                             @if($staff)
                                 <div class="flex gap-2 shrink-0">
-                                    <a href="{{ route('ekskul-event.edit', $e->id) }}" class="bg-yellow-500 text-white px-3 py-1 rounded text-xs font-semibold hover:bg-yellow-600">Edit</a>
+                                    <a href="{{ route('ekskul-event.edit', $e->id) }}" class="bg-indigo-600 text-white px-3 py-1 rounded text-xs font-semibold hover:bg-indigo-700">Edit</a>
                                     <form action="{{ route('ekskul-event.destroy', $e->id) }}" method="POST" onsubmit="return confirm('Hapus event ini?')">
                                         @csrf
                                         @method('DELETE')

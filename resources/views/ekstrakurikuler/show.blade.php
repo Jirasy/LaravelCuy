@@ -101,12 +101,12 @@
                             @if($pendaftaranSaya->tanggal_keluar) pada {{ $pendaftaranSaya->tanggal_keluar->format('d-m-Y') }} @endif
                         </p>
                         @if($ekskul->pendaftaran_terbuka)
-                            <a href="{{ $ekskul->memakaiCasis() ? route('casis.create') : route('pendaftaran.create', ['ekstrakurikuler_id' => $ekskul->id]) }}"
-                               class="inline-block bg-indigo-600 text-white px-5 py-2 rounded-lg font-semibold hover:bg-indigo-700">Daftar Lagi</a>
+                            <a href="{{ $ekskul->memakaiCasis() ? route('casis.create', $ekskul->id) : route('pendaftaran.create', ['ekstrakurikuler_id' => $ekskul->id]) }}"
+                               class="inline-block bg-emerald-600 text-white px-5 py-2 rounded-lg font-semibold hover:bg-emerald-700">Daftar Lagi</a>
                         @endif
                     @elseif($ekskul->pendaftaran_terbuka)
-                        <a href="{{ $ekskul->memakaiCasis() ? route('casis.create') : route('pendaftaran.create', ['ekstrakurikuler_id' => $ekskul->id]) }}"
-                           class="inline-block bg-indigo-600 text-white px-5 py-2 rounded-lg font-semibold hover:bg-indigo-700">Daftar Sekarang</a>
+                        <a href="{{ $ekskul->memakaiCasis() ? route('casis.create', $ekskul->id) : route('pendaftaran.create', ['ekstrakurikuler_id' => $ekskul->id]) }}"
+                           class="inline-block bg-emerald-600 text-white px-5 py-2 rounded-lg font-semibold hover:bg-emerald-700">Daftar Sekarang</a>
                     @else
                         <span class="inline-block bg-gray-200 text-gray-500 px-5 py-2 rounded-lg font-semibold cursor-not-allowed select-none">{{ $ekskul->label_pendaftaran }}</span>
                     @endif
@@ -116,6 +116,8 @@
                     @include('ekstrakurikuler._tautan')
 
                     @include('ekstrakurikuler._osis')
+
+                    @include('ekstrakurikuler._komunitas')
 
                     <div class="mt-4 pt-4 border-t border-gray-200">
                         <a href="{{ route('saran.index', ['ekskul' => $ekskul->id]) }}" class="text-sm text-indigo-600 font-semibold hover:underline">💬 Kirim kritik &amp; saran untuk ekskul ini</a>
@@ -151,8 +153,8 @@
                 @elseif(!$pendaftaranSaya)
                     <p class="text-sm mb-4">Daftar dan tunggu persetujuan untuk melihat {{ ['pengumuman' => 'pengumuman', 'absensi' => 'absensi', 'nilai' => 'nilai', 'materi' => 'materi dan task'][$tab] ?? 'daftar anggota' }}.</p>
                     @if($ekskul->pendaftaran_terbuka)
-                        <a href="{{ $ekskul->memakaiCasis() ? route('casis.create') : route('pendaftaran.create', ['ekstrakurikuler_id' => $ekskul->id]) }}"
-                           class="inline-block bg-indigo-600 text-white px-5 py-2 rounded-lg font-semibold hover:bg-indigo-700">Daftar Sekarang</a>
+                        <a href="{{ $ekskul->memakaiCasis() ? route('casis.create', $ekskul->id) : route('pendaftaran.create', ['ekstrakurikuler_id' => $ekskul->id]) }}"
+                           class="inline-block bg-emerald-600 text-white px-5 py-2 rounded-lg font-semibold hover:bg-emerald-700">Daftar Sekarang</a>
                     @endif
                 @elseif($pendaftaranSaya->status === 'pending')
                     <p class="text-sm">Pendaftaranmu masih menunggu persetujuan.</p>
@@ -188,7 +190,7 @@
                             </div>
                             @if($staff)
                                 <div class="flex gap-2 shrink-0">
-                                    <a href="{{ route('ekskul-pengumuman.edit', $p->id) }}" class="bg-yellow-500 text-white px-3 py-1 rounded text-xs font-semibold hover:bg-yellow-600">Edit</a>
+                                    <a href="{{ route('ekskul-pengumuman.edit', $p->id) }}" class="bg-indigo-600 text-white px-3 py-1 rounded text-xs font-semibold hover:bg-indigo-700">Edit</a>
                                     <form action="{{ route('ekskul-pengumuman.destroy', $p->id) }}" method="POST" onsubmit="return confirm('Hapus pengumuman ini?')">
                                         @csrf
                                         @method('DELETE')

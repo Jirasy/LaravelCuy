@@ -5,7 +5,7 @@
     <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 mb-6 flex flex-wrap items-center justify-between gap-3 text-sm">
         <p class="text-gray-700">📸 Dokumentasi kegiatan {{ $ekskul->nama_ekstrakurikuler }}. Foto baru bisa diunggah oleh anggota ekskul ini.</p>
         @if(!$pendaftaranSaya && $ekskul->pendaftaran_terbuka && !auth()->user()->isStaff())
-            <a href="{{ $ekskul->memakaiCasis() ? route('casis.create') : route('pendaftaran.create', ['ekstrakurikuler_id' => $ekskul->id]) }}"
+            <a href="{{ $ekskul->memakaiCasis() ? route('casis.create', $ekskul->id) : route('pendaftaran.create', ['ekstrakurikuler_id' => $ekskul->id]) }}"
                class="bg-indigo-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-indigo-700 whitespace-nowrap">Tertarik? Daftar Sekarang</a>
         @endif
     </div>
@@ -50,7 +50,7 @@
 
     <input type="text" name="caption" maxlength="200" placeholder="Keterangan foto (opsional, berlaku untuk semua foto yang diunggah)" class="w-full border p-2 rounded-lg text-sm">
 
-    <button type="submit" class="bg-indigo-600 text-white px-5 py-2 rounded-lg font-semibold hover:bg-indigo-700">Unggah</button>
+    <button type="submit" class="bg-emerald-600 text-white px-5 py-2 rounded-lg font-semibold hover:bg-emerald-700">Unggah</button>
 </form>
 @endif
 
@@ -61,7 +61,7 @@
             <h2 class="font-bold text-amber-900">Menunggu persetujuan ({{ $fotoMenunggu->count() }})</h2>
             <form action="{{ route('galeri.setujui-semua', $ekskul->id) }}" method="POST" onsubmit="return confirm('Setujui semua foto yang menunggu?')">
                 @csrf
-                <button type="submit" class="bg-green-600 text-white px-3 py-1.5 rounded text-xs font-semibold hover:bg-green-700">Setujui semua</button>
+                <button type="submit" class="bg-emerald-600 text-white px-3 py-1.5 rounded text-xs font-semibold hover:bg-emerald-700">Setujui semua</button>
             </form>
         </div>
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -74,7 +74,7 @@
                             <form action="{{ route('galeri.setujui', $f->id) }}" method="POST" class="flex-1">
                                 @csrf
                                 @method('PATCH')
-                                <button type="submit" class="w-full bg-green-600 text-white py-1 rounded font-semibold hover:bg-green-700">Setujui</button>
+                                <button type="submit" class="w-full bg-emerald-600 text-white py-1 rounded font-semibold hover:bg-emerald-700">Setujui</button>
                             </form>
                             <form action="{{ route('galeri.destroy', $f->id) }}" method="POST" class="flex-1" onsubmit="return confirm('Tolak dan hapus foto ini?')">
                                 @csrf

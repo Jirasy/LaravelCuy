@@ -18,6 +18,10 @@
                     <p class="opacity-80 text-sm mt-1">Atur role, aktifkan atau nonaktifkan akun, dan edit data pengguna.</p>
                 </div>
                 <div class="flex flex-wrap items-center gap-3">
+                    <a href="{{ route('users.create') }}" class="bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-emerald-700">➕ Tambah siswa</a>
+                    @if(auth()->user()->isAdmin())
+                        <a href="{{ route('users.create', ['tab' => 'pembina']) }}" class="bg-sky-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-sky-700">➕ Tambah pembina</a>
+                    @endif
                     <a href="{{ route('import-siswa.create') }}" class="bg-white/90 text-indigo-700 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-white">📥 Import siswa</a>
                     <input type="search" id="cari-user" placeholder="Cari nama, email, kelas..." class="field-glass !w-64 !mt-0">
                 </div>
@@ -30,6 +34,62 @@
         @if(session('error'))
             <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg mb-4">{{ session('error') }}</div>
         @endif
+
+        {{-- Password sementara pembina yang baru dibuat (tampil sekali) --}}
+        @include('ekstrakurikuler._kredensial_baru')
+
+        {{-- Saring daftar: role, kelas, jurusan, ekskul. Pencarian teks di banner bekerja di dalam hasil saringan. --}}
+        <form method="GET" action="{{ route('users.index') }}" class="bg-white rounded-xl border border-gray-200 shadow-sm p-4 mb-6" data-aos="fade-up">
+            <div class="grid grid-cols-2 md:grid-cols-5 gap-3 items-end">
+                <div>
+                    <label for="f-role" class="block text-xs font-semibold text-gray-600 mb-1">Role</label>
+                    <select id="f-role" name="role" class="w-full border p-2 rounded-lg text-sm">
+                        <option value="">Semua role</option>
+                        @foreach(['siswa' => 'Siswa', 'pembina' => 'Pembina', 'admin' => 'Admin'] as $kode => $nama)
+                            <option value="{{ $kode }}" {{ $filter['role'] === $kode ? 'selected' : '' }}>{{ $nama }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div>
+                    <label for="f-kelas" class="block text-xs font-semibold text-gray-600 mb-1">Kelas</label>
+                    <select id="f-kelas" name="kelas" class="w-full border p-2 rounded-lg text-sm">
+                        <option value="">Semua kelas</option>
+                        @foreach($filter['opsiKelas'] as $k)
+                            <option value="{{ $k }}" {{ $filter['kelas'] === $k ? 'selected' : '' }}>Kelas {{ $k }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div>
+                    <label for="f-jurusan" class="block text-xs font-semibold text-gray-600 mb-1">Jurusan</label>
+                    <select id="f-jurusan" name="jurusan" class="w-full border p-2 rounded-lg text-sm">
+                        <option value="">Semua jurusan</option>
+                        @foreach($filter['opsiJurusan'] as $j)
+                            <option value="{{ $j }}" {{ $filter['jurusan'] === $j ? 'selected' : '' }}>{{ $j }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div>
+                    <label for="f-ekskul" class="block text-xs font-semibold text-gray-600 mb-1">Ekskul</label>
+                    <select id="f-ekskul" name="ekskul" class="w-full border p-2 rounded-lg text-sm">
+                        <option value="">Semua ekskul</option>
+                        <option value="tanpa" {{ $filter['ekskul'] === 'tanpa' ? 'selected' : '' }}>Siswa belum ikut ekskul</option>
+                        @foreach($filter['opsiEkskul'] as $e)
+                            <option value="{{ $e->id }}" {{ $filter['ekskul'] === $e->id ? 'selected' : '' }}>{{ $e->nama_ekstrakurikuler }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="flex gap-2">
+                    <button type="submit" class="flex-1 bg-slate-700 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-slate-800">Terapkan</button>
+                    @if($filter['aktif'])
+                        <a href="{{ route('users.index') }}" class="px-3 py-2 rounded-lg text-sm font-semibold text-gray-700 border border-gray-300 hover:bg-gray-100">Reset</a>
+                    @endif
+                </div>
+            </div>
+            <p class="text-xs text-gray-500 mt-3">
+                Menampilkan <strong>{{ $users->count() }}</strong> dari {{ $filter['total'] }} user.
+                Saringan ekskul mencakup anggota aktif dan pembina ekskul itu.
+            </p>
+        </form>
 
         {{-- Ringkasan --}}
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
@@ -60,12 +120,12 @@
             @csrf
             <span class="mr-1 text-sm font-semibold text-indigo-700"><span id="jumlah-dipilih">0</span> akun dipilih</span>
 
-            <button type="submit" name="aksi" value="aktifkan" class="rounded bg-green-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-green-700">Aktifkan</button>
+            <button type="submit" name="aksi" value="aktifkan" class="rounded bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700">Aktifkan</button>
             <button type="submit" name="aksi" value="nonaktifkan" class="rounded bg-orange-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-orange-600">Nonaktifkan</button>
 
             <span class="flex items-center gap-1">
                 <input type="text" name="kelas" id="kelas-massal" maxlength="50" placeholder="Kelas baru, mis. XI IPA 1" class="w-44 rounded border p-1.5 text-xs">
-                <button type="submit" name="aksi" value="ubah_kelas" class="rounded bg-yellow-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-yellow-600">Ubah kelas</button>
+                <button type="submit" name="aksi" value="ubah_kelas" class="rounded bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700">Ubah kelas</button>
             </span>
 
             @if(auth()->user()->isAdmin())
@@ -100,6 +160,9 @@
                     </tr>
                 </thead>
                 <tbody id="tabel-user">
+                    @if($users->isEmpty())
+                        <tr data-cari=""><td colspan="6" class="p-8 text-center text-gray-500">Tidak ada user yang cocok dengan saringan ini.</td></tr>
+                    @endif
                     @foreach($users as $u)
                         @php $saya = $u->id === auth()->id(); @endphp
                         @php $bisaPilih = ! $saya && auth()->user()->can('kelola', $u); @endphp
@@ -157,7 +220,7 @@
 
                             <td class="p-3">
                                 <div class="flex flex-wrap gap-2">
-                                    <a href="{{ route('riwayat.show', $u->id) }}" class="bg-indigo-600 text-white px-3 py-1 rounded text-xs font-semibold hover:bg-indigo-700">Riwayat</a>
+                                    <x-tombol jenis="detail" href="{{ route('riwayat.show', $u->id) }}">Riwayat</x-tombol>
 
                                     @if($u->is_active)
                                         <details class="w-full">
@@ -178,7 +241,7 @@
                                         @include('users._osis_susulan', ['u' => $u, 'infoOsis' => $infoOsis])
                                     @endif
                                     @can('kelola', $u)
-                                        <a href="{{ route('users.edit', $u->id) }}" class="bg-yellow-500 text-white px-3 py-1 rounded text-xs font-semibold hover:bg-yellow-600">Edit</a>
+                                        <x-tombol jenis="edit" href="{{ route('users.edit', $u->id) }}">Edit</x-tombol>
                                     @endcan
 
                                     @can('kelola', $u)
@@ -187,16 +250,16 @@
                                               onsubmit="return confirm('{{ $u->is_active ? 'Nonaktifkan akun ini? User tidak bisa login sampai diaktifkan lagi.' : 'Aktifkan kembali akun ini?' }}')">
                                             @csrf
                                             @method('PATCH')
-                                            <button type="submit" class="{{ $u->is_active ? 'bg-orange-500 hover:bg-orange-600' : 'bg-green-600 hover:bg-green-700' }} text-white px-3 py-1 rounded text-xs font-semibold">
+                                            <x-tombol type="submit" :jenis="$u->is_active ? 'peringatan' : 'sukses'">
                                                 {{ $u->is_active ? 'Nonaktifkan' : 'Aktifkan' }}
-                                            </button>
+                                            </x-tombol>
                                         </form>
 
                                         <form action="{{ route('users.destroy', $u->id) }}" method="POST"
                                               onsubmit="return confirm('Hapus akun {{ e($u->name) }} secara permanen? Riwayat pendaftarannya tetap tersimpan tanpa akun.')">
                                             @csrf
                                             @method('DELETE')
-                                            <button type="submit" class="bg-red-600 text-white px-3 py-1 rounded text-xs font-semibold hover:bg-red-700">Hapus</button>
+                                            <x-tombol jenis="hapus" type="submit">Hapus</x-tombol>
                                         </form>
                                     @endunless
                                     @endcan
@@ -237,7 +300,7 @@
             document.getElementById('cari-user').addEventListener('input', function () {
                 var q = this.value.trim().toLowerCase();
                 document.querySelectorAll('#tabel-user tr').forEach(function (tr) {
-                    tr.style.display = tr.dataset.cari.indexOf(q) === -1 ? 'none' : '';
+                    tr.style.display = (tr.dataset.cari || '').indexOf(q) === -1 ? 'none' : '';
                 });
                 cek.forEach(function (c) {
                     if (c.closest('tr').style.display === 'none') { c.checked = false; }

@@ -7,7 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
-// Mengatur jenis/kategori ekskul (OSIS, MPK, Pramuka, PMR, Paskibra, dst). Hanya admin (dijaga di routes/web.php).
+// Mengatur tipe ekskul (Ekskul Biasa, Ekskul Seleksi, Organisasi, Komunitas, dan tipe tambahan). Hanya admin (dijaga di routes/web.php).
 class JenisEkskulController extends Controller
 {
     public function index()
@@ -22,6 +22,8 @@ class JenisEkskulController extends Controller
         return [
             'nama'       => ['required', 'string', 'max:60', Rule::unique('jenis_ekskuls', 'nama')->ignore($jenis?->id)],
             'urutan'     => ['nullable', 'integer', 'min:0', 'max:99'],
+            'alur_pendaftaran' => ['nullable', Rule::in(array_keys(JenisEkskul::ALUR))],
+            'kategori'   => ['nullable', Rule::in(['ekskul', 'organisasi'])],
             'hanya_satu' => ['nullable', 'boolean'],
             'aktif'      => ['nullable', 'boolean'],
         ];
@@ -30,9 +32,9 @@ class JenisEkskulController extends Controller
     private function pesan(): array
     {
         return [
-            'nama.required' => 'Isi nama jenis ekskul.',
-            'nama.max'      => 'Nama jenis maksimal 60 karakter.',
-            'nama.unique'   => 'Jenis dengan nama itu sudah ada.',
+            'nama.required' => 'Isi nama tipe ekskul.',
+            'nama.max'      => 'Nama tipe maksimal 60 karakter.',
+            'nama.unique'   => 'Tipe dengan nama itu sudah ada.',
             'urutan.integer' => 'Urutan harus berupa angka.',
             'urutan.min'    => 'Urutan minimal 0.',
             'urutan.max'    => 'Urutan maksimal 99.',
@@ -60,14 +62,15 @@ class JenisEkskulController extends Controller
         JenisEkskul::create([
             'kode'             => $this->buatKode($data['nama']),
             'nama'             => $data['nama'],
-            'alur_pendaftaran' => 'langsung',   // alur seleksi CaSis hanya untuk OSIS
+            'alur_pendaftaran' => $data['alur_pendaftaran'] ?? 'langsung',
+            'kategori'         => $data['kategori'] ?? 'ekskul',   // komunitas hanya tipe bawaan
             'hanya_satu'       => $request->boolean('hanya_satu'),
             'aktif'            => true,
             'bawaan'           => false,
             'urutan'           => $data['urutan'] ?? 50,
         ]);
 
-        return back()->with('success', "Jenis {$data['nama']} ditambahkan.");
+        return back()->with('success', "Tipe {$data['nama']} ditambahkan.");
     }
 
     public function update(Request $request, JenisEkskul $jenis)
@@ -77,46 +80,51 @@ class JenisEkskulController extends Controller
         $hanyaSatu = $request->boolean('hanya_satu');
         $aktif     = $request->boolean('aktif');
 
-        if ($jenis->kode === 'osis') {
-            $hanyaSatu = true;   // alur CaSis hanya mendukung satu ekskul OSIS
-        }
         if ($jenis->bawaan) {
-            $aktif = true;       // jenis bawaan sistem selalu aktif
+            $aktif = true;       // tipe bawaan sistem selalu aktif
         }
 
         if ($hanyaSatu && ! $jenis->hanya_satu) {
             $jumlah = $jenis->ekskuls()->count();
 
             if ($jumlah > 1) {
-                return back()->withInput()->with('error', "Sudah ada {$jumlah} ekskul berjenis {$jenis->nama}. Sisakan satu dulu sebelum menandainya \"hanya satu\".");
+                return back()->withInput()->with('error', "Sudah ada {$jumlah} ekskul bertipe {$jenis->nama}. Sisakan satu dulu sebelum menandainya \"hanya satu\".");
             }
         }
 
-        $jenis->update([
+        $perubahan = [
             'nama'       => $data['nama'],
             'urutan'     => $data['urutan'] ?? $jenis->urutan,
             'hanya_satu' => $hanyaSatu,
             'aktif'      => $aktif,
-        ]);
+        ];
 
-        return back()->with('success', "Jenis {$jenis->nama} diperbarui.");
+        // Cara masuk & kategori tipe bawaan tidak bisa diubah (perilaku sistem bergantung padanya)
+        if (! $jenis->bawaan) {
+            $perubahan['alur_pendaftaran'] = $data['alur_pendaftaran'] ?? $jenis->alur_pendaftaran;
+            $perubahan['kategori']         = $data['kategori'] ?? $jenis->kategori;
+        }
+
+        $jenis->update($perubahan);
+
+        return back()->with('success', "Tipe {$jenis->nama} diperbarui.");
     }
 
     public function destroy(JenisEkskul $jenis)
     {
         if ($jenis->bawaan) {
-            return back()->with('error', 'Jenis bawaan sistem tidak bisa dihapus.');
+            return back()->with('error', 'Tipe bawaan sistem tidak bisa dihapus.');
         }
 
         $dipakai = $jenis->ekskuls()->count();
 
         if ($dipakai > 0) {
-            return back()->with('error', "Jenis {$jenis->nama} masih dipakai {$dipakai} ekskul. Pindahkan ekskulnya ke jenis lain dulu, atau cukup nonaktifkan jenisnya.");
+            return back()->with('error', "Tipe {$jenis->nama} masih dipakai {$dipakai} ekskul. Pindahkan ekskulnya ke tipe lain dulu, atau cukup nonaktifkan tipenya.");
         }
 
         $nama = $jenis->nama;
         $jenis->delete();
 
-        return back()->with('success', "Jenis {$nama} dihapus.");
+        return back()->with('success', "Tipe {$nama} dihapus.");
     }
 }

@@ -19,7 +19,7 @@
                     @else Kamu melihat yang ditujukan ke ekskul yang kamu bina. @endif
                 </p>
             </div>
-            <a href="{{ route('saran.index') }}" class="bg-gray-700 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-gray-800">Kirim kritik/saran</a>
+            <a href="{{ route('saran.index') }}" class="bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-emerald-700">Kirim kritik/saran</a>
         </div>
 
         @if(session('success'))
@@ -76,7 +76,7 @@
                             <textarea name="balasan" rows="2" maxlength="2000" class="w-full border p-2 rounded-lg text-sm">{{ $s->balasan }}</textarea>
                         </div>
                         <div class="sm:pt-5">
-                            <button type="submit" class="w-full bg-indigo-600 text-white px-3 py-2 rounded-lg text-sm font-semibold hover:bg-indigo-700">Simpan</button>
+                            <button type="submit" class="w-full bg-emerald-600 text-white px-3 py-2 rounded-lg text-sm font-semibold hover:bg-emerald-700">Simpan</button>
                         </div>
                     </form>
                 </div>

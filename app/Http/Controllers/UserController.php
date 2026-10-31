@@ -4,12 +4,14 @@ namespace App\Http\Controllers;
 
 use App\Models\CasisPendaftaran;
 use App\Models\EkskulPembina;
+use App\Models\Ekstrakurikuler;
 use App\Models\KredensialSementara;
 use App\Models\OsisPeriode;
 use App\Models\PendaftaranEkskul;
 use App\Models\User;
 use App\Rules\PasswordKuat;
 use App\Services\OsisService;
+use App\Support\KelasSiswa;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
@@ -22,7 +24,38 @@ class UserController extends Controller
 {
     public function index(Request $request)
     {
-        $users = User::orderByDesc('is_active')->orderBy('role')->orderBy('name')->get();
+        // Saringan: role, kelas (tingkat), jurusan, dan ekskul. Semua opsional dan bisa digabung.
+        $role    = in_array($request->query('role'), ['siswa', 'pembina', 'admin'], true) ? $request->query('role') : null;
+        $tingkat = trim((string) $request->query('kelas', '')) ?: null;
+        $jurusan = trim((string) $request->query('jurusan', '')) ?: null;
+        $ekskul  = $request->query('ekskul') === 'tanpa' ? 'tanpa' : ((int) $request->query('ekskul') ?: null);
+
+        $semuaKelas = User::whereNotNull('kelas')->distinct()->pluck('kelas');
+
+        $query = User::query()
+            ->when($role, fn ($q) => $q->where('role', $role))
+            ->when($tingkat || $jurusan, function ($q) use ($semuaKelas, $tingkat, $jurusan) {
+                $cocok = KelasSiswa::yangCocok($semuaKelas, $tingkat, $jurusan);
+
+                // Tidak ada kelas yang cocok = tidak ada hasil (bukan semua user)
+                $cocok === [] ? $q->whereRaw('1 = 0') : $q->whereIn('kelas', $cocok);
+            })
+            ->when($ekskul === 'tanpa', fn ($q) => $q->where('role', 'siswa')
+                ->whereDoesntHave('pendaftaran', fn ($p) => $p->anggotaAktif()))
+            ->when(is_int($ekskul), fn ($q) => $q->where(fn ($w) => $w
+                ->whereHas('pendaftaran', fn ($p) => $p->anggotaAktif()->where('ekstrakurikuler_id', $ekskul))
+                ->orWhereHas('ekskulDikelola', fn ($p) => $p->where('ekstrakurikulers.id', $ekskul))));
+
+        $users = $query->orderByDesc('is_active')->orderBy('role')->orderBy('name')->get();
+
+        $filter = [
+            'role' => $role, 'kelas' => $tingkat, 'jurusan' => $jurusan, 'ekskul' => $ekskul,
+            'aktif' => (bool) ($role || $tingkat || $jurusan || $ekskul),
+            'total' => User::count(),
+            'opsiKelas' => KelasSiswa::daftarTingkat($semuaKelas),
+            'opsiJurusan' => KelasSiswa::daftarJurusan($semuaKelas),
+            'opsiEkskul' => Ekstrakurikuler::orderBy('nama_ekstrakurikuler')->get(['id', 'nama_ekstrakurikuler']),
+        ];
 
         // Status OSIS tiap siswa (lencana dan tombol di tabel). Cuma admin & pembina OSIS yang boleh mengubahnya.
         $layanan = app(OsisService::class);
@@ -72,7 +105,7 @@ class UserController extends Controller
             ];
         }
 
-        return view('users.index', compact('users', 'infoOsis'));
+        return view('users.index', compact('users', 'infoOsis', 'filter'));
     }
 
     public function edit(User $user)

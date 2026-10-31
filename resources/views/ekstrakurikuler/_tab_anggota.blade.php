@@ -1,3 +1,41 @@
+{{-- Saring anggota: kelas (tingkat), jurusan, dan nama --}}
+@if($filterAnggota['total'] > 0)
+    <form method="GET" action="{{ route('ekstrakurikuler.show', $ekskul->id) }}" class="bg-white rounded-xl border border-gray-200 shadow-sm p-4 mb-4">
+        <input type="hidden" name="tab" value="anggota">
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 items-end">
+            <div class="col-span-2 md:col-span-1">
+                <label for="fa-cari" class="block text-xs font-semibold text-gray-600 mb-1">Cari nama</label>
+                <input type="search" id="fa-cari" name="cari" value="{{ $filterAnggota['cari'] }}" placeholder="Nama anggota..." class="w-full border p-2 rounded-lg text-sm">
+            </div>
+            <div>
+                <label for="fa-kelas" class="block text-xs font-semibold text-gray-600 mb-1">Kelas</label>
+                <select id="fa-kelas" name="kelas" class="w-full border p-2 rounded-lg text-sm">
+                    <option value="">Semua kelas</option>
+                    @foreach($filterAnggota['opsiKelas'] as $k)
+                        <option value="{{ $k }}" {{ $filterAnggota['kelas'] === $k ? 'selected' : '' }}>Kelas {{ $k }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <div>
+                <label for="fa-jurusan" class="block text-xs font-semibold text-gray-600 mb-1">Jurusan</label>
+                <select id="fa-jurusan" name="jurusan" class="w-full border p-2 rounded-lg text-sm">
+                    <option value="">Semua jurusan</option>
+                    @foreach($filterAnggota['opsiJurusan'] as $j)
+                        <option value="{{ $j }}" {{ $filterAnggota['jurusan'] === $j ? 'selected' : '' }}>{{ $j }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <div class="flex gap-2">
+                <button type="submit" class="flex-1 bg-slate-700 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-slate-800">Terapkan</button>
+                @if($filterAnggota['aktif'])
+                    <a href="{{ route('ekstrakurikuler.show', [$ekskul->id, 'tab' => 'anggota']) }}" class="px-3 py-2 rounded-lg text-sm font-semibold text-gray-700 border border-gray-300 hover:bg-gray-100">Reset</a>
+                @endif
+            </div>
+        </div>
+        <p class="text-xs text-gray-500 mt-3">Menampilkan <strong>{{ $anggota->count() }}</strong> dari {{ $filterAnggota['total'] }} anggota.</p>
+    </form>
+@endif
+
 <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-x-auto">
     <table class="w-full text-sm text-left">
         <thead class="bg-gray-50 text-gray-700">
@@ -17,9 +55,9 @@
                     <td class="p-3 text-gray-500">{{ $loop->iteration }}</td>
                     <td class="p-3">
                         @if($a->user_id)
-                            <a href="{{ route('profil.show', $a->user_id) }}" class="font-semibold hover:underline" title="Lihat profil">{{ $a->nama_pendaftar }}</a>
+                            <a href="{{ route('profil.show', $a->user_id) }}" class="font-semibold hover:underline" title="Lihat profil">{{ $a->nama_tampil }}</a>
                         @else
-                            <span class="font-semibold">{{ $a->nama_pendaftar }}</span>
+                            <span class="font-semibold">{{ $a->nama_tampil }}</span>
                         @endif
                         {{-- Hanya siswa yang jadi anggota. Badge ini hanya muncul untuk sisa data lama (bukan siswa). --}}
                         @if($a->peran !== 'siswa')
@@ -29,7 +67,7 @@
                             </span>
                         @endif
                     </td>
-                    <td class="p-3">{{ $a->kelas ?? '-' }}</td>
+                    <td class="p-3">{{ $a->kelas_tampil ?? '-' }}</td>
                     <td class="p-3">
                         <div class="flex flex-wrap gap-1">
                             @forelse($a->jabatanAktif as $jb)
@@ -42,7 +80,7 @@
                     <td class="p-3">{{ $a->angkatan_ekskul ?? '-' }}</td>
                     <td class="p-3">{{ $a->periode }}</td>
                     @if($staff)
-                        <td class="p-3 text-gray-500">{{ $a->nisn ?? '-' }}</td>
+                        <td class="p-3 text-gray-500">{{ $a->nisn_tampil ?? '-' }}</td>
                         <td class="p-3">
                             <details>
                                 <summary class="cursor-pointer text-xs text-indigo-600">Atur</summary>
@@ -52,7 +90,7 @@
                                     @foreach($a->jabatanAktif as $jb)
                                         <div class="flex items-center justify-between gap-2 text-xs">
                                             <span>{{ $jb->label_lengkap }} <span class="text-gray-400">sejak {{ $jb->pivot->periode_mulai }}</span></span>
-                                            <form action="{{ route('anggota-jabatan.destroy', $jb->pivot->id) }}" method="POST" onsubmit="return confirm('Cabut jabatan {{ e($jb->label_lengkap) }} dari {{ e($a->nama_pendaftar) }}?')">
+                                            <form action="{{ route('anggota-jabatan.destroy', $jb->pivot->id) }}" method="POST" onsubmit="return confirm('Cabut jabatan {{ e($jb->label_lengkap) }} dari {{ e($a->nama_tampil) }}?')">
                                                 @csrf
                                                 @method('DELETE')
                                                 <button type="submit" class="text-red-600 hover:underline">Cabut</button>
@@ -65,7 +103,7 @@
                                     @if($jabatans->isEmpty())
                                         <p class="text-xs text-gray-500">Belum ada jabatan. Buat dulu di tab <strong>Struktur</strong>.</p>
                                     @elseif($tersedia->isEmpty())
-                                        <p class="text-xs text-gray-500">{{ $a->nama_pendaftar }} sudah memegang semua jabatan yang ada.</p>
+                                        <p class="text-xs text-gray-500">{{ $a->nama_tampil }} sudah memegang semua jabatan yang ada.</p>
                                     @else
                                         <form action="{{ route('anggota-jabatan.store', $a->id) }}" method="POST" class="space-y-1">
                                             @csrf
@@ -100,7 +138,7 @@
                                     {{-- Keluarkan dari ekskul (alasan wajib) --}}
                                     @if($a->user_id !== auth()->id())
                                         <form action="{{ route('pengunduran.keluarkan', $a->id) }}" method="POST" class="space-y-1 border-t pt-2"
-                                              onsubmit="return confirm('Keluarkan {{ e($a->nama_pendaftar) }} dari ekskul ini? Jabatannya ikut diakhiri.')">
+                                              onsubmit="return confirm('Keluarkan {{ e($a->nama_tampil) }} dari ekskul ini? Jabatannya ikut diakhiri.')">
                                             @csrf
                                             <textarea name="alasan" rows="2" required minlength="10" maxlength="1000" placeholder="Alasan mengeluarkan (wajib, min. 10 karakter)" class="border p-1 rounded text-xs w-full"></textarea>
                                             <button type="submit" class="bg-red-600 text-white px-3 py-1 rounded text-xs hover:bg-red-700">Keluarkan</button>
@@ -112,7 +150,7 @@
                     @endif
                 </tr>
             @empty
-                <tr><td colspan="{{ $staff ? 8 : 6 }}" class="p-6 text-center text-gray-500">Belum ada anggota yang disetujui.</td></tr>
+                <tr><td colspan="{{ $staff ? 8 : 6 }}" class="p-6 text-center text-gray-500">{{ $filterAnggota['aktif'] ? 'Tidak ada anggota yang cocok dengan saringan ini.' : 'Belum ada anggota yang disetujui.' }}</td></tr>
             @endforelse
         </tbody>
     </table>

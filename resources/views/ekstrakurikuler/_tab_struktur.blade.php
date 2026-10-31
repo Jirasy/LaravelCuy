@@ -6,7 +6,7 @@
         <p class="text-xs text-gray-500">Struktur tiap ekskul bisa berbeda. Buat hanya jabatan yang memang ada di ekskul ini, lalu berikan ke anggota lewat tab <strong>Anggota</strong>.</p>
         @include('ekstrakurikuler._form_jabatan', ['jabatan' => null])
         <div class="text-right">
-            <button type="submit" class="bg-indigo-600 text-white px-5 py-2 rounded-lg font-semibold hover:bg-indigo-700">Simpan Jabatan</button>
+            <button type="submit" class="bg-emerald-600 text-white px-5 py-2 rounded-lg font-semibold hover:bg-emerald-700">Simpan Jabatan</button>
         </div>
     </form>
 @endif
@@ -27,7 +27,7 @@
                 </div>
                 @if($staff)
                     <div class="flex gap-2 shrink-0">
-                        <a href="{{ route('ekskul-jabatan.edit', $j->id) }}" class="bg-yellow-500 text-white px-3 py-1 rounded text-xs font-semibold hover:bg-yellow-600">Edit</a>
+                        <a href="{{ route('ekskul-jabatan.edit', $j->id) }}" class="bg-indigo-600 text-white px-3 py-1 rounded text-xs font-semibold hover:bg-indigo-700">Edit</a>
                         <form action="{{ route('ekskul-jabatan.destroy', $j->id) }}" method="POST" onsubmit="return confirm('Hapus jabatan {{ e($j->label_lengkap) }}?')">
                             @csrf
                             @method('DELETE')
@@ -69,9 +69,9 @@
                     <div class="flex flex-wrap gap-2">
                         @foreach($j->pemegangAktif as $pm)
                             @if($pm->user_id)
-                                <a href="{{ route('profil.show', $pm->user_id) }}" class="px-3 py-1 text-sm rounded-full bg-amber-100 text-amber-800 hover:bg-amber-200">{{ $pm->nama_pendaftar }}</a>
+                                <a href="{{ route('profil.show', $pm->user_id) }}" class="px-3 py-1 text-sm rounded-full bg-amber-100 text-amber-800 hover:bg-amber-200">{{ $pm->nama_tampil }}</a>
                             @else
-                                <span class="px-3 py-1 text-sm rounded-full bg-amber-100 text-amber-800">{{ $pm->nama_pendaftar }}</span>
+                                <span class="px-3 py-1 text-sm rounded-full bg-amber-100 text-amber-800">{{ $pm->nama_tampil }}</span>
                             @endif
                         @endforeach
                     </div>

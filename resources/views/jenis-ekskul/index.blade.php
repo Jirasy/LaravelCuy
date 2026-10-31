@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Jenis Ekskul</title>
+    <title>Tipe Ekskul</title>
     @include('partials.head')
 </head>
 <body class="app-bg p-6">
@@ -11,11 +11,12 @@
         @include('partials.navbar')
 
         <div class="mb-6" data-aos="fade-down">
-            <h1 class="text-3xl font-bold text-gray-800">Jenis Ekskul</h1>
+            <h1 class="text-3xl font-bold text-gray-800">Tipe Ekskul</h1>
             <p class="text-gray-600 text-sm">
-                Kategori ekskul di sekolah: OSIS, MPK, Pramuka, PMR, Paskibra, dan seterusnya. Jenis yang ditandai
-                <strong>hanya satu</strong> hanya boleh dimiliki satu ekskul. Pendaftaran lewat seleksi CaSis saat ini khusus OSIS;
-                jenis lain memakai pendaftaran biasa (daftar lalu disetujui pembina).
+                Tipe menentukan cara orang masuk: <strong>Ekskul Biasa</strong> (daftar langsung, disetujui pembina),
+                <strong>Ekskul Seleksi</strong> dan <strong>Organisasi</strong> (OSIS, MPK, dst; lewat seleksi dengan jumlah tahap bebas),
+                serta <strong>Komunitas</strong> (ekskul baru yang belum diresmikan admin). Tipe yang ditandai
+                <strong>hanya satu</strong> hanya boleh dimiliki satu ekskul. Kamu bisa menambah tipe sendiri dengan memilih cara masuknya.
             </p>
         </div>
 
@@ -41,7 +42,8 @@
                             <label class="block text-xs font-semibold text-gray-600">Nama</label>
                             <input type="text" name="nama" value="{{ $j->nama }}" maxlength="60" required class="w-full border p-2 rounded-lg text-sm">
                             <p class="text-xs text-gray-500 mt-1">
-                                {{ \App\Models\JenisEkskul::ALUR[$j->alur_pendaftaran] ?? $j->alur_pendaftaran }}
+                                {{ \App\Models\JenisEkskul::KATEGORI[$j->kategori] ?? $j->kategori }}
+                                &middot; {{ \App\Models\JenisEkskul::ALUR[$j->alur_pendaftaran] ?? $j->alur_pendaftaran }}
                                 &middot; {{ $j->ekskuls_count }} ekskul
                                 @if($j->bawaan) &middot; bawaan sistem @endif
                             </p>
@@ -50,20 +52,37 @@
                             <label class="block text-xs font-semibold text-gray-600">Urutan</label>
                             <input type="number" name="urutan" value="{{ $j->urutan }}" min="0" max="99" class="w-20 border p-2 rounded-lg text-sm">
                         </div>
+                        @unless($j->bawaan)
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-600">Cara masuk</label>
+                                <select name="alur_pendaftaran" class="border p-2 rounded-lg text-sm">
+                                    @foreach(\App\Models\JenisEkskul::ALUR as $kode => $label)
+                                        <option value="{{ $kode }}" {{ $j->alur_pendaftaran === $kode ? 'selected' : '' }}>{{ $label }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-600">Kategori</label>
+                                <select name="kategori" class="border p-2 rounded-lg text-sm">
+                                    <option value="ekskul" {{ $j->kategori === 'ekskul' ? 'selected' : '' }}>Ekskul</option>
+                                    <option value="organisasi" {{ $j->kategori === 'organisasi' ? 'selected' : '' }}>Organisasi</option>
+                                </select>
+                            </div>
+                        @endunless
                         <label class="flex items-center gap-1 text-sm text-gray-700">
-                            <input type="checkbox" name="hanya_satu" value="1" {{ $j->hanya_satu ? 'checked' : '' }} {{ $j->kode === 'osis' ? 'disabled' : '' }}> Hanya satu
+                            <input type="checkbox" name="hanya_satu" value="1" {{ $j->hanya_satu ? 'checked' : '' }}> Hanya satu
                         </label>
                         <label class="flex items-center gap-1 text-sm text-gray-700">
                             <input type="checkbox" name="aktif" value="1" {{ $j->aktif ? 'checked' : '' }} {{ $j->bawaan ? 'disabled' : '' }}> Aktif
                         </label>
-                        <button type="submit" class="bg-indigo-600 text-white px-3 py-2 rounded-lg text-sm font-semibold hover:bg-indigo-700">Simpan</button>
+                        <button type="submit" class="bg-emerald-600 text-white px-3 py-2 rounded-lg text-sm font-semibold hover:bg-emerald-700">Simpan</button>
                     </form>
 
                     @unless($j->bawaan)
-                        <form action="{{ route('jenis-ekskul.destroy', $j) }}" method="POST" class="mt-2" onsubmit="return confirm('Hapus jenis {{ e($j->nama) }}?')">
+                        <form action="{{ route('jenis-ekskul.destroy', $j) }}" method="POST" class="mt-2" onsubmit="return confirm({{ json_encode('Hapus tipe '.$j->nama.'?') }})">
                             @csrf
                             @method('DELETE')
-                            <button type="submit" class="text-red-600 hover:underline text-xs font-semibold">Hapus jenis ini</button>
+                            <button type="submit" class="text-red-600 hover:underline text-xs font-semibold">Hapus tipe ini</button>
                         </form>
                     @endunless
                 </div>
@@ -71,12 +90,27 @@
         </div>
 
         <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
-            <h2 class="font-bold text-gray-800 mb-3">Tambah jenis baru</h2>
+            <h2 class="font-bold text-gray-800 mb-3">Tambah tipe baru</h2>
             <form action="{{ route('jenis-ekskul.store') }}" method="POST" class="flex flex-wrap items-end gap-3">
                 @csrf
                 <div class="flex-1 min-w-[10rem]">
-                    <label class="block text-xs font-semibold text-gray-600">Nama jenis</label>
+                    <label class="block text-xs font-semibold text-gray-600">Nama tipe</label>
                     <input type="text" name="nama" value="{{ old('nama') }}" maxlength="60" required placeholder="Contoh: Paduan Suara" class="w-full border p-2 rounded-lg text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600">Cara masuk</label>
+                    <select name="alur_pendaftaran" class="border p-2 rounded-lg text-sm">
+                        @foreach(\App\Models\JenisEkskul::ALUR as $kode => $label)
+                            <option value="{{ $kode }}" {{ old('alur_pendaftaran', 'langsung') === $kode ? 'selected' : '' }}>{{ $label }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600">Kategori</label>
+                    <select name="kategori" class="border p-2 rounded-lg text-sm">
+                        <option value="ekskul" {{ old('kategori', 'ekskul') === 'ekskul' ? 'selected' : '' }}>Ekskul</option>
+                        <option value="organisasi" {{ old('kategori') === 'organisasi' ? 'selected' : '' }}>Organisasi</option>
+                    </select>
                 </div>
                 <div>
                     <label class="block text-xs font-semibold text-gray-600">Urutan</label>

@@ -53,10 +53,13 @@ class PendaftaranEkskulController extends Controller
             ->get();
         $terpilih = $request->query('ekstrakurikuler_id', $request->query('ekskul'));
 
-        // Ekskul OSIS punya jalur sendiri (pendaftaran CaSis), tidak lewat form pendaftaran biasa
-        $osisId = Ekstrakurikuler::alurCasis()->value('id');
-        if ($osisId && $terpilih && (int) $terpilih === (int) $osisId) {
-            return redirect()->route('casis.create');
+        // Ekskul berseleksi (Ekskul Seleksi & Organisasi) punya jalur sendiri, tidak lewat form pendaftaran biasa
+        if ($terpilih) {
+            $dipilih = Ekstrakurikuler::with('jenisEkskul')->find($terpilih);
+
+            if ($dipilih && $dipilih->memakaiCasis()) {
+                return redirect()->route('casis.create', $dipilih->id);
+            }
         }
         $ekskuls = $ekskuls->reject(fn ($e) => $e->memakaiCasis())->values();
 
@@ -106,9 +109,9 @@ class PendaftaranEkskulController extends Controller
             ->withCount(['pendaftaran as anggota_count' => fn ($q) => $q->where('status', 'diterima')->where('status_anggota', 'aktif')])
             ->findOrFail($data['ekstrakurikuler_id']);
 
-        // Ekskul OSIS: pendaftaran lewat form CaSis
+        // Ekskul berseleksi: pendaftaran lewat form seleksi
         if ($ekskul->memakaiCasis()) {
-            return redirect()->route('casis.create');
+            return redirect()->route('casis.create', $ekskul->id);
         }
 
         // Aturan buka/tutup dan kuota dicek di SERVER, bukan hanya lewat teks tombol

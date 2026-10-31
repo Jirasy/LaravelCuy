@@ -69,7 +69,7 @@
 
             <div class="flex justify-end gap-2">
                 <a href="{{ route('ekstrakurikuler.show', ['id' => $ekskul->id, 'tab' => 'nilai']) }}" class="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-semibold hover:bg-gray-300">Batal</a>
-                <button type="submit" class="bg-indigo-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-indigo-700">Simpan Nilai</button>
+                <button type="submit" class="bg-emerald-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-emerald-700">Simpan Nilai</button>
             </div>
         </form>
 

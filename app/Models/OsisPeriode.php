@@ -4,6 +4,8 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
+// Satu periode rekrutmen/kepengurusan sebuah ekskul berseleksi (OSIS, MPK, ekskul seleksi, dst), mis. "2026/2027".
+// Nama OSIS dipertahankan dari versi awal; sekarang dipakai semua ekskul bertipe Ekskul Seleksi atau Organisasi.
 class OsisPeriode extends Model
 {
     protected $table = 'osis_periodes';
@@ -30,6 +32,24 @@ class OsisPeriode extends Model
     public function casis()
     {
         return $this->hasMany(CasisPendaftaran::class);
+    }
+
+    // Tahap seleksi periode ini, berurutan. Jumlahnya bebas; periode baru otomatis punya tahap 1.
+    public function tahaps()
+    {
+        return $this->hasMany(SeleksiTahap::class, 'osis_periode_id')->orderBy('urutan');
+    }
+
+    // Semua tahap berurutan. Periode yang belum punya tahap otomatis diberi tahap 1 ("Seleksi").
+    public function tahapSemua(): \Illuminate\Support\Collection
+    {
+        $tahaps = $this->tahaps()->get();
+
+        if ($tahaps->isEmpty()) {
+            $tahaps = collect([$this->tahaps()->create(['urutan' => 1, 'nama' => 'Seleksi'])]);
+        }
+
+        return $tahaps;
     }
 
     public function seniors()

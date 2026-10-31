@@ -25,6 +25,7 @@ use App\Http\Controllers\EmployeController;
 use App\Http\Controllers\HealthController;
 use App\Http\Controllers\ImportSiswaController;
 use App\Http\Controllers\JenisEkskulController;
+use App\Http\Controllers\KomunitasController;
 use App\Http\Controllers\JihyController;
 use App\Http\Controllers\KeanggotaanController;
 use App\Http\Controllers\kenzoController as KenzoController;
@@ -48,6 +49,7 @@ use App\Http\Controllers\TeacherController;
 use App\Http\Controllers\templatingController;
 use App\Http\Controllers\TreeController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\UserTambahController;
 use App\Http\Controllers\ViolationController;
 use App\Http\Middleware\EnsureUserIsActive;
 use App\Http\Middleware\PaksaGantiPassword;
@@ -170,13 +172,21 @@ Route::middleware(['auth', EnsureUserIsActive::class, PaksaGantiPassword::class]
     Route::get('/galeri/{foto}/berkas', [EkskulFotoController::class, 'berkas'])->name('galeri.berkas');
     Route::delete('/galeri/{foto}', [EkskulFotoController::class, 'destroy'])->name('galeri.destroy');
 
-    // OSIS & CaSis: siswa mendaftar; penilai (pembina OSIS, admin, senior) menilai. Hak akses dicek di controller.
-    Route::get('/osis/casis/daftar', [CasisController::class, 'create'])->name('casis.create');
-    Route::post('/osis/casis/daftar', [CasisController::class, 'simpan'])->name('casis.simpan');
-    Route::post('/osis/casis/mundur', [CasisController::class, 'mundur'])->name('casis.mundur');
-    Route::get('/osis/casis', [CasisController::class, 'index'])->name('casis.index');
-    Route::get('/osis/casis/{casis}', [CasisController::class, 'show'])->whereNumber('casis')->name('casis.show');
-    Route::post('/osis/casis/{casis}/review', [CasisController::class, 'review'])->whereNumber('casis')->name('casis.review');
+    // Seleksi (Ekskul Seleksi & Organisasi, mis. CaSis OSIS): siswa mendaftar; penilai (pembina, admin, senior) menilai
+    // tahap demi tahap. Tahap (jumlah bebas, waktu, tempat) diatur admin/pembina/senior. Hak akses dicek di controller.
+    Route::get('/seleksi/{ekskul}/daftar', [CasisController::class, 'create'])->whereNumber('ekskul')->name('casis.create');
+    Route::post('/seleksi/{ekskul}/daftar', [CasisController::class, 'simpan'])->whereNumber('ekskul')->name('casis.simpan');
+    Route::post('/seleksi/{ekskul}/mundur', [CasisController::class, 'mundur'])->whereNumber('ekskul')->name('casis.mundur');
+    Route::get('/seleksi/{ekskul}', [CasisController::class, 'index'])->whereNumber('ekskul')->name('casis.index');
+    Route::get('/seleksi/pendaftar/{casis}', [CasisController::class, 'show'])->whereNumber('casis')->name('casis.show');
+    Route::post('/seleksi/pendaftar/{casis}/review', [CasisController::class, 'review'])->whereNumber('casis')->name('casis.review');
+    Route::post('/seleksi/periode/{periode}/tahap', [OsisPeriodeController::class, 'tahapStore'])->whereNumber('periode')->name('tahap.store');
+    Route::patch('/seleksi/tahap/{tahap}', [OsisPeriodeController::class, 'tahapUpdate'])->whereNumber('tahap')->name('tahap.update');
+    Route::delete('/seleksi/tahap/{tahap}', [OsisPeriodeController::class, 'tahapHapus'])->whereNumber('tahap')->name('tahap.destroy');
+
+    // Komunitas: dibuat pembina atau siswa, diresmikan admin
+    Route::get('/komunitas/buat', [KomunitasController::class, 'create'])->name('komunitas.create');
+    Route::post('/komunitas', [KomunitasController::class, 'store'])->middleware('throttle:5,60')->name('komunitas.store');
 
     // Kritik & saran: semua pengguna boleh mengirim (dibatasi 10 kiriman per jam)
     Route::get('/kritik-saran', [EkskulSaranController::class, 'index'])->name('saran.index');
@@ -277,15 +287,15 @@ Route::middleware(['auth', EnsureUserIsActive::class, PaksaGantiPassword::class]
         Route::patch('/galeri/{foto}/setujui', [EkskulFotoController::class, 'setujui'])->name('galeri.setujui');
         Route::post('/ekstrakurikuler/{ekstrakurikuler}/galeri/setujui-semua', [EkskulFotoController::class, 'setujuiSemua'])->name('galeri.setujui-semua');
 
-        // OSIS: keputusan akhir, periode, senior penilai, dan status OSIS siswa dari Kelola User (admin & pembina OSIS)
-        Route::patch('/osis/casis/{casis}/keputusan', [CasisController::class, 'putuskan'])->whereNumber('casis')->name('casis.putuskan');
+        // Seleksi: hasil tahap, periode, senior penilai (admin & pembina ekskul), serta alat OSIS di Kelola User
+        Route::patch('/seleksi/pendaftar/{casis}/keputusan', [CasisController::class, 'putuskan'])->whereNumber('casis')->name('casis.putuskan');
         Route::post('/users/{user}/casis', [CasisController::class, 'masukkan'])->name('casis.masukkan');
         Route::post('/users/{user}/pengurus-osis', [CasisController::class, 'jadikanPengurus'])->name('casis.pengurus');
         Route::patch('/osis/pengurus/{pendaftaran}/angkatan', [CasisController::class, 'koreksiPengurus'])->whereNumber('pendaftaran')->name('casis.pengurus.koreksi');
-        Route::post('/osis/periode', [OsisPeriodeController::class, 'store'])->name('periode.store');
-        Route::patch('/osis/periode/{periode}/status', [OsisPeriodeController::class, 'status'])->name('periode.status');
-        Route::post('/osis/periode/{periode}/senior', [OsisPeriodeController::class, 'seniorTambah'])->name('periode.senior.store');
-        Route::delete('/osis/periode/{periode}/senior/{user}', [OsisPeriodeController::class, 'seniorHapus'])->name('periode.senior.destroy');
+        Route::post('/seleksi/{ekskul}/periode', [OsisPeriodeController::class, 'store'])->whereNumber('ekskul')->name('periode.store');
+        Route::patch('/seleksi/periode/{periode}/status', [OsisPeriodeController::class, 'status'])->whereNumber('periode')->name('periode.status');
+        Route::post('/seleksi/periode/{periode}/senior', [OsisPeriodeController::class, 'seniorTambah'])->whereNumber('periode')->name('periode.senior.store');
+        Route::delete('/seleksi/periode/{periode}/senior/{user}', [OsisPeriodeController::class, 'seniorHapus'])->whereNumber('periode')->name('periode.senior.destroy');
 
         Route::get('/ekstrakurikuler/{ekstrakurikuler}/laporan/{jenis}/{format}', [LaporanController::class, 'unduh'])
             ->whereIn('jenis', ['anggota', 'absensi', 'nilai'])
@@ -294,6 +304,9 @@ Route::middleware(['auth', EnsureUserIsActive::class, PaksaGantiPassword::class]
 
         // Kelola User: admin & pembina (batasan per akun diatur UserPolicy)
         Route::get('/users', [UserController::class, 'index'])->name('users.index');
+        // Tambah user satu per satu (siswa: admin & pembina; pembina: admin saja, rutenya di grup admin)
+        Route::get('/users/tambah', [UserTambahController::class, 'create'])->name('users.create');
+        Route::post('/users/siswa', [UserTambahController::class, 'storeSiswa'])->middleware('throttle:30,1')->name('users.store-siswa');
         Route::get('/users/{user}/edit', [UserController::class, 'edit'])->name('users.edit');
         Route::put('/users/{user}', [UserController::class, 'update'])->name('users.update');
         Route::patch('/users/{user}/toggle', [UserController::class, 'toggleActive'])->name('users.toggle');
@@ -311,9 +324,13 @@ Route::middleware(['auth', EnsureUserIsActive::class, PaksaGantiPassword::class]
     // Admin aja
     Route::middleware(RoleMiddleware::class.':admin')->group(function () {
         Route::patch('/users/{user}/role', [UserController::class, 'updateRole'])->name('users.updateRole');
+        Route::post('/users/pembina', [UserTambahController::class, 'storePembina'])->middleware('throttle:20,1')->name('users.store-pembina');
         Route::get('/tautan', [EkskulTautanController::class, 'index'])->name('tautan.index');
 
-        // Jenis/kategori ekskul (OSIS, MPK, Pramuka, PMR, Paskibra, dst)
+        // Meresmikan komunitas jadi ekskul
+        Route::post('/ekstrakurikuler/{ekskul}/resmikan', [KomunitasController::class, 'resmikan'])->whereNumber('ekskul')->name('komunitas.resmikan');
+
+        // Tipe ekskul (Ekskul Biasa, Ekskul Seleksi, Organisasi, Komunitas, dst)
         Route::get('/jenis-ekskul', [JenisEkskulController::class, 'index'])->name('jenis-ekskul.index');
         Route::post('/jenis-ekskul', [JenisEkskulController::class, 'store'])->name('jenis-ekskul.store');
         Route::patch('/jenis-ekskul/{jenis}', [JenisEkskulController::class, 'update'])->name('jenis-ekskul.update');

@@ -4,18 +4,26 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-// Jenis/kategori ekskul: Ekskul Biasa, OSIS, MPK, Pramuka, PMR, Paskibra, dst. Diatur admin.
+// Tipe ekskul: Ekskul Biasa (tanpa seleksi), Ekskul Seleksi, Organisasi (OSIS, MPK, dst), Komunitas (belum resmi).
+// Nama tabel/model tetap "jenis_ekskuls"/JenisEkskul; di antarmuka disebut "Tipe ekskul". Diatur admin.
 class JenisEkskul extends Model
 {
     protected $table = 'jenis_ekskuls';
 
-    // Alur pendaftaran yang sudah didukung sistem. "seleksi_casis" hanya untuk OSIS (alurnya terikat satu ekskul OSIS).
+    // Cara masuk: daftar langsung (disetujui pembina) atau lewat seleksi bertahap (jumlah tahap diatur per periode)
     public const ALUR = [
-        'langsung'      => 'Daftar langsung, disetujui pembina',
-        'seleksi_casis' => 'Seleksi CaSis (khusus OSIS)',
+        'langsung' => 'Daftar langsung, disetujui pembina',
+        'seleksi'  => 'Lewat seleksi bertahap',
     ];
 
-    protected $fillable = ['kode', 'nama', 'alur_pendaftaran', 'hanya_satu', 'aktif', 'bawaan', 'urutan'];
+    // Jenis wadahnya. "komunitas" = ekskul baru lahir yang belum diresmikan admin (tipe bawaan, tidak bisa dibuat admin lewat form ekskul)
+    public const KATEGORI = [
+        'ekskul'     => 'Ekskul',
+        'organisasi' => 'Organisasi',
+        'komunitas'  => 'Komunitas',
+    ];
+
+    protected $fillable = ['kode', 'nama', 'alur_pendaftaran', 'kategori', 'hanya_satu', 'aktif', 'bawaan', 'urutan'];
 
     protected function casts(): array
     {
@@ -42,8 +50,25 @@ class JenisEkskul extends Model
         return $query->orderBy('urutan')->orderBy('nama');
     }
 
+    // Tipe yang boleh dipilih admin di form ekskul (ekskul buatan admin langsung resmi, jadi bukan komunitas)
+    public function scopeResmi($query)
+    {
+        return $query->where('kategori', '!=', 'komunitas');
+    }
+
+    // Pendaftarannya lewat seleksi bertahap. (Nama lama dipertahankan supaya pemanggil lama tetap jalan.)
     public function memakaiCasis(): bool
     {
-        return $this->alur_pendaftaran === 'seleksi_casis';
+        return $this->alur_pendaftaran === 'seleksi';
+    }
+
+    public function isOrganisasi(): bool
+    {
+        return $this->kategori === 'organisasi';
+    }
+
+    public function isKomunitas(): bool
+    {
+        return $this->kategori === 'komunitas';
     }
 }

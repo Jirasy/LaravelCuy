@@ -8,7 +8,7 @@ class CasisReview extends Model
 {
     protected $table = 'casis_reviews';
 
-    protected $fillable = ['casis_pendaftaran_id', 'reviewer_id', 'tipe', 'skor', 'rekomendasi', 'catatan'];
+    protected $fillable = ['casis_pendaftaran_id', 'seleksi_tahap_id', 'reviewer_id', 'tipe', 'skor', 'rekomendasi', 'catatan'];
 
     public const TIPE = [
         'pembina' => 'Pembina OSIS',
@@ -25,6 +25,11 @@ class CasisReview extends Model
     public function casis()
     {
         return $this->belongsTo(CasisPendaftaran::class, 'casis_pendaftaran_id');
+    }
+
+    public function tahap()
+    {
+        return $this->belongsTo(SeleksiTahap::class, 'seleksi_tahap_id');
     }
 
     public function reviewer()

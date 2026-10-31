@@ -9,6 +9,7 @@ use App\Models\EkskulNilai;
 use App\Models\EkskulPengunduranDiri;
 use App\Models\EkskulPrPengumpulan;
 use App\Models\Ekstrakurikuler;
+use App\Support\KelasSiswa;
 use App\Models\JenisEkskul;
 use App\Models\PendaftaranEkskul;
 use App\Models\User;
@@ -72,6 +73,7 @@ class EkstrakurikulerController extends Controller
 
         $pengumumans = collect();
         $anggota = collect();
+        $filterAnggota = ['aktif' => false, 'kelas' => null, 'jurusan' => null, 'cari' => '', 'total' => 0, 'opsiKelas' => [], 'opsiJurusan' => []];
         $prestasis = collect();
         $events = collect();
         $anggotaOpsi = collect();
@@ -81,21 +83,46 @@ class EkstrakurikulerController extends Controller
         }
 
         if ($bolehLihat && $tab === 'anggota') {
-            $anggota = PendaftaranEkskul::with('jabatanAktif')->where('ekstrakurikuler_id', $ekskul->id)
+            // Nama, kelas, dan NISN dibaca dari akun (relasi user), bukan dari salinan saat mendaftar
+            $anggota = PendaftaranEkskul::with(['jabatanAktif', 'user:id,name,kelas,nisn'])->where('ekstrakurikuler_id', $ekskul->id)
                 ->where('status', 'diterima')
                 ->where('status_anggota', 'aktif')
-                ->orderBy('nama_pendaftar')
-                ->get();
+                ->get()
+                ->sortBy(fn ($a) => mb_strtolower($a->nama_tampil))
+                ->values();
+
+            // Saringan daftar anggota: kelas (tingkat), jurusan, dan nama. Pilihannya diambil dari anggota ekskul ini.
+            $fKelas   = trim((string) $request->query('kelas', '')) ?: null;
+            $fJurusan = trim((string) $request->query('jurusan', '')) ?: null;
+            $fCari    = mb_strtolower(trim((string) $request->query('cari', '')));
+            $semuaKelasAnggota = $anggota->pluck('kelas_tampil')->filter()->unique();
+
+            $filterAnggota = [
+                'kelas' => $fKelas, 'jurusan' => $fJurusan, 'cari' => $fCari,
+                'aktif' => (bool) ($fKelas || $fJurusan || $fCari),
+                'total' => $anggota->count(),
+                'opsiKelas' => KelasSiswa::daftarTingkat($semuaKelasAnggota),
+                'opsiJurusan' => KelasSiswa::daftarJurusan($semuaKelasAnggota),
+            ];
+
+            $anggota = $anggota->filter(function ($a) use ($fKelas, $fJurusan, $fCari) {
+                $kelas = KelasSiswa::pecah($a->kelas_tampil);
+
+                return (! $fKelas || $kelas['tingkat'] === $fKelas)
+                    && (! $fJurusan || $kelas['jurusan'] === $fJurusan)
+                    && ($fCari === '' || str_contains(mb_strtolower($a->nama_tampil), $fCari));
+            })->values();
         }
 
         if ($tab === 'prestasi') {
             $prestasis = $ekskul->prestasi()->with('anggota')->orderByDesc('tahun')->latest()->get();
 
             if ($staff) {
-                $anggotaOpsi = PendaftaranEkskul::where('ekstrakurikuler_id', $ekskul->id)
+                $anggotaOpsi = PendaftaranEkskul::with('user:id,name,kelas,nisn')->where('ekstrakurikuler_id', $ekskul->id)
                     ->where('status', 'diterima')
-                    ->orderBy('nama_pendaftar')
-                    ->get();
+                    ->get()
+                    ->sortBy(fn ($a) => mb_strtolower($a->nama_tampil))
+                    ->values();
             }
         }
 
@@ -232,12 +259,12 @@ class EkstrakurikulerController extends Controller
         // Daftar jabatan: untuk tab Struktur, dan untuk form "beri jabatan" di tab Anggota (khusus pengelola)
         $jabatans = collect();
         if ($tab === 'struktur' || ($tab === 'anggota' && $staff)) {
-            $jabatans = $ekskul->jabatans()->with('pemegangAktif')->get();
+            $jabatans = $ekskul->jabatans()->with(['pemegangAktif.user:id,name,kelas,nisn'])->get();
         }
 
         return view('ekstrakurikuler.show', compact(
             'ekskul', 'tab', 'staff', 'bolehLihat', 'pendaftaranSaya',
-            'pengumumans', 'anggota', 'prestasis', 'events', 'anggotaOpsi', 'jabatans',
+            'pengumumans', 'anggota', 'filterAnggota', 'prestasis', 'events', 'anggotaOpsi', 'jabatans',
             'pengajuanTerakhir', 'sayaPembina', 'tautans', 'anggotaTugas',
             'pertemuans', 'kehadiranSaya', 'anggotaNilai', 'persenHadir', 'daftarPeriode', 'nilaiSaya',
             'bolehMateri', 'materis', 'prs', 'anggotaAkses', 'pengumpulanSaya',
@@ -259,7 +286,7 @@ class EkstrakurikulerController extends Controller
 
         DB::transaction(function () use ($data, &$akun) {
             $ekskul = Ekstrakurikuler::create(
-                $this->kolomEkskul($data)
+                $this->kolomBaru($data)
             );
 
             // Pembina yang membuat ekskul otomatis ditugaskan sebagai pembinanya
@@ -360,13 +387,26 @@ class EkstrakurikulerController extends Controller
         return $hasil;
     }
 
-    // Kolom yang disimpan. Jenis ekskul (OSIS, MPK, Pramuka, dst) hanya boleh diubah admin.
+    // Kolom yang disimpan. Tipe ekskul (Ekskul Biasa, Ekskul Seleksi, Organisasi) hanya boleh diubah admin.
     private function kolomEkskul(array $data): array
     {
         $kolom = Arr::only($data, ['nama_ekstrakurikuler', 'pembina', 'deskripsi', 'status']);
 
         if (Auth::user()->isAdmin() && ! empty($data['jenis_ekskul_id'])) {
             $kolom['jenis_ekskul_id'] = (int) $data['jenis_ekskul_id'];
+        }
+
+        return $kolom;
+    }
+
+    // Ekskul yang dibuat pembina masih berstatus komunitas sampai diresmikan admin; buatan admin langsung resmi
+    private function kolomBaru(array $data): array
+    {
+        $kolom = $this->kolomEkskul($data);
+
+        if (! Auth::user()->isAdmin()) {
+            $kolom['jenis_ekskul_id'] = JenisEkskul::where('kategori', 'komunitas')->value('id');
+            $kolom['dibuat_oleh']     = Auth::id();
         }
 
         return $kolom;
@@ -401,20 +441,30 @@ class EkstrakurikulerController extends Controller
                 $jenis = JenisEkskul::find($nilai);
 
                 if (! $jenis) {
-                    return $gagal('Jenis ekskul tidak dikenal.');
+                    return $gagal('Tipe ekskul tidak dikenal.');
                 }
 
                 $idEkskul = (int) $request->route('id');
                 $saatIni  = Ekstrakurikuler::whereKey($idEkskul)->value('jenis_ekskul_id');
+                $sama     = (int) $nilai === (int) $saatIni;
 
-                // Jenis nonaktif tidak bisa dipilih lagi, kecuali memang sudah dipakai ekskul ini
-                if (! $jenis->aktif && (int) $nilai !== (int) $saatIni) {
-                    return $gagal("Jenis {$jenis->nama} sudah dinonaktifkan.");
+                // Tipe nonaktif tidak bisa dipilih lagi, kecuali memang sudah dipakai ekskul ini
+                if (! $jenis->aktif && ! $sama) {
+                    return $gagal("Tipe {$jenis->nama} sudah dinonaktifkan.");
                 }
 
-                // Jenis "hanya satu" (mis. OSIS, MPK): tidak boleh ada ekskul lain dengan jenis yang sama
+                // Komunitas dibuat pembina/siswa lalu diresmikan admin (tombol Resmikan); ekskul buatan admin langsung resmi
+                if ($jenis->isKomunitas() && ! $sama) {
+                    return $gagal('Komunitas dibuat oleh pembina atau siswa. Ekskul buatan admin langsung resmi, jadi pilih tipe lain.');
+                }
+
+                if ($saatIni && ! $sama && JenisEkskul::whereKey($saatIni)->value('kategori') === 'komunitas') {
+                    return $gagal('Komunitas diresmikan lewat tombol Resmikan di halaman ekskulnya, bukan lewat form edit.');
+                }
+
+                // Tipe "hanya satu": tidak boleh ada ekskul lain dengan tipe yang sama
                 if ($jenis->hanya_satu && Ekstrakurikuler::where('jenis_ekskul_id', $jenis->id)->where('id', '!=', $idEkskul)->exists()) {
-                    $gagal("Sudah ada ekskul berjenis {$jenis->nama}. Jenis ini hanya boleh dimiliki satu ekskul.");
+                    $gagal("Sudah ada ekskul bertipe {$jenis->nama}. Tipe ini hanya boleh dimiliki satu ekskul.");
                 }
             }],
         ];

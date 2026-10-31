@@ -12,6 +12,30 @@ class User extends Authenticatable
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable;
 
+    protected static function booted(): void
+    {
+        // Tabel pendaftaran menyimpan salinan nama, kelas, dan NISN (untuk urutan, ekspor, dan data lama).
+        // Setiap akun diubah, salinannya disamakan supaya tidak ada halaman yang menampilkan data lama.
+        // Kelas/NISN yang dikosongkan di akun tidak menimpa salinan yang masih terisi.
+        static::updated(function (self $user) {
+            $salin = [];
+
+            if ($user->wasChanged('name')) {
+                $salin['nama_pendaftar'] = $user->name;
+            }
+
+            foreach (['kelas', 'nisn'] as $kolom) {
+                if ($user->wasChanged($kolom) && filled($user->{$kolom})) {
+                    $salin[$kolom] = $user->{$kolom};
+                }
+            }
+
+            if ($salin !== []) {
+                PendaftaranEkskul::where('user_id', $user->id)->update($salin);
+            }
+        });
+    }
+
     protected $fillable = [
         'name',
         'email',
