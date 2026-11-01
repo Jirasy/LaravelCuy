@@ -7,10 +7,19 @@
             document.documentElement.classList.add('dark');
         }
     })();
+    // Sinkronkan status saklar untuk pembaca layar (aria-checked = mode gelap aktif)
+    function syncThemeSwitch() {
+        var dark = document.documentElement.classList.contains('dark');
+        document.querySelectorAll('[data-theme-switch]').forEach(function (el) {
+            el.setAttribute('aria-checked', dark ? 'true' : 'false');
+        });
+    }
     function toggleTheme() {
         var dark = document.documentElement.classList.toggle('dark');
+        syncThemeSwitch();
         localStorage.setItem('theme', dark ? 'dark' : 'light');
     }
+    document.addEventListener('DOMContentLoaded', syncThemeSwitch);
 </script>
 @auth
 <script>document.documentElement.dataset.palet = @json(auth()->user()->palet ?? 'aurora');</script>
@@ -259,19 +268,96 @@ html.dark .sparkle { color: #e0e7ff; }
         animation: gradientShift 12s ease infinite;
     }
 
-    /* ---- Tombol ganti tema ---- */
+    /* ---- Tombol ikon bulat (pengaturan, kotak masuk, keluar): ikon SVG mewarisi warna teks ---- */
     .theme-btn {
-        display: inline-flex; align-items: center; justify-content: center;
-        width: 2.25rem; height: 2.25rem; border-radius: 9999px;
-        border: 1px solid rgba(148, 163, 184, .5); background: rgba(255, 255, 255, .7);
-        transition: transform .2s ease;
+        display: inline-flex; align-items: center; justify-content: center; flex: none; padding: 0; cursor: pointer;
+        width: 2.25rem; height: 2.25rem; border-radius: 9999px; text-decoration: none;
+        color: #475569; border: 1px solid rgba(148, 163, 184, .5); background: rgba(255, 255, 255, .7);
+        transition: transform .2s ease, color .2s ease, background .2s ease, border-color .2s ease, box-shadow .2s ease;
     }
-    .theme-btn:hover { transform: rotate(15deg) scale(1.08); }
-    html.dark .theme-btn { background: rgba(30, 41, 59, .8); }
-    .theme-icon-sun { display: none; }
-    html.dark .theme-icon-sun { display: inline; }
-    html.dark .theme-icon-moon { display: none; }
+    .theme-btn:hover, .theme-btn.is-active {
+        color: rgb(var(--p1-rgb)); background: rgb(var(--p1-rgb) / .12); border-color: rgb(var(--p1-rgb) / .5);
+    }
+    .theme-btn:hover { transform: translateY(-1px); box-shadow: 0 8px 16px -8px rgb(var(--p1-rgb) / .6); }
+    .theme-btn:active { transform: translateY(0) scale(.94); }
+    .theme-btn:focus-visible { outline: 2px solid rgb(var(--p1-rgb)); outline-offset: 2px; }
+    .theme-btn svg { transition: transform .4s cubic-bezier(.2, .8, .2, 1); }
+    .theme-btn:hover .ico-putar { transform: rotate(60deg); }  /* roda gigi berputar pelan */
+    .theme-btn:hover .ico-kotak { transform: translateY(1px); } /* kotak masuk "menerima" */
+    html.dark .theme-btn { color: #cbd5e1; background: rgba(30, 41, 59, .8); }
+    html.dark .theme-btn:hover, html.dark .theme-btn.is-active { color: #e0e7ff; background: rgb(var(--p1-rgb) / .3); border-color: rgb(var(--p1-rgb) / .6); }
     .theme-fixed { position: fixed; top: 1rem; right: 1rem; z-index: 50; }
+
+    /* ---- Saklar tema: matahari <-> bulan, murni CSS (tanpa emoji) ----
+       Siang  = langit biru, matahari di kiri, awan di kanan.
+       Malam  = langit gelap, bulan berkawah di kanan, bintang berkedip di kiri.
+       Ukuran diatur lewat variabel di bawah; posisi bola dihitung dari lebar saklar. */
+    .theme-switch {
+        --ts-w: 4rem; --ts-h: 2.25rem; --ts-knob: 1.75rem; --ts-gap: 3px; --kw: var(--ts-knob);
+        position: relative; flex: none; padding: 0; overflow: hidden; isolation: isolate; cursor: pointer;
+        width: var(--ts-w); height: var(--ts-h); border-radius: 9999px; -webkit-tap-highlight-color: transparent;
+        border: 1px solid rgba(255, 255, 255, .75); background-clip: padding-box; /* langit tidak bocor lewat tepi tembus pandang */
+        background-image: linear-gradient(180deg, #38bdf8 0%, #7dd3fc 55%, #bae6fd 100%);
+        box-shadow: inset 0 2px 6px rgba(3, 105, 161, .35), 0 8px 18px -10px rgba(14, 165, 233, .9);
+        transition: border-color .4s ease, box-shadow .4s ease, transform .2s ease;
+    }
+    .theme-switch::before { /* langit malam: memudar masuk di atas langit siang */
+        content: ''; position: absolute; inset: 0; z-index: -1; opacity: 0; transition: opacity .5s ease;
+        background: linear-gradient(180deg, #060816 0%, #1e1b4b 58%, #3730a3 100%);
+    }
+    .theme-switch:hover { transform: translateY(-1px); }
+    .theme-switch:active { --kw: 2.1rem; transform: translateY(0); } /* bola memanjang saat ditekan */
+    .theme-switch:focus-visible { outline: 2px solid rgb(var(--p1-rgb)); outline-offset: 2px; }
+
+    .ts-knob {
+        position: absolute; top: var(--ts-gap); left: var(--ts-gap); width: var(--kw); height: var(--ts-knob); border-radius: 9999px; overflow: hidden;
+        background: radial-gradient(circle at 35% 30%, #fffbe0 0%, #fde047 45%, #f59e0b 100%); /* matahari */
+        box-shadow: 0 0 0 3px rgba(255, 255, 255, .3), 0 0 14px 3px rgba(251, 191, 36, .7), inset -2px -3px 5px rgba(217, 119, 6, .45);
+        transition: left .5s cubic-bezier(.34, 1.4, .5, 1), width .2s ease, box-shadow .5s ease;
+    }
+    .ts-knob::before { /* bulan: memudar masuk di atas matahari */
+        content: ''; position: absolute; inset: 0; border-radius: inherit; opacity: 0; transition: opacity .5s ease;
+        background: radial-gradient(circle at 35% 30%, #ffffff 0%, #e2e8f0 55%, #94a3b8 135%);
+    }
+    .ts-crater {
+        position: absolute; border-radius: 9999px; opacity: 0; transition: opacity .5s ease;
+        background: rgba(100, 116, 139, .38); box-shadow: inset 1px 1px 2px rgba(51, 65, 85, .35);
+    }
+    .ts-crater-1 { width: .42rem; height: .42rem; top: .3rem;  left: .95rem; }
+    .ts-crater-2 { width: .28rem; height: .28rem; top: .95rem; left: .42rem; }
+    .ts-crater-3 { width: .2rem;  height: .2rem;  top: 1.1rem; left: 1.05rem; }
+
+    .ts-cloud, .ts-star { position: absolute; pointer-events: none; }
+    .ts-cloud { /* tiga gumpalan bulat + alas datar */
+        right: .5rem; bottom: .5rem; width: 1.3rem; height: .7rem;
+        background:
+            radial-gradient(circle .2rem at .31rem .47rem, #fff 94%, transparent 100%),
+            radial-gradient(circle .28rem at .66rem .31rem, #fff 94%, transparent 100%),
+            radial-gradient(circle .2rem at 1rem .47rem, #fff 94%, transparent 100%),
+            linear-gradient(#fff, #fff) .31rem .47rem / .69rem .2rem no-repeat;
+        filter: drop-shadow(0 1px 1px rgba(3, 105, 161, .3));
+        transition: transform .5s cubic-bezier(.2, .8, .2, 1), opacity .4s ease;
+    }
+    .ts-star {
+        width: 2px; height: 2px; border-radius: 9999px; background: #fff; box-shadow: 0 0 4px 1px rgba(255, 255, 255, .8);
+        opacity: 0; transform: scale(.3); transition: transform .5s ease, opacity .4s ease;
+    }
+    .ts-star-1 { left: .6rem;  top: .6rem; }
+    .ts-star-2 { left: 1.15rem; top: 1.25rem; animation-delay: -1.2s; }
+    .ts-star-3 { left: 1.75rem; top: .5rem; width: 3px; height: 3px; animation-delay: -2.1s; }
+
+    html.dark .theme-switch {
+        border-color: rgba(255, 255, 255, .16);
+        box-shadow: inset 0 2px 8px rgba(0, 0, 0, .65), 0 8px 20px -10px rgba(99, 102, 241, .9);
+    }
+    html.dark .theme-switch::before { opacity: 1; }
+    html.dark .ts-knob {
+        left: calc(100% - var(--kw) - var(--ts-gap));
+        box-shadow: 0 0 0 3px rgba(199, 210, 254, .16), 0 0 16px 4px rgba(165, 180, 252, .5), inset -3px -4px 6px rgba(71, 85, 105, .45);
+    }
+    html.dark .ts-knob::before, html.dark .ts-crater { opacity: 1; }
+    html.dark .ts-cloud { opacity: 0; transform: translateY(.9rem); }
+    html.dark .ts-star { opacity: 1; transform: scale(1); animation: twinkle 2.6s ease-in-out infinite alternate; }
 
     /* ---- Mode gelap: petakan warna Tailwind yang dipakai di view ---- */
     html.dark { color-scheme: dark; }
@@ -485,9 +571,9 @@ html.dark .sparkle { color: #e0e7ff; }
 
     /* Tombol keluar: ikon merah, tulisannya baru tampil di layar lebar */
     .nav-logout { color: #dc2626; gap: .35rem; }
-    .nav-logout:hover { transform: none; background: rgba(220, 38, 38, .12); border-color: rgba(220, 38, 38, .45); }
+    .nav-logout:hover { transform: none; color: #b91c1c; background: rgba(220, 38, 38, .12); border-color: rgba(220, 38, 38, .45); box-shadow: 0 8px 16px -8px rgba(220, 38, 38, .55); }
     html.dark .nav-logout { color: #f87171; }
-    html.dark .nav-logout:hover { background: rgba(248, 113, 113, .16); border-color: rgba(248, 113, 113, .5); }
+    html.dark .nav-logout:hover { color: #fca5a5; background: rgba(248, 113, 113, .16); border-color: rgba(248, 113, 113, .5); }
     .nav-logout-label { display: none; font-size: .8rem; font-weight: 600; }
     @media (min-width: 1280px) {
         .nav-logout { width: auto; padding: 0 .85rem; }
