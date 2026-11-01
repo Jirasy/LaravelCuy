@@ -25,7 +25,7 @@
             @if($saya->role === 'siswa')
                 <a href="{{ route('casis.create', $ekskul->id) }}" class="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-indigo-700">Pendaftaran {{ $label }} saya</a>
             @endif
-            @if($staff || $jadiSenior || $saya->isAdmin())
+            @if($staff || $jadiSenior || $saya->isAdmin() || $layananOsis->bolehMemutuskan($saya, $ekskul))
                 <a href="{{ route('casis.index', $ekskul->id) }}" class="bg-gray-700 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-gray-800">Kelola seleksi {{ $label }}</a>
             @endif
         </div>

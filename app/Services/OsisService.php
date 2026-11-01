@@ -9,6 +9,7 @@ use App\Models\PendaftaranEkskul;
 use App\Models\SeleksiHasil;
 use App\Models\SeleksiTahap;
 use App\Models\User;
+use App\Support\Pemberitahuan;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -35,6 +36,22 @@ class OsisService
         return $this->osisCache;
     }
 
+    // Semua ekskul berseleksi (organisasi dulu, lalu ekskul seleksi), untuk pilihan di Kelola User
+    public function daftarJalur(): Collection
+    {
+        return Ekstrakurikuler::alurCasis()->with('jenisEkskul')->get()
+            ->sortBy(fn ($e) => [$e->isOrganisasi() ? 0 : 1, mb_strtolower($e->nama_ekstrakurikuler)])
+            ->values();
+    }
+
+    // Jalur yang dituju alat Kelola User: pilihan ($id) kalau valid, selain itu organisasi utama, lalu ekskul berseleksi pertama
+    public function jalurTerpilih(?int $id = null): ?Ekstrakurikuler
+    {
+        $daftar = $this->daftarJalur();
+
+        return ($id ? $daftar->firstWhere('id', $id) : null) ?? $this->osis() ?? $daftar->first();
+    }
+
     // Periode yang sedang menerima pendaftaran di ekskul ini (default: organisasi utama)
     public function periodeBuka(?Ekstrakurikuler $ekskul = null): ?OsisPeriode
     {
@@ -43,12 +60,40 @@ class OsisService
         return $ekskul ? OsisPeriode::terbuka()->where('ekstrakurikuler_id', $ekskul->id)->latest()->first() : null;
     }
 
-    // Admin atau pembina ekskul itu: boleh mengatur periode, memutuskan, dan memberi status ke siswa
+    // Pembina salah satu organisasi di atas ekskul ini (mis. pembina MPK terhadap OSIS yang berada di bawah MPK)
+    public function pembinaInduk(User $user, Ekstrakurikuler $ekskul): bool
+    {
+        if (! $user->isPembina()) {
+            return false;
+        }
+
+        $leluhur = $ekskul->idLeluhur();
+
+        return $leluhur !== [] && array_intersect($leluhur, $user->idEkskulDikelola()) !== [];
+    }
+
+    // Admin, pembina ekskul itu, atau pembina organisasi induknya: boleh mengatur periode, tahap, senior, memutuskan hasil,
+    // dan memberi status ke siswa di ekskul ini
     public function bolehMemutuskan(User $user, ?Ekstrakurikuler $ekskul = null): bool
     {
         $ekskul ??= $this->osis();
 
-        return $ekskul && $user->can('kelola', $ekskul);
+        return $ekskul && ($user->can('kelola', $ekskul) || $this->pembinaInduk($user, $ekskul));
+    }
+
+    // Id ekskul tempat calon penilai (senior) boleh berasal: ekskul itu sendiri dan organisasi di atasnya
+    public function idAsalPenilai(Ekstrakurikuler $ekskul): array
+    {
+        return array_merge([(int) $ekskul->id], $ekskul->idLeluhur());
+    }
+
+    // Penerima kabar seleksi ekskul ini: admin, pembina ekskul, dan pembina organisasi induknya
+    public function pengelolaSeleksi(Ekstrakurikuler $ekskul): Collection
+    {
+        $induk = Ekstrakurikuler::whereIn('id', $ekskul->idLeluhur())->get()
+            ->flatMap(fn ($e) => $e->pembinaAktif()->where('users.is_active', true)->get());
+
+        return Pemberitahuan::pengelola($ekskul)->merge($induk)->unique('id')->values();
     }
 
     // Unsur penilai untuk user ini pada periode tersebut: admin | pembina | senior | null
@@ -59,6 +104,11 @@ class OsisService
         }
 
         if ($user->isPembina() && in_array((int) $periode->ekstrakurikuler_id, $user->idEkskulDikelola(), true)) {
+            return 'pembina';
+        }
+
+        // Pembina organisasi induk (mis. MPK) ikut menilai seleksi organisasi di bawahnya (mis. OSIS)
+        if ($periode->ekstrakurikuler && $this->pembinaInduk($user, $periode->ekstrakurikuler)) {
             return 'pembina';
         }
 
@@ -151,9 +201,11 @@ class OsisService
 
     // Cek aturan sebelum mencatat/mengoreksi kepengurusan secara manual. Mengembalikan pesan galat, atau null kalau boleh.
     // $kecualiId = baris yang sedang dikoreksi (tidak dihitung sebagai duplikat dirinya sendiri).
-    public function periksaSusulan(User $siswa, string $angkatan, string $status, ?int $kecualiId = null): ?string
+    public function periksaSusulan(User $siswa, string $angkatan, string $status, ?int $kecualiId = null, ?Ekstrakurikuler $ekskul = null): ?string
     {
-        $baris = PendaftaranEkskul::where('ekstrakurikuler_id', $this->osis()->id)
+        $ekskul ??= $this->osis();
+
+        $baris = PendaftaranEkskul::where('ekstrakurikuler_id', $ekskul->id)
             ->where('user_id', $siswa->id)
             ->where('status', 'diterima')
             ->whereIn('status_anggota', array_keys(self::STATUS_PENGURUS))
@@ -165,7 +217,7 @@ class OsisService
         }
 
         if ($status === 'aktif' && $baris->contains(fn ($b) => $b->status_anggota === 'aktif')) {
-            return "{$siswa->name} sudah tercatat sebagai pengurus OSIS yang masih menjabat. Ubah dulu statusnya lewat Koreksi.";
+            return "{$siswa->name} sudah tercatat sebagai {$ekskul->sebutan_anggota} {$ekskul->nama_ekstrakurikuler} yang masih menjabat. Ubah dulu statusnya lewat Koreksi.";
         }
 
         return null;

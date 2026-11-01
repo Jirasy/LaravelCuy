@@ -54,15 +54,15 @@
                     </div>
                     <div>
                         <label for="nisn" class="block text-sm font-semibold text-gray-700">NISN <span class="font-normal text-gray-400">(boleh dikosongkan)</span></label>
-                        <input type="text" id="nisn" name="nisn" value="{{ old('nisn') }}" inputmode="numeric" maxlength="20" class="w-full border p-2 rounded-lg mt-1">
-                        <p class="text-xs text-gray-500 mt-1">Kosongkan dulu kalau belum ada; bisa diisi lewat Edit user nanti.</p>
+                        <input type="text" id="nisn" name="nisn" value="{{ old('nisn') }}" maxlength="30" autocomplete="off" class="w-full border p-2 rounded-lg mt-1">
+                        <p class="text-xs text-gray-500 mt-1">Ditulis apa adanya (boleh pakai titik atau strip, mis. <em>2526.0.10.001</em>). Kosongkan dulu kalau belum ada; bisa diisi lewat Edit user nanti.</p>
                     </div>
                 </div>
 
                 <div>
                     <label for="email" class="block text-sm font-semibold text-gray-700">Email login <span class="font-normal text-gray-400">(opsional)</span></label>
                     <input type="email" id="email" name="email" value="{{ old('email') }}" maxlength="255" class="w-full border p-2 rounded-lg mt-1">
-                    <p class="text-xs text-gray-500 mt-1">Kalau kosong, dibuat otomatis dari nama, mis. <code>budi.santoso@{{ $domainDefault }}</code>.</p>
+                    <p class="text-xs text-gray-500 mt-1">Kalau kosong, dibuat otomatis dari nama, mis. <code>budi.santoso{{ '@'.$domainDefault }}</code>.</p>
                 </div>
 
                 <details class="text-sm">

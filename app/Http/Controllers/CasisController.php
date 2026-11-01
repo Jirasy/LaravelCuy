@@ -92,7 +92,7 @@ class CasisController extends Controller
 
         if ($ajukan && $sebelumnya !== 'diajukan') {
             Pemberitahuan::kirim(
-                Pemberitahuan::pengelola($ekskul),
+                $osis->pengelolaSeleksi($ekskul),
                 "Pendaftar {$label} baru",
                 "{$user->name} mengajukan pendaftaran {$label} {$ekskul->nama_ekstrakurikuler} {$periode->nama}.",
                 route('casis.index', [$ekskul->id, 'periode' => $periode->id], false),
@@ -104,7 +104,7 @@ class CasisController extends Controller
         return back()->with('success', $ajukan ? "Pendaftaran {$label} diajukan. Tunggu proses seleksi." : 'Draft tersimpan.');
     }
 
-    public function mundur(Request $request, Ekstrakurikuler $ekskul)
+    public function mundur(Request $request, Ekstrakurikuler $ekskul, OsisService $osis)
     {
         $user  = $request->user();
         $label = $ekskul->label_calon;
@@ -123,7 +123,7 @@ class CasisController extends Controller
         $casis->update(['status' => 'mengundurkan_diri']);
 
         Pemberitahuan::kirim(
-            Pemberitahuan::pengelola($ekskul),
+            $osis->pengelolaSeleksi($ekskul),
             "{$label} mengundurkan diri",
             "{$user->name} mengundurkan diri dari pendaftaran {$label} {$ekskul->nama_ekstrakurikuler} {$casis->periode->nama}.",
             route('casis.index', [$ekskul->id, 'periode' => $casis->osis_periode_id], false),
@@ -186,8 +186,10 @@ class CasisController extends Controller
                 ->all();
 
             if ($bolehKelola) {
+                // Calon senior: anggota aktif ekskul ini dan anggota organisasi di atasnya (mis. MPK untuk seleksi OSIS)
                 $kandidatSenior = PendaftaranEkskul::anggotaAktif()
-                    ->where('ekstrakurikuler_id', $ekskul->id)
+                    ->with('ekstrakurikuler:id,nama_ekstrakurikuler')
+                    ->whereIn('ekstrakurikuler_id', $osis->idAsalPenilai($ekskul))
                     ->whereNotNull('user_id')
                     ->whereNotIn('user_id', $periode->seniors->pluck('id'))
                     ->whereNotIn('user_id', $pendaftar->pluck('user_id'))
@@ -321,26 +323,41 @@ class CasisController extends Controller
 
     // ================= Dari Kelola User =================
 
-    // Memasukkan siswa ke jalur OSIS: dibuatkan draft CaSis, siswa diarahkan melengkapi formulirnya
+    // Ekskul berseleksi yang dituju alat di Kelola User: dari ekskul_id di formulir, selain itu organisasi utama.
+    // Hanya admin atau pembina ekskul itu yang boleh.
+    private function jalur(Request $request, OsisService $osis): Ekstrakurikuler
+    {
+        $id     = (int) $request->input('ekskul_id');
+        $ekskul = $id ? Ekstrakurikuler::alurCasis()->with('jenisEkskul')->find($id) : $osis->jalurTerpilih();
+
+        abort_unless($ekskul, 404, 'Ekskul berseleksi tidak ditemukan.');
+        abort_unless($osis->bolehMemutuskan($request->user(), $ekskul), 403);
+
+        return $ekskul;
+    }
+
+    // Memasukkan siswa ke jalur seleksi sebuah ekskul: dibuatkan draft pendaftaran, siswa diarahkan melengkapi formulirnya
     public function masukkan(Request $request, User $user, OsisService $osis)
     {
-        abort_unless($osis->bolehMemutuskan($request->user()), 403);
+        $ekskul = $this->jalur($request, $osis);
+        $label  = $ekskul->label_calon;
+        $nama   = $ekskul->nama_ekstrakurikuler;
 
         if ($user->role !== 'siswa' || !$user->is_active) {
-            return back()->with('error', 'Hanya siswa dengan akun aktif yang bisa dimasukkan ke jalur CaSis.');
+            return back()->with('error', "Hanya siswa dengan akun aktif yang bisa dimasukkan ke jalur {$label}.");
         }
 
-        $periode = $osis->periodeBuka();
+        $periode = $osis->periodeBuka($ekskul);
         if (!$periode) {
-            return back()->with('error', 'Belum ada periode pendaftaran CaSis yang dibuka. Buat periodenya di halaman Seleksi CaSis.');
+            return back()->with('error', "Belum ada periode pendaftaran {$label} yang dibuka. Buat periodenya di halaman seleksi {$nama}.");
         }
 
-        if ($osis->pengurusAktif($user)) {
-            return back()->with('error', "{$user->name} sudah menjadi pengurus OSIS.");
+        if ($osis->pengurusAktif($user, $ekskul)) {
+            return back()->with('error', "{$user->name} sudah menjadi {$ekskul->sebutan_anggota} {$nama}.");
         }
 
         if (CasisPendaftaran::where('osis_periode_id', $periode->id)->where('user_id', $user->id)->exists()) {
-            return back()->with('error', "{$user->name} sudah terdaftar sebagai CaSis di periode ini.");
+            return back()->with('error', "{$user->name} sudah terdaftar sebagai {$label} di periode ini.");
         }
 
         CasisPendaftaran::create([
@@ -352,14 +369,14 @@ class CasisController extends Controller
 
         Pemberitahuan::kirim(
             [$user],
-            'Kamu didaftarkan ke jalur OSIS',
-            "{$request->user()->name} memasukkanmu ke jalur CaSis OSIS {$periode->nama}. Lengkapi formulir pendaftaranmu.",
-            route('casis.create', [$osis->osis()->id], false),
+            "Kamu didaftarkan ke jalur {$nama}",
+            "{$request->user()->name} memasukkanmu ke jalur {$label} {$nama} {$periode->nama}. Lengkapi formulir pendaftaranmu.",
+            route('casis.create', [$ekskul->id], false),
             '🗳️',
             $request->user()->id
         );
 
-        return back()->with('success', "{$user->name} dimasukkan ke jalur CaSis. Ia diminta melengkapi formulirnya.");
+        return back()->with('success', "{$user->name} dimasukkan ke jalur {$label}. Ia diminta melengkapi formulirnya.");
     }
 
     // Aturan isian kepengurusan manual (dipakai untuk catat susulan dan koreksi)
@@ -392,14 +409,17 @@ class CasisController extends Controller
         ];
     }
 
-    // Menetapkan siswa langsung menjadi pengurus OSIS (tanpa seleksi CaSis). Dipakai untuk pengurus angkatan lalu yang
-    // baru diinput (telat input): admin/pembina memilih angkatan, tahun, dan statusnya (masih menjabat / purna tugas).
+    // Menetapkan siswa langsung menjadi pengurus/anggota sebuah ekskul berseleksi (tanpa seleksi). Dipakai untuk angkatan lalu
+    // yang baru diinput (telat input): admin/pembina memilih angkatan, tahun, dan statusnya (masih menjabat / purna tugas).
     public function jadikanPengurus(Request $request, User $user, OsisService $osis)
     {
-        abort_unless($osis->bolehMemutuskan($request->user()), 403);
+        $ekskul   = $this->jalur($request, $osis);
+        $nama     = $ekskul->nama_ekstrakurikuler;
+        $sebutan  = $ekskul->sebutan_anggota;
+        $kata     = $ekskul->sebutan_keanggotaan;
 
         if ($user->role !== 'siswa' || !$user->is_active) {
-            return back()->with('error', 'Hanya siswa dengan akun aktif yang bisa dijadikan pengurus OSIS.');
+            return back()->with('error', "Hanya siswa dengan akun aktif yang bisa dijadikan {$sebutan} {$nama}.");
         }
 
         $cek = Validator::make($request->all(), $this->aturanPengurus(), $this->pesanPengurus());
@@ -410,15 +430,16 @@ class CasisController extends Controller
 
         $d = $cek->validated();
 
-        if ($pesan = $osis->periksaSusulan($user, $d['angkatan'], $d['status'])) {
+        if ($pesan = $osis->periksaSusulan($user, $d['angkatan'], $d['status'], null, $ekskul)) {
             return back()->withInput()->with('error', $pesan);
         }
 
         $alasan = 'Ditetapkan langsung oleh ' . $request->user()->name . (filled($d['catatan'] ?? null) ? ': ' . $d['catatan'] : '');
         $aktif  = $d['status'] === 'aktif';
 
-        DB::transaction(function () use ($user, $request, $osis, $d, $alasan, $aktif) {
-            $osis->jadikanPengurus(
+        DB::transaction(function () use ($user, $request, $osis, $ekskul, $d, $alasan, $aktif) {
+            $osis->jadikanAnggota(
+                $ekskul,
                 $user,
                 $alasan,
                 $d['angkatan'],
@@ -428,16 +449,16 @@ class CasisController extends Controller
                 $request->user()->id,
             );
 
-            // Kalau ia masih punya pendaftaran CaSis yang berjalan, tandai selesai agar tidak dobel.
+            // Kalau ia masih punya pendaftaran seleksi yang berjalan, tandai selesai agar tidak dobel.
             // Hanya untuk yang masih menjabat: mencatat riwayat purna tugas tidak boleh mengganggu seleksi yang sedang berjalan.
             if ($aktif) {
                 CasisPendaftaran::where('user_id', $user->id)
                     ->whereIn('status', ['draft', 'diajukan'])
-                    ->whereHas('periode', fn ($q) => $q->where('ekstrakurikuler_id', $osis->osis()->id)->whereIn('status', ['rekrutmen', 'seleksi']))
+                    ->whereHas('periode', fn ($q) => $q->where('ekstrakurikuler_id', $ekskul->id)->whereIn('status', ['rekrutmen', 'seleksi']))
                     ->update([
                         'status'            => 'diterima',
                         'diputuskan_oleh'   => $request->user()->id,
-                        'catatan_keputusan' => 'Ditetapkan langsung sebagai pengurus OSIS.',
+                        'catatan_keputusan' => "Ditetapkan langsung sebagai {$ekskul->sebutan_anggota} {$ekskul->nama_ekstrakurikuler}.",
                         'diputuskan_pada'   => now(),
                     ]);
             }
@@ -445,31 +466,29 @@ class CasisController extends Controller
 
         Pemberitahuan::kirim(
             [$user],
-            $aktif ? 'Kamu menjadi pengurus OSIS' : 'Riwayat kepengurusan OSIS dicatat',
+            $aktif ? "Kamu menjadi {$sebutan} {$nama}" : "Riwayat {$kata} {$nama} dicatat",
             $aktif
-                ? "{$request->user()->name} menetapkanmu sebagai pengurus OSIS angkatan {$d['angkatan']}."
-                : "{$request->user()->name} mencatat kepengurusan OSIS angkatan {$d['angkatan']} ({$d['tahun_mulai']}-{$d['tahun_selesai']}) di riwayatmu.",
-            route('ekstrakurikuler.show', $osis->osis()->id, false),
+                ? "{$request->user()->name} menetapkanmu sebagai {$sebutan} {$nama} angkatan {$d['angkatan']}."
+                : "{$request->user()->name} mencatat {$kata} {$nama} angkatan {$d['angkatan']} ({$d['tahun_mulai']}-{$d['tahun_selesai']}) di riwayatmu.",
+            route('ekstrakurikuler.show', $ekskul->id, false),
             '🏛️',
             $request->user()->id
         );
 
         return back()->with('success', $aktif
-            ? "{$user->name} sekarang pengurus OSIS angkatan {$d['angkatan']}."
-            : "Kepengurusan OSIS {$user->name} angkatan {$d['angkatan']} dicatat sebagai purna tugas.");
+            ? "{$user->name} sekarang {$sebutan} {$nama} angkatan {$d['angkatan']}."
+            : "{$kata} {$nama} {$user->name} angkatan {$d['angkatan']} dicatat sebagai purna tugas.");
     }
 
-    // Mengoreksi angkatan/tahun/status kepengurusan OSIS yang sudah tercatat (mis. salah angkatan atau telat diperbarui)
+    // Mengoreksi angkatan/tahun/status kepengurusan yang sudah tercatat (mis. salah angkatan atau telat diperbarui)
     public function koreksiPengurus(Request $request, PendaftaranEkskul $pendaftaran, OsisService $osis)
     {
-        abort_unless($osis->bolehMemutuskan($request->user()), 403);
+        $ekskul = $pendaftaran->ekstrakurikuler()->with('jenisEkskul')->first();
 
-        $ekskulOsis = $osis->osis();
-
+        abort_unless($ekskul && $ekskul->memakaiCasis(), 404);
+        abort_unless($osis->bolehMemutuskan($request->user(), $ekskul), 403);
         abort_unless(
-            $ekskulOsis
-            && (int) $pendaftaran->ekstrakurikuler_id === (int) $ekskulOsis->id
-            && $pendaftaran->user_id
+            $pendaftaran->user_id
             && $pendaftaran->status === 'diterima'
             && array_key_exists($pendaftaran->status_anggota, OsisService::STATUS_PENGURUS),
             404
@@ -483,8 +502,9 @@ class CasisController extends Controller
 
         $d     = $cek->validated();
         $siswa = $pendaftaran->user;
+        $kata  = $ekskul->sebutan_keanggotaan;
 
-        if ($pesan = $osis->periksaSusulan($siswa, $d['angkatan'], $d['status'], $pendaftaran->id)) {
+        if ($pesan = $osis->periksaSusulan($siswa, $d['angkatan'], $d['status'], $pendaftaran->id, $ekskul)) {
             return back()->withInput()->with('error', $pesan);
         }
 
@@ -497,13 +517,13 @@ class CasisController extends Controller
 
         Pemberitahuan::kirim(
             [$siswa],
-            'Data kepengurusan OSIS dikoreksi',
-            "{$request->user()->name} memperbarui data kepengurusan OSIS-mu: angkatan {$d['angkatan']}, " . OsisService::STATUS_PENGURUS[$d['status']] . '.',
-            route('ekstrakurikuler.show', $ekskulOsis->id, false),
+            "Data {$kata} {$ekskul->nama_ekstrakurikuler} dikoreksi",
+            "{$request->user()->name} memperbarui data {$kata} {$ekskul->nama_ekstrakurikuler}-mu: angkatan {$d['angkatan']}, " . OsisService::STATUS_PENGURUS[$d['status']] . '.',
+            route('ekstrakurikuler.show', $ekskul->id, false),
             '✏️',
             $request->user()->id
         );
 
-        return back()->with('success', "Data kepengurusan OSIS {$siswa->name} diperbarui.");
+        return back()->with('success', "Data {$kata} {$ekskul->nama_ekstrakurikuler} {$siswa->name} diperbarui.");
     }
 }

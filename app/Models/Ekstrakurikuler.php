@@ -23,6 +23,7 @@ class Ekstrakurikuler extends Model
         'kuota',
         'jenis',
         'jenis_ekskul_id',
+        'induk_id',
         'dibuat_oleh',
         'diresmikan_pada',
         'diresmikan_oleh',
@@ -50,6 +51,19 @@ class Ekstrakurikuler extends Model
             if (! $ekskul->jenis_ekskul_id || $ekskul->isDirty('jenis')) {
                 $ekskul->jenis = $ekskul->jenis === 'osis' ? 'osis' : 'ekskul';
                 $ekskul->jenis_ekskul_id = JenisEkskul::where('kode', $ekskul->jenis === 'osis' ? 'organisasi' : 'ekskul')->value('id');
+            }
+        });
+
+        // Induk hanya berlaku untuk organisasi, dan tidak boleh organisasi itu sendiri
+        static::saving(function (self $ekskul) {
+            if (! $ekskul->induk_id) {
+                return;
+            }
+
+            $organisasi = JenisEkskul::whereKey($ekskul->jenis_ekskul_id)->value('kategori') === 'organisasi';
+
+            if (! $organisasi || ($ekskul->exists && (int) $ekskul->induk_id === (int) $ekskul->id)) {
+                $ekskul->induk_id = null;
             }
         });
 
@@ -98,6 +112,60 @@ class Ekstrakurikuler extends Model
     public function pembuat()
     {
         return $this->belongsTo(User::class, 'dibuat_oleh');
+    }
+
+    // Organisasi di atasnya (mis. OSIS berada di bawah MPK) dan organisasi di bawahnya
+    public function induk()
+    {
+        return $this->belongsTo(self::class, 'induk_id');
+    }
+
+    public function bawahan()
+    {
+        return $this->hasMany(self::class, 'induk_id');
+    }
+
+    // Id semua organisasi di atasnya: induk, induk dari induk, dst (aman dari lingkaran)
+    public function idLeluhur(): array
+    {
+        $hasil = [];
+        $kini  = (int) $this->induk_id;
+
+        while ($kini && $kini !== (int) $this->id && ! in_array($kini, $hasil, true)) {
+            $hasil[] = $kini;
+            $kini = (int) static::whereKey($kini)->value('induk_id');
+        }
+
+        return $hasil;
+    }
+
+    // Apakah menjadikan $indukId sebagai induk dari $ekskulId membuat lingkaran (A di bawah B, B di bawah A, dst)?
+    public static function menimbulkanSiklus(int $ekskulId, int $indukId): bool
+    {
+        $dilihat = [];
+        $kini    = $indukId;
+
+        while ($kini) {
+            if ($kini === $ekskulId || isset($dilihat[$kini])) {
+                return true;
+            }
+
+            $dilihat[$kini] = true;
+            $kini = (int) static::whereKey($kini)->value('induk_id');
+        }
+
+        return false;
+    }
+
+    // Sebutan untuk orang yang diterima: "pengurus" di organisasi, "anggota" di ekskul biasa/seleksi
+    public function getSebutanAnggotaAttribute(): string
+    {
+        return $this->isOrganisasi() ? 'pengurus' : 'anggota';
+    }
+
+    public function getSebutanKeanggotaanAttribute(): string
+    {
+        return $this->isOrganisasi() ? 'kepengurusan' : 'keanggotaan';
     }
 
     // Sebutan pendaftar seleksi: "CaSis" untuk OSIS, "Calon Pengurus" untuk organisasi lain, "Calon Anggota" untuk ekskul seleksi

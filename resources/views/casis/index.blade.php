@@ -113,7 +113,7 @@
                                 <select name="user_id" required class="flex-1 border p-2 rounded-lg text-sm">
                                     <option value="">-- Pilih anggota/pengurus aktif --</option>
                                     @foreach($kandidatSenior as $k)
-                                        <option value="{{ $k->user_id }}">{{ $k->nama_pendaftar }} ({{ $k->kelas ?? '-' }})</option>
+                                        <option value="{{ $k->user_id }}">{{ $k->nama_tampil }} ({{ $k->kelas_tampil ?? '-' }}){{ $k->ekstrakurikuler_id !== $ekskul->id && $k->ekstrakurikuler ? ' - '.$k->ekstrakurikuler->nama_ekstrakurikuler : '' }}</option>
                                     @endforeach
                                 </select>
                                 <button type="submit" class="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-indigo-700">Tunjuk</button>

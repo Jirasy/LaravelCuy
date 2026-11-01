@@ -28,7 +28,7 @@ class EkstrakurikulerController extends Controller
         $jenisFilter = JenisEkskul::withCount('ekskuls')->has('ekskuls')->urut()->get();
         $jenisAktif  = $jenisFilter->firstWhere('kode', $request->query('jenis'));
 
-        $ekskuls = Ekstrakurikuler::with(['haris', 'pembinaAktif', 'jenisEkskul'])
+        $ekskuls = Ekstrakurikuler::with(['haris', 'pembinaAktif', 'jenisEkskul', 'induk:id,nama_ekstrakurikuler'])
             ->withCount(['pendaftaran as anggota_count' => fn ($q) => $q->where('status', 'diterima')->where('status_anggota', 'aktif')])
             ->when($jenisAktif, fn ($q) => $q->where('jenis_ekskul_id', $jenisAktif->id))
             ->latest()
@@ -396,6 +396,11 @@ class EkstrakurikulerController extends Controller
             $kolom['jenis_ekskul_id'] = (int) $data['jenis_ekskul_id'];
         }
 
+        // Induk organisasi: hanya admin; kolom kosong di form = lepas dari induk. Model membersihkannya kalau tipenya bukan Organisasi.
+        if (Auth::user()->isAdmin() && array_key_exists('induk_id', $data)) {
+            $kolom['induk_id'] = $data['induk_id'] ? (int) $data['induk_id'] : null;
+        }
+
         return $kolom;
     }
 
@@ -465,6 +470,20 @@ class EkstrakurikulerController extends Controller
                 // Tipe "hanya satu": tidak boleh ada ekskul lain dengan tipe yang sama
                 if ($jenis->hanya_satu && Ekstrakurikuler::where('jenis_ekskul_id', $jenis->id)->where('id', '!=', $idEkskul)->exists()) {
                     $gagal("Sudah ada ekskul bertipe {$jenis->nama}. Tipe ini hanya boleh dimiliki satu ekskul.");
+                }
+            }],
+            // Organisasi di atasnya (mis. OSIS di bawah MPK). Hanya admin yang menyimpannya (lihat kolomEkskul)
+            'induk_id' => ['nullable', 'integer', function ($atribut, $nilai, $gagal) use ($request) {
+                $induk = Ekstrakurikuler::with('jenisEkskul')->find($nilai);
+
+                if (! $induk || ! $induk->isOrganisasi()) {
+                    return $gagal('Organisasi induk harus berupa ekskul bertipe Organisasi.');
+                }
+
+                $idEkskul = (int) $request->route('id');
+
+                if ($idEkskul && Ekstrakurikuler::menimbulkanSiklus($idEkskul, $induk->id)) {
+                    $gagal('Organisasi tidak boleh berada di bawah dirinya sendiri atau di bawah organisasi yang ada di bawahnya.');
                 }
             }],
         ];

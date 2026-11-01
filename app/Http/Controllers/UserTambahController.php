@@ -6,6 +6,7 @@ use App\Models\Ekstrakurikuler;
 use App\Models\User;
 use App\Services\ImportSiswaService;
 use App\Services\PembinaAkunService;
+use App\Support\Nisn;
 use Illuminate\Http\Request;
 
 // Tambah user satu per satu dari Kelola User (pelengkap import massal).
@@ -34,19 +35,19 @@ class UserTambahController extends Controller
         $request->merge([
             'nama'  => trim((string) preg_replace('/\s+/u', ' ', (string) $request->input('nama'))),
             'kelas' => trim((string) preg_replace('/\s+/u', ' ', mb_strtoupper((string) $request->input('kelas')))),
-            'nisn'  => preg_replace('/\s+/', '', (string) $request->input('nisn')),
+            'nisn'  => Nisn::bersihkan($request->input('nisn')),
             'email' => mb_strtolower(trim((string) $request->input('email'))),
         ]);
 
         $data = $request->validate([
             'nama'         => ['required', 'string', 'max:255'],
             'kelas'        => ['nullable', 'string', 'max:50'],
-            'nisn'         => ['nullable', 'regex:/^\d{5,20}$/'],
+            'nisn'         => ['nullable', 'string', 'regex:'.Nisn::POLA],
             'email'        => ['nullable', 'email', 'max:255'],
             'domain_email' => ['nullable', 'string', 'max:100', 'regex:/^[a-z0-9]([a-z0-9\-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9\-]*[a-z0-9])?)+$/i'],
         ], [
             'nama.required'      => 'Isi nama siswa.',
-            'nisn.regex'         => 'NISN hanya angka (5-20 digit). Kosongkan kalau belum ada.',
+            'nisn.regex'         => Nisn::PESAN,
             'email.email'        => 'Format email tidak valid.',
             'domain_email.regex' => 'Domain email tidak valid, contoh: siswa.sekolahku.sch.id',
         ]);

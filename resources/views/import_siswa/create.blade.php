@@ -62,7 +62,7 @@
                             Kolom lain (mis. nomor kelompok CAMP) diabaikan.</li>
                         <li>Tanpa judul kolom, sistem menebak kolom nama. Untuk berkas teks/Word cukup satu nama per baris (boleh bernomor).</li>
                         <li>NISN dikosongkan bila tidak ada di berkas; bisa dilengkapi nanti lewat Kelola User.</li>
-                        <li>Tiap siswa mendapat email login otomatis (mis. <code>budi.santoso@{{ $domainDefault }}</code>) kecuali berkas sudah memuat email,
+                        <li>Tiap siswa mendapat email login otomatis (mis. <code>budi.santoso{{ '@'.$domainDefault }}</code>) kecuali berkas sudah memuat email,
                             dan wajib mengganti password saat login pertama.</li>
                     </ul>
                 </div>

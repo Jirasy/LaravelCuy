@@ -12,7 +12,6 @@ use App\Services\OsisService;
 use App\Support\Pemberitahuan;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 
 // Mengatur periode rekrutmen sebuah ekskul berseleksi, senior penilai, dan tahap seleksinya.
@@ -22,7 +21,7 @@ class OsisPeriodeController extends Controller
     public function store(Request $request, Ekstrakurikuler $ekskul, OsisService $osis)
     {
         abort_unless($ekskul->memakaiCasis(), 404, 'Ekskul ini tidak memakai seleksi. Ubah tipenya ke Ekskul Seleksi atau Organisasi lewat Edit Ekskul.');
-        Gate::authorize('kelola', $ekskul);
+        abort_unless($osis->bolehMemutuskan($request->user(), $ekskul), 403);
 
         $data = $request->validate([
             'nama'       => 'required|string|max:20',
@@ -48,9 +47,9 @@ class OsisPeriodeController extends Controller
     }
 
     // Maju satu tahap: rekrutmen -> seleksi -> berjalan -> selesai
-    public function status(Request $request, OsisPeriode $periode)
+    public function status(Request $request, OsisPeriode $periode, OsisService $osis)
     {
-        Gate::authorize('kelola', $periode->ekstrakurikuler);
+        abort_unless($osis->bolehMemutuskan($request->user(), $periode->ekstrakurikuler), 403);
 
         $data = $request->validate(['aksi' => ['required', Rule::in(['seleksi', 'berjalan', 'selesai'])]]);
 
@@ -73,7 +72,7 @@ class OsisPeriodeController extends Controller
 
         if ($tujuan === 'seleksi') {
             $jumlah  = $periode->casis()->where('status', 'diajukan')->count();
-            $penilai = Pemberitahuan::pengelola($periode->ekstrakurikuler)->merge($periode->seniors);
+            $penilai = $osis->pengelolaSeleksi($periode->ekstrakurikuler)->merge($periode->seniors);
 
             $ekskul = $periode->ekstrakurikuler;
 
@@ -91,9 +90,9 @@ class OsisPeriodeController extends Controller
     }
 
     // Menunjuk senior (pengurus sebelumnya) sebagai penilai
-    public function seniorTambah(Request $request, OsisPeriode $periode)
+    public function seniorTambah(Request $request, OsisPeriode $periode, OsisService $osis)
     {
-        Gate::authorize('kelola', $periode->ekstrakurikuler);
+        abort_unless($osis->bolehMemutuskan($request->user(), $periode->ekstrakurikuler), 403);
 
         if ($periode->status === 'selesai') {
             return back()->with('error', 'Periode ini sudah selesai.');
@@ -102,13 +101,18 @@ class OsisPeriodeController extends Controller
         $data = $request->validate(['user_id' => 'required|integer|exists:users,id'], ['user_id.required' => 'Pilih seniornya.']);
         $user = User::findOrFail($data['user_id']);
 
+        // Senior: pengurus aktif ekskul ini, atau anggota aktif organisasi di atasnya (mis. MPK untuk seleksi OSIS)
+        $asal = $osis->idAsalPenilai($periode->ekstrakurikuler);
+
         $pengurusAktif = PendaftaranEkskul::anggotaAktif()
-            ->where('ekstrakurikuler_id', $periode->ekstrakurikuler_id)
+            ->whereIn('ekstrakurikuler_id', $asal)
             ->where('user_id', $user->id)
             ->exists();
 
         if (!$pengurusAktif) {
-            return back()->with('error', "Senior harus pengurus {$periode->ekstrakurikuler->nama_ekstrakurikuler} yang masih aktif.");
+            $tambahan = count($asal) > 1 ? ' (atau anggota organisasi di atasnya)' : '';
+
+            return back()->with('error', "Senior harus pengurus {$periode->ekstrakurikuler->nama_ekstrakurikuler} yang masih aktif{$tambahan}.");
         }
 
         if (CasisPendaftaran::where('osis_periode_id', $periode->id)->where('user_id', $user->id)->exists()) {
@@ -133,9 +137,9 @@ class OsisPeriodeController extends Controller
         return back()->with('success', "{$user->name} ditunjuk sebagai penilai.");
     }
 
-    public function seniorHapus(OsisPeriode $periode, User $user)
+    public function seniorHapus(Request $request, OsisPeriode $periode, User $user, OsisService $osis)
     {
-        Gate::authorize('kelola', $periode->ekstrakurikuler);
+        abort_unless($osis->bolehMemutuskan($request->user(), $periode->ekstrakurikuler), 403);
 
         $periode->seniors()->detach($user->id);
 
@@ -234,6 +238,9 @@ class OsisPeriodeController extends Controller
         $tahap->save();
 
         if ($jadwalBerubah) {
+            // Jadwal baru = pengingat dikirim ulang (24 jam dan 1 jam sebelum jadwal yang baru)
+            $tahap->pengingats()->delete();
+
             $this->beritahuPendaftar($periode, 'Jadwal seleksi diperbarui', "Tahap {$tahap->urutan}: {$tahap->ringkasan}.", $request->user()->id);
         }
 

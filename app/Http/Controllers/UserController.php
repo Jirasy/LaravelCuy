@@ -57,55 +57,62 @@ class UserController extends Controller
             'opsiEkskul' => Ekstrakurikuler::orderBy('nama_ekstrakurikuler')->get(['id', 'nama_ekstrakurikuler']),
         ];
 
-        // Status OSIS tiap siswa (lencana dan tombol di tabel). Cuma admin & pembina OSIS yang boleh mengubahnya.
-        $layanan = app(OsisService::class);
-        $ekskulOsis = $layanan->osis();
-        $infoOsis = ['ada' => false];
+        // Status seleksi/kepengurusan tiap siswa di SETIAP ekskul berseleksi (OSIS, MPK, ekskul seleksi, ...): lencana di kolom nama,
+        // tombol di kolom aksi. Tombol hanya untuk ekskul yang boleh dikelola pengguna (admin, pembina ekskul itu,
+        // atau pembina organisasi induknya).
+        $layanan   = app(OsisService::class);
+        $infoJalur = $layanan->daftarJalur()->map(fn ($e) => $this->infoJalur($e, $layanan, $request->user()))->all();
 
-        if ($ekskulOsis) {
-            $periode = OsisPeriode::where('ekstrakurikuler_id', $ekskulOsis->id)
-                ->whereIn('status', ['rekrutmen', 'seleksi'])
-                ->latest()
-                ->first();
+        // Saran angkatan gabungan dari semua jalur yang boleh dikelola
+        $angkatanSaran = collect($infoJalur)->where('boleh', true)->pluck('angkatan')->flatten()
+            ->filter()->unique()->sortDesc()->values()->all();
 
-            $boleh = $layanan->bolehMemutuskan($request->user());
-            $riwayat = collect();
-            $angkatan = [];
+        return view('users.index', compact('users', 'infoJalur', 'angkatanSaran', 'filter'));
+    }
 
-            // Riwayat kepengurusan OSIS tiap siswa + saran angkatan, hanya dimuat untuk yang berhak mengubahnya
-            if ($boleh) {
-                $riwayat = PendaftaranEkskul::where('ekstrakurikuler_id', $ekskulOsis->id)
-                    ->where('status', 'diterima')
-                    ->whereIn('status_anggota', array_keys(OsisService::STATUS_PENGURUS))
-                    ->whereNotNull('user_id')
-                    ->orderByDesc('tahun_mulai')
-                    ->orderByDesc('id')
-                    ->get()
-                    ->groupBy('user_id');
+    // Data seleksi/kepengurusan satu ekskul berseleksi untuk tabel Kelola User
+    private function infoJalur(Ekstrakurikuler $ekskul, OsisService $layanan, User $pengguna): array
+    {
+        $periode = OsisPeriode::where('ekstrakurikuler_id', $ekskul->id)
+            ->whereIn('status', ['rekrutmen', 'seleksi'])
+            ->latest()
+            ->first();
 
-                $angkatan = $riwayat->flatten()->pluck('angkatan_ekskul')
-                    ->merge(OsisPeriode::where('ekstrakurikuler_id', $ekskulOsis->id)->pluck('nama'))
-                    ->filter()->unique()->sortDesc()->values()->all();
-            }
+        $boleh    = $layanan->bolehMemutuskan($pengguna, $ekskul);
+        $riwayat  = collect();
+        $angkatan = [];
 
-            $infoOsis = [
-                'ada' => true,
-                'riwayat' => $riwayat,
-                'angkatan' => $angkatan,
-                'periode' => $periode,
-                'pengurus' => PendaftaranEkskul::anggotaAktif()
-                    ->where('ekstrakurikuler_id', $ekskulOsis->id)
-                    ->whereNotNull('user_id')
-                    ->pluck('user_id')
-                    ->all(),
-                'casis' => $periode
-                    ? CasisPendaftaran::where('osis_periode_id', $periode->id)->pluck('status', 'user_id')->all()
-                    : [],
-                'boleh' => $boleh,
-            ];
+        // Riwayat kepengurusan tiap siswa + saran angkatan, hanya dimuat untuk yang berhak mengubahnya
+        if ($boleh) {
+            $riwayat = PendaftaranEkskul::where('ekstrakurikuler_id', $ekskul->id)
+                ->where('status', 'diterima')
+                ->whereIn('status_anggota', array_keys(OsisService::STATUS_PENGURUS))
+                ->whereNotNull('user_id')
+                ->orderByDesc('tahun_mulai')
+                ->orderByDesc('id')
+                ->get()
+                ->groupBy('user_id');
+
+            $angkatan = $riwayat->flatten()->pluck('angkatan_ekskul')
+                ->merge(OsisPeriode::where('ekstrakurikuler_id', $ekskul->id)->pluck('nama'))
+                ->filter()->unique()->sortDesc()->values()->all();
         }
 
-        return view('users.index', compact('users', 'infoOsis', 'filter'));
+        return [
+            'ekskul'   => $ekskul,
+            'riwayat'  => $riwayat,
+            'angkatan' => $angkatan,
+            'periode'  => $periode,
+            'pengurus' => PendaftaranEkskul::anggotaAktif()
+                ->where('ekstrakurikuler_id', $ekskul->id)
+                ->whereNotNull('user_id')
+                ->pluck('user_id')
+                ->all(),
+            'casis'    => $periode
+                ? CasisPendaftaran::where('osis_periode_id', $periode->id)->pluck('status', 'user_id')->all()
+                : [],
+            'boleh'    => $boleh,
+        ];
     }
 
     public function edit(User $user)

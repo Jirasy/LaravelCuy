@@ -127,6 +127,31 @@ test('txt satu nama per baris dengan penomoran dibaca benar', function () {
         ->toBe(['Agus Salim', 'Dewi Lestari', 'Rina Putri']);
 });
 
+test('NISN berpemisah titik, strip, atau nol di depan dibaca apa adanya sebagai teks', function () {
+    $admin = akunImp();
+
+    unggahImp($this, $admin, 'a.csv', "Nama,NISN\nAdly Raditya,2526.0.10.001\nBudi Santoso,0051234567\nCitra Dewi,12345-6789/01\nDewi Sartika,3001234567.0\n");
+
+    expect(User::where('name', 'Adly Raditya')->value('nisn'))->toBe('2526.0.10.001')
+        ->and(User::where('name', 'Budi Santoso')->value('nisn'))->toBe('0051234567')
+        ->and(User::where('name', 'Citra Dewi')->value('nisn'))->toBe('12345-6789/01')
+        ->and(User::where('name', 'Dewi Sartika')->value('nisn'))->toBe('3001234567');   // ".0" sisa sel angka Excel dibuang
+
+    // NISN berformat titik yang sama dilewati sebagai duplikat
+    unggahImp($this, $admin, 'b.csv', "Nama,NISN\nOrang Lain,2526.0.10.001\n")
+        ->assertSessionHas('dilewati', fn ($d) => $d[0]['alasan'] === 'NISN 2526.0.10.001 sudah terdaftar');
+});
+
+test('isi kolom NISN yang bukan NISN dikosongkan, bukan dipaksa menjadi angka', function () {
+    $admin = akunImp();
+
+    unggahImp($this, $admin, 'a.csv', "Nama,NISN\nAndi Pratama,-\nBayu Aji,hadir\nCandra Wijaya,12\n");
+
+    foreach (['Andi Pratama', 'Bayu Aji', 'Candra Wijaya'] as $nama) {
+        expect(User::where('name', $nama)->value('nisn'))->toBeNull();
+    }
+});
+
 test('NISN dibaca bila ada, dan NISN yang sudah terdaftar dilewati', function () {
     $admin = akunImp();
 

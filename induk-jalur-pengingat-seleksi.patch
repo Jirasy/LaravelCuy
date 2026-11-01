@@ -1,0 +1,1427 @@
+diff --git a/app/Console/Commands/IngatkanJadwalSeleksi.php b/app/Console/Commands/IngatkanJadwalSeleksi.php
+new file mode 100644
+index 0000000..4814a5e
+--- /dev/null
++++ b/app/Console/Commands/IngatkanJadwalSeleksi.php
+@@ -0,0 +1,101 @@
++<?php
++
++namespace App\Console\Commands;
++
++use App\Models\CasisPendaftaran;
++use App\Models\SeleksiPengingat;
++use App\Models\SeleksiTahap;
++use App\Support\Pemberitahuan;
++use Illuminate\Console\Command;
++
++// Pengingat jadwal tahap seleksi: sekali saat tahap dimulai dalam 24 jam, sekali lagi saat kurang dari 1 jam.
++// Penerima: pendaftar yang SEDANG berada di tahap itu (tahap sebelumnya sudah lolos), serta penilai periode (admin, pembina,
++// senior) kalau ada pendaftar yang dijadwalkan. Aman dijalankan berulang: pengingat yang sudah terkirim dicatat di
++// seleksi_pengingats, dan catatannya dihapus saat jadwal tahap diubah (supaya jadwal baru diingatkan lagi).
++class IngatkanJadwalSeleksi extends Command
++{
++    protected $signature = 'seleksi:ingatkan';
++
++    protected $description = 'Kirim pengingat jadwal tahap seleksi (24 jam dan 1 jam sebelum mulai) ke pendaftar dan penilai';
++
++    // Jenis pengingat => jam sebelum mulai. Yang terkecil diproses dulu: tahap yang sudah dekat cukup menerima
++    // satu pengingat, tidak dua sekaligus (pengingat 24 jam ikut ditandai terkirim).
++    private const JENIS = ['1j' => 1, '24j' => 24];
++
++    public function handle(): int
++    {
++        $dikirim = 0;
++
++        foreach (self::JENIS as $jenis => $jam) {
++            $tahaps = SeleksiTahap::with('periode.ekstrakurikuler')
++                ->whereNotNull('mulai_pada')
++                ->where('mulai_pada', '>', now())
++                ->where('mulai_pada', '<=', now()->addHours($jam))
++                ->whereHas('periode', fn ($q) => $q->whereIn('status', ['rekrutmen', 'seleksi']))
++                ->whereDoesntHave('pengingats', fn ($q) => $q->where('jenis', $jenis))
++                ->orderBy('mulai_pada')
++                ->get();
++
++            foreach ($tahaps as $tahap) {
++                if ($this->kirim($tahap, $jenis)) {
++                    $dikirim++;
++                }
++            }
++        }
++
++        $this->info("Pengingat seleksi dikirim untuk {$dikirim} tahap.");
++
++        return self::SUCCESS;
++    }
++
++    private function kirim(SeleksiTahap $tahap, string $jenis): bool
++    {
++        $periode = $tahap->periode;
++        $ekskul  = $periode->ekstrakurikuler;
++        $tahaps  = $periode->tahapSemua();
++
++        // Pendaftar yang sedang di tahap ini: belum punya hasil di tahap ini dan semua tahap sebelumnya
++        $peserta = CasisPendaftaran::with(['user', 'hasils'])
++            ->where('osis_periode_id', $periode->id)
++            ->where('status', 'diajukan')
++            ->get()
++            ->filter(function ($c) use ($tahap, $tahaps) {
++                $sudah = $c->hasils->pluck('seleksi_tahap_id')->all();
++
++                return $tahaps->first(fn ($t) => ! in_array($t->id, $sudah, true))?->id === $tahap->id;
++            })
++            ->values();
++
++        if ($peserta->isEmpty()) {
++            return false;   // belum ada yang perlu diingatkan; dicek lagi di jalan berikutnya
++        }
++
++        $awal  = $jenis === '1j' ? 'Kurang dari 1 jam lagi' : 'Dalam 24 jam ke depan';
++        $label = $ekskul->label_calon;
++
++        Pemberitahuan::kirim(
++            $peserta->pluck('user')->filter(fn ($u) => $u && $u->is_active),
++            "Pengingat seleksi: {$tahap->nama}",
++            "{$awal}: tahap {$tahap->urutan} seleksi {$label} {$ekskul->nama_ekstrakurikuler} {$periode->nama}.\n{$tahap->ringkasan}",
++            route('casis.create', [$ekskul->id], false),
++            '⏰'
++        );
++
++        $penilai = Pemberitahuan::pengelola($ekskul)->merge($periode->seniors()->where('users.is_active', true)->get())->unique('id');
++
++        Pemberitahuan::kirim(
++            $penilai,
++            "Pengingat seleksi: {$tahap->nama}",
++            "{$awal}: tahap {$tahap->urutan} seleksi {$label} {$ekskul->nama_ekstrakurikuler} {$periode->nama} untuk {$peserta->count()} pendaftar.\n{$tahap->ringkasan}",
++            route('casis.index', [$ekskul->id, 'periode' => $periode->id], false),
++            '⏰'
++        );
++
++        // Pengingat 1 jam menggantikan yang 24 jam kalau yang terakhir ini belum sempat terkirim
++        foreach ($jenis === '1j' ? ['1j', '24j'] : ['24j'] as $tandai) {
++            SeleksiPengingat::firstOrCreate(['seleksi_tahap_id' => $tahap->id, 'jenis' => $tandai], ['dikirim_pada' => now()]);
++        }
++
++        return true;
++    }
++}
+diff --git a/app/Http/Controllers/CasisController.php b/app/Http/Controllers/CasisController.php
+index 723ca77..8f6f6e3 100644
+--- a/app/Http/Controllers/CasisController.php
++++ b/app/Http/Controllers/CasisController.php
+@@ -321,26 +321,41 @@ public function putuskan(Request $request, CasisPendaftaran $casis, OsisService
+ 
+     // ================= Dari Kelola User =================
+ 
+-    // Memasukkan siswa ke jalur OSIS: dibuatkan draft CaSis, siswa diarahkan melengkapi formulirnya
++    // Ekskul berseleksi yang dituju alat di Kelola User: dari ekskul_id di formulir, selain itu organisasi utama.
++    // Hanya admin atau pembina ekskul itu yang boleh.
++    private function jalur(Request $request, OsisService $osis): Ekstrakurikuler
++    {
++        $id     = (int) $request->input('ekskul_id');
++        $ekskul = $id ? Ekstrakurikuler::alurCasis()->with('jenisEkskul')->find($id) : $osis->jalurTerpilih();
++
++        abort_unless($ekskul, 404, 'Ekskul berseleksi tidak ditemukan.');
++        abort_unless($osis->bolehMemutuskan($request->user(), $ekskul), 403);
++
++        return $ekskul;
++    }
++
++    // Memasukkan siswa ke jalur seleksi sebuah ekskul: dibuatkan draft pendaftaran, siswa diarahkan melengkapi formulirnya
+     public function masukkan(Request $request, User $user, OsisService $osis)
+     {
+-        abort_unless($osis->bolehMemutuskan($request->user()), 403);
++        $ekskul = $this->jalur($request, $osis);
++        $label  = $ekskul->label_calon;
++        $nama   = $ekskul->nama_ekstrakurikuler;
+ 
+         if ($user->role !== 'siswa' || !$user->is_active) {
+-            return back()->with('error', 'Hanya siswa dengan akun aktif yang bisa dimasukkan ke jalur CaSis.');
++            return back()->with('error', "Hanya siswa dengan akun aktif yang bisa dimasukkan ke jalur {$label}.");
+         }
+ 
+-        $periode = $osis->periodeBuka();
++        $periode = $osis->periodeBuka($ekskul);
+         if (!$periode) {
+-            return back()->with('error', 'Belum ada periode pendaftaran CaSis yang dibuka. Buat periodenya di halaman Seleksi CaSis.');
++            return back()->with('error', "Belum ada periode pendaftaran {$label} yang dibuka. Buat periodenya di halaman seleksi {$nama}.");
+         }
+ 
+-        if ($osis->pengurusAktif($user)) {
+-            return back()->with('error', "{$user->name} sudah menjadi pengurus OSIS.");
++        if ($osis->pengurusAktif($user, $ekskul)) {
++            return back()->with('error', "{$user->name} sudah menjadi {$ekskul->sebutan_anggota} {$nama}.");
+         }
+ 
+         if (CasisPendaftaran::where('osis_periode_id', $periode->id)->where('user_id', $user->id)->exists()) {
+-            return back()->with('error', "{$user->name} sudah terdaftar sebagai CaSis di periode ini.");
++            return back()->with('error', "{$user->name} sudah terdaftar sebagai {$label} di periode ini.");
+         }
+ 
+         CasisPendaftaran::create([
+@@ -352,14 +367,14 @@ public function masukkan(Request $request, User $user, OsisService $osis)
+ 
+         Pemberitahuan::kirim(
+             [$user],
+-            'Kamu didaftarkan ke jalur OSIS',
+-            "{$request->user()->name} memasukkanmu ke jalur CaSis OSIS {$periode->nama}. Lengkapi formulir pendaftaranmu.",
+-            route('casis.create', [$osis->osis()->id], false),
++            "Kamu didaftarkan ke jalur {$nama}",
++            "{$request->user()->name} memasukkanmu ke jalur {$label} {$nama} {$periode->nama}. Lengkapi formulir pendaftaranmu.",
++            route('casis.create', [$ekskul->id], false),
+             '🗳️',
+             $request->user()->id
+         );
+ 
+-        return back()->with('success', "{$user->name} dimasukkan ke jalur CaSis. Ia diminta melengkapi formulirnya.");
++        return back()->with('success', "{$user->name} dimasukkan ke jalur {$label}. Ia diminta melengkapi formulirnya.");
+     }
+ 
+     // Aturan isian kepengurusan manual (dipakai untuk catat susulan dan koreksi)
+@@ -392,14 +407,17 @@ private function pesanPengurus(): array
+         ];
+     }
+ 
+-    // Menetapkan siswa langsung menjadi pengurus OSIS (tanpa seleksi CaSis). Dipakai untuk pengurus angkatan lalu yang
+-    // baru diinput (telat input): admin/pembina memilih angkatan, tahun, dan statusnya (masih menjabat / purna tugas).
++    // Menetapkan siswa langsung menjadi pengurus/anggota sebuah ekskul berseleksi (tanpa seleksi). Dipakai untuk angkatan lalu
++    // yang baru diinput (telat input): admin/pembina memilih angkatan, tahun, dan statusnya (masih menjabat / purna tugas).
+     public function jadikanPengurus(Request $request, User $user, OsisService $osis)
+     {
+-        abort_unless($osis->bolehMemutuskan($request->user()), 403);
++        $ekskul   = $this->jalur($request, $osis);
++        $nama     = $ekskul->nama_ekstrakurikuler;
++        $sebutan  = $ekskul->sebutan_anggota;
++        $kata     = $ekskul->sebutan_keanggotaan;
+ 
+         if ($user->role !== 'siswa' || !$user->is_active) {
+-            return back()->with('error', 'Hanya siswa dengan akun aktif yang bisa dijadikan pengurus OSIS.');
++            return back()->with('error', "Hanya siswa dengan akun aktif yang bisa dijadikan {$sebutan} {$nama}.");
+         }
+ 
+         $cek = Validator::make($request->all(), $this->aturanPengurus(), $this->pesanPengurus());
+@@ -410,15 +428,16 @@ public function jadikanPengurus(Request $request, User $user, OsisService $osis)
+ 
+         $d = $cek->validated();
+ 
+-        if ($pesan = $osis->periksaSusulan($user, $d['angkatan'], $d['status'])) {
++        if ($pesan = $osis->periksaSusulan($user, $d['angkatan'], $d['status'], null, $ekskul)) {
+             return back()->withInput()->with('error', $pesan);
+         }
+ 
+         $alasan = 'Ditetapkan langsung oleh ' . $request->user()->name . (filled($d['catatan'] ?? null) ? ': ' . $d['catatan'] : '');
+         $aktif  = $d['status'] === 'aktif';
+ 
+-        DB::transaction(function () use ($user, $request, $osis, $d, $alasan, $aktif) {
+-            $osis->jadikanPengurus(
++        DB::transaction(function () use ($user, $request, $osis, $ekskul, $d, $alasan, $aktif) {
++            $osis->jadikanAnggota(
++                $ekskul,
+                 $user,
+                 $alasan,
+                 $d['angkatan'],
+@@ -428,16 +447,16 @@ public function jadikanPengurus(Request $request, User $user, OsisService $osis)
+                 $request->user()->id,
+             );
+ 
+-            // Kalau ia masih punya pendaftaran CaSis yang berjalan, tandai selesai agar tidak dobel.
++            // Kalau ia masih punya pendaftaran seleksi yang berjalan, tandai selesai agar tidak dobel.
+             // Hanya untuk yang masih menjabat: mencatat riwayat purna tugas tidak boleh mengganggu seleksi yang sedang berjalan.
+             if ($aktif) {
+                 CasisPendaftaran::where('user_id', $user->id)
+                     ->whereIn('status', ['draft', 'diajukan'])
+-                    ->whereHas('periode', fn ($q) => $q->where('ekstrakurikuler_id', $osis->osis()->id)->whereIn('status', ['rekrutmen', 'seleksi']))
++                    ->whereHas('periode', fn ($q) => $q->where('ekstrakurikuler_id', $ekskul->id)->whereIn('status', ['rekrutmen', 'seleksi']))
+                     ->update([
+                         'status'            => 'diterima',
+                         'diputuskan_oleh'   => $request->user()->id,
+-                        'catatan_keputusan' => 'Ditetapkan langsung sebagai pengurus OSIS.',
++                        'catatan_keputusan' => "Ditetapkan langsung sebagai {$ekskul->sebutan_anggota} {$ekskul->nama_ekstrakurikuler}.",
+                         'diputuskan_pada'   => now(),
+                     ]);
+             }
+@@ -445,31 +464,29 @@ public function jadikanPengurus(Request $request, User $user, OsisService $osis)
+ 
+         Pemberitahuan::kirim(
+             [$user],
+-            $aktif ? 'Kamu menjadi pengurus OSIS' : 'Riwayat kepengurusan OSIS dicatat',
++            $aktif ? "Kamu menjadi {$sebutan} {$nama}" : "Riwayat {$kata} {$nama} dicatat",
+             $aktif
+-                ? "{$request->user()->name} menetapkanmu sebagai pengurus OSIS angkatan {$d['angkatan']}."
+-                : "{$request->user()->name} mencatat kepengurusan OSIS angkatan {$d['angkatan']} ({$d['tahun_mulai']}-{$d['tahun_selesai']}) di riwayatmu.",
+-            route('ekstrakurikuler.show', $osis->osis()->id, false),
++                ? "{$request->user()->name} menetapkanmu sebagai {$sebutan} {$nama} angkatan {$d['angkatan']}."
++                : "{$request->user()->name} mencatat {$kata} {$nama} angkatan {$d['angkatan']} ({$d['tahun_mulai']}-{$d['tahun_selesai']}) di riwayatmu.",
++            route('ekstrakurikuler.show', $ekskul->id, false),
+             '🏛️',
+             $request->user()->id
+         );
+ 
+         return back()->with('success', $aktif
+-            ? "{$user->name} sekarang pengurus OSIS angkatan {$d['angkatan']}."
+-            : "Kepengurusan OSIS {$user->name} angkatan {$d['angkatan']} dicatat sebagai purna tugas.");
++            ? "{$user->name} sekarang {$sebutan} {$nama} angkatan {$d['angkatan']}."
++            : "{$kata} {$nama} {$user->name} angkatan {$d['angkatan']} dicatat sebagai purna tugas.");
+     }
+ 
+-    // Mengoreksi angkatan/tahun/status kepengurusan OSIS yang sudah tercatat (mis. salah angkatan atau telat diperbarui)
++    // Mengoreksi angkatan/tahun/status kepengurusan yang sudah tercatat (mis. salah angkatan atau telat diperbarui)
+     public function koreksiPengurus(Request $request, PendaftaranEkskul $pendaftaran, OsisService $osis)
+     {
+-        abort_unless($osis->bolehMemutuskan($request->user()), 403);
+-
+-        $ekskulOsis = $osis->osis();
++        $ekskul = $pendaftaran->ekstrakurikuler()->with('jenisEkskul')->first();
+ 
++        abort_unless($ekskul && $ekskul->memakaiCasis(), 404);
++        abort_unless($osis->bolehMemutuskan($request->user(), $ekskul), 403);
+         abort_unless(
+-            $ekskulOsis
+-            && (int) $pendaftaran->ekstrakurikuler_id === (int) $ekskulOsis->id
+-            && $pendaftaran->user_id
++            $pendaftaran->user_id
+             && $pendaftaran->status === 'diterima'
+             && array_key_exists($pendaftaran->status_anggota, OsisService::STATUS_PENGURUS),
+             404
+@@ -483,8 +500,9 @@ public function koreksiPengurus(Request $request, PendaftaranEkskul $pendaftaran
+ 
+         $d     = $cek->validated();
+         $siswa = $pendaftaran->user;
++        $kata  = $ekskul->sebutan_keanggotaan;
+ 
+-        if ($pesan = $osis->periksaSusulan($siswa, $d['angkatan'], $d['status'], $pendaftaran->id)) {
++        if ($pesan = $osis->periksaSusulan($siswa, $d['angkatan'], $d['status'], $pendaftaran->id, $ekskul)) {
+             return back()->withInput()->with('error', $pesan);
+         }
+ 
+@@ -497,13 +515,13 @@ public function koreksiPengurus(Request $request, PendaftaranEkskul $pendaftaran
+ 
+         Pemberitahuan::kirim(
+             [$siswa],
+-            'Data kepengurusan OSIS dikoreksi',
+-            "{$request->user()->name} memperbarui data kepengurusan OSIS-mu: angkatan {$d['angkatan']}, " . OsisService::STATUS_PENGURUS[$d['status']] . '.',
+-            route('ekstrakurikuler.show', $ekskulOsis->id, false),
++            "Data {$kata} {$ekskul->nama_ekstrakurikuler} dikoreksi",
++            "{$request->user()->name} memperbarui data {$kata} {$ekskul->nama_ekstrakurikuler}-mu: angkatan {$d['angkatan']}, " . OsisService::STATUS_PENGURUS[$d['status']] . '.',
++            route('ekstrakurikuler.show', $ekskul->id, false),
+             '✏️',
+             $request->user()->id
+         );
+ 
+-        return back()->with('success', "Data kepengurusan OSIS {$siswa->name} diperbarui.");
++        return back()->with('success', "Data {$kata} {$ekskul->nama_ekstrakurikuler} {$siswa->name} diperbarui.");
+     }
+ }
+diff --git a/app/Http/Controllers/EkstrakurikulerController.php b/app/Http/Controllers/EkstrakurikulerController.php
+index 44fdaa8..871a7c3 100644
+--- a/app/Http/Controllers/EkstrakurikulerController.php
++++ b/app/Http/Controllers/EkstrakurikulerController.php
+@@ -28,7 +28,7 @@ public function index(Request $request)
+         $jenisFilter = JenisEkskul::withCount('ekskuls')->has('ekskuls')->urut()->get();
+         $jenisAktif  = $jenisFilter->firstWhere('kode', $request->query('jenis'));
+ 
+-        $ekskuls = Ekstrakurikuler::with(['haris', 'pembinaAktif', 'jenisEkskul'])
++        $ekskuls = Ekstrakurikuler::with(['haris', 'pembinaAktif', 'jenisEkskul', 'induk:id,nama_ekstrakurikuler'])
+             ->withCount(['pendaftaran as anggota_count' => fn ($q) => $q->where('status', 'diterima')->where('status_anggota', 'aktif')])
+             ->when($jenisAktif, fn ($q) => $q->where('jenis_ekskul_id', $jenisAktif->id))
+             ->latest()
+@@ -396,6 +396,11 @@ private function kolomEkskul(array $data): array
+             $kolom['jenis_ekskul_id'] = (int) $data['jenis_ekskul_id'];
+         }
+ 
++        // Induk organisasi: hanya admin; kolom kosong di form = lepas dari induk. Model membersihkannya kalau tipenya bukan Organisasi.
++        if (Auth::user()->isAdmin() && array_key_exists('induk_id', $data)) {
++            $kolom['induk_id'] = $data['induk_id'] ? (int) $data['induk_id'] : null;
++        }
++
+         return $kolom;
+     }
+ 
+@@ -467,6 +472,20 @@ private function rules(Request $request, bool $statusWajib): array
+                     $gagal("Sudah ada ekskul bertipe {$jenis->nama}. Tipe ini hanya boleh dimiliki satu ekskul.");
+                 }
+             }],
++            // Organisasi di atasnya (mis. OSIS di bawah MPK). Hanya admin yang menyimpannya (lihat kolomEkskul)
++            'induk_id' => ['nullable', 'integer', function ($atribut, $nilai, $gagal) use ($request) {
++                $induk = Ekstrakurikuler::with('jenisEkskul')->find($nilai);
++
++                if (! $induk || ! $induk->isOrganisasi()) {
++                    return $gagal('Organisasi induk harus berupa ekskul bertipe Organisasi.');
++                }
++
++                $idEkskul = (int) $request->route('id');
++
++                if ($idEkskul && Ekstrakurikuler::menimbulkanSiklus($idEkskul, $induk->id)) {
++                    $gagal('Organisasi tidak boleh berada di bawah dirinya sendiri atau di bawah organisasi yang ada di bawahnya.');
++                }
++            }],
+         ];
+ 
+         // Hanya saat membuat ekskul: admin boleh mengisi email untuk membuatkan akun pembina otomatis
+diff --git a/app/Http/Controllers/OsisPeriodeController.php b/app/Http/Controllers/OsisPeriodeController.php
+index e467534..8f7f9e6 100644
+--- a/app/Http/Controllers/OsisPeriodeController.php
++++ b/app/Http/Controllers/OsisPeriodeController.php
+@@ -234,6 +234,9 @@ public function tahapUpdate(Request $request, SeleksiTahap $tahap, OsisService $
+         $tahap->save();
+ 
+         if ($jadwalBerubah) {
++            // Jadwal baru = pengingat dikirim ulang (24 jam dan 1 jam sebelum jadwal yang baru)
++            $tahap->pengingats()->delete();
++
+             $this->beritahuPendaftar($periode, 'Jadwal seleksi diperbarui', "Tahap {$tahap->urutan}: {$tahap->ringkasan}.", $request->user()->id);
+         }
+ 
+diff --git a/app/Http/Controllers/UserController.php b/app/Http/Controllers/UserController.php
+index c459ccf..4a5970d 100644
+--- a/app/Http/Controllers/UserController.php
++++ b/app/Http/Controllers/UserController.php
+@@ -57,9 +57,11 @@ public function index(Request $request)
+             'opsiEkskul' => Ekstrakurikuler::orderBy('nama_ekstrakurikuler')->get(['id', 'nama_ekstrakurikuler']),
+         ];
+ 
+-        // Status OSIS tiap siswa (lencana dan tombol di tabel). Cuma admin & pembina OSIS yang boleh mengubahnya.
++        // Status seleksi/kepengurusan tiap siswa di SATU ekskul berseleksi (lencana dan tombol di tabel): OSIS/organisasi utama
++        // secara bawaan, atau yang dipilih lewat saringan "Jalur seleksi". Cuma admin & pembina ekskul itu yang boleh mengubahnya.
+         $layanan = app(OsisService::class);
+-        $ekskulOsis = $layanan->osis();
++        $daftarJalur = $layanan->daftarJalur();
++        $ekskulOsis = $layanan->jalurTerpilih((int) $request->query('jalur') ?: null);
+         $infoOsis = ['ada' => false];
+ 
+         if ($ekskulOsis) {
+@@ -68,7 +70,7 @@ public function index(Request $request)
+                 ->latest()
+                 ->first();
+ 
+-            $boleh = $layanan->bolehMemutuskan($request->user());
++            $boleh = $layanan->bolehMemutuskan($request->user(), $ekskulOsis);
+             $riwayat = collect();
+             $angkatan = [];
+ 
+@@ -90,6 +92,8 @@ public function index(Request $request)
+ 
+             $infoOsis = [
+                 'ada' => true,
++                'ekskul' => $ekskulOsis,
++                'opsi' => $daftarJalur,
+                 'riwayat' => $riwayat,
+                 'angkatan' => $angkatan,
+                 'periode' => $periode,
+diff --git a/app/Models/Ekstrakurikuler.php b/app/Models/Ekstrakurikuler.php
+index 0345ecb..e882dbb 100644
+--- a/app/Models/Ekstrakurikuler.php
++++ b/app/Models/Ekstrakurikuler.php
+@@ -23,6 +23,7 @@ class Ekstrakurikuler extends Model
+         'kuota',
+         'jenis',
+         'jenis_ekskul_id',
++        'induk_id',
+         'dibuat_oleh',
+         'diresmikan_pada',
+         'diresmikan_oleh',
+@@ -53,6 +54,19 @@ protected static function booted(): void
+             }
+         });
+ 
++        // Induk hanya berlaku untuk organisasi, dan tidak boleh organisasi itu sendiri
++        static::saving(function (self $ekskul) {
++            if (! $ekskul->induk_id) {
++                return;
++            }
++
++            $organisasi = JenisEkskul::whereKey($ekskul->jenis_ekskul_id)->value('kategori') === 'organisasi';
++
++            if (! $organisasi || ($ekskul->exists && (int) $ekskul->induk_id === (int) $ekskul->id)) {
++                $ekskul->induk_id = null;
++            }
++        });
++
+         // Menghapus ekskul = menghapus juga berkas fisik materi, task, dan galerinya
+         static::deleting(function (self $ekskul) {
+             foreach (['materi', 'pr', 'galeri'] as $folder) {
+@@ -100,6 +114,46 @@ public function pembuat()
+         return $this->belongsTo(User::class, 'dibuat_oleh');
+     }
+ 
++    // Organisasi di atasnya (mis. OSIS berada di bawah MPK) dan organisasi di bawahnya
++    public function induk()
++    {
++        return $this->belongsTo(self::class, 'induk_id');
++    }
++
++    public function bawahan()
++    {
++        return $this->hasMany(self::class, 'induk_id');
++    }
++
++    // Apakah menjadikan $indukId sebagai induk dari $ekskulId membuat lingkaran (A di bawah B, B di bawah A, dst)?
++    public static function menimbulkanSiklus(int $ekskulId, int $indukId): bool
++    {
++        $dilihat = [];
++        $kini    = $indukId;
++
++        while ($kini) {
++            if ($kini === $ekskulId || isset($dilihat[$kini])) {
++                return true;
++            }
++
++            $dilihat[$kini] = true;
++            $kini = (int) static::whereKey($kini)->value('induk_id');
++        }
++
++        return false;
++    }
++
++    // Sebutan untuk orang yang diterima: "pengurus" di organisasi, "anggota" di ekskul biasa/seleksi
++    public function getSebutanAnggotaAttribute(): string
++    {
++        return $this->isOrganisasi() ? 'pengurus' : 'anggota';
++    }
++
++    public function getSebutanKeanggotaanAttribute(): string
++    {
++        return $this->isOrganisasi() ? 'kepengurusan' : 'keanggotaan';
++    }
++
+     // Sebutan pendaftar seleksi: "CaSis" untuk OSIS, "Calon Pengurus" untuk organisasi lain, "Calon Anggota" untuk ekskul seleksi
+     public function getLabelCalonAttribute(): string
+     {
+diff --git a/app/Models/SeleksiPengingat.php b/app/Models/SeleksiPengingat.php
+new file mode 100644
+index 0000000..e44cfb5
+--- /dev/null
++++ b/app/Models/SeleksiPengingat.php
+@@ -0,0 +1,20 @@
++<?php
++
++namespace App\Models;
++
++use Illuminate\Database\Eloquent\Model;
++
++// Penanda bahwa pengingat jadwal sebuah tahap seleksi sudah dikirim (jenis: 24j atau 1j).
++class SeleksiPengingat extends Model
++{
++    protected $table = 'seleksi_pengingats';
++
++    protected $fillable = ['seleksi_tahap_id', 'jenis', 'dikirim_pada'];
++
++    protected $casts = ['dikirim_pada' => 'datetime'];
++
++    public function tahap()
++    {
++        return $this->belongsTo(SeleksiTahap::class, 'seleksi_tahap_id');
++    }
++}
+diff --git a/app/Models/SeleksiTahap.php b/app/Models/SeleksiTahap.php
+index fa5ea74..0e5e491 100644
+--- a/app/Models/SeleksiTahap.php
++++ b/app/Models/SeleksiTahap.php
+@@ -27,6 +27,11 @@ public function hasils()
+         return $this->hasMany(SeleksiHasil::class);
+     }
+ 
++    public function pengingats()
++    {
++        return $this->hasMany(SeleksiPengingat::class);
++    }
++
+     public function reviews()
+     {
+         return $this->hasMany(CasisReview::class);
+diff --git a/app/Services/OsisService.php b/app/Services/OsisService.php
+index 3298e58..614d1a4 100644
+--- a/app/Services/OsisService.php
++++ b/app/Services/OsisService.php
+@@ -35,6 +35,22 @@ public function osis(): ?Ekstrakurikuler
+         return $this->osisCache;
+     }
+ 
++    // Semua ekskul berseleksi (organisasi dulu, lalu ekskul seleksi), untuk pilihan di Kelola User
++    public function daftarJalur(): Collection
++    {
++        return Ekstrakurikuler::alurCasis()->with('jenisEkskul')->get()
++            ->sortBy(fn ($e) => [$e->isOrganisasi() ? 0 : 1, mb_strtolower($e->nama_ekstrakurikuler)])
++            ->values();
++    }
++
++    // Jalur yang dituju alat Kelola User: pilihan ($id) kalau valid, selain itu organisasi utama, lalu ekskul berseleksi pertama
++    public function jalurTerpilih(?int $id = null): ?Ekstrakurikuler
++    {
++        $daftar = $this->daftarJalur();
++
++        return ($id ? $daftar->firstWhere('id', $id) : null) ?? $this->osis() ?? $daftar->first();
++    }
++
+     // Periode yang sedang menerima pendaftaran di ekskul ini (default: organisasi utama)
+     public function periodeBuka(?Ekstrakurikuler $ekskul = null): ?OsisPeriode
+     {
+@@ -151,9 +167,11 @@ public function tetapkanHasil(CasisPendaftaran $casis, SeleksiTahap $tahap, stri
+ 
+     // Cek aturan sebelum mencatat/mengoreksi kepengurusan secara manual. Mengembalikan pesan galat, atau null kalau boleh.
+     // $kecualiId = baris yang sedang dikoreksi (tidak dihitung sebagai duplikat dirinya sendiri).
+-    public function periksaSusulan(User $siswa, string $angkatan, string $status, ?int $kecualiId = null): ?string
++    public function periksaSusulan(User $siswa, string $angkatan, string $status, ?int $kecualiId = null, ?Ekstrakurikuler $ekskul = null): ?string
+     {
+-        $baris = PendaftaranEkskul::where('ekstrakurikuler_id', $this->osis()->id)
++        $ekskul ??= $this->osis();
++
++        $baris = PendaftaranEkskul::where('ekstrakurikuler_id', $ekskul->id)
+             ->where('user_id', $siswa->id)
+             ->where('status', 'diterima')
+             ->whereIn('status_anggota', array_keys(self::STATUS_PENGURUS))
+@@ -165,7 +183,7 @@ public function periksaSusulan(User $siswa, string $angkatan, string $status, ?i
+         }
+ 
+         if ($status === 'aktif' && $baris->contains(fn ($b) => $b->status_anggota === 'aktif')) {
+-            return "{$siswa->name} sudah tercatat sebagai pengurus OSIS yang masih menjabat. Ubah dulu statusnya lewat Koreksi.";
++            return "{$siswa->name} sudah tercatat sebagai {$ekskul->sebutan_anggota} {$ekskul->nama_ekstrakurikuler} yang masih menjabat. Ubah dulu statusnya lewat Koreksi.";
+         }
+ 
+         return null;
+diff --git a/database/migrations/2026_11_03_090000_induk_organisasi_dan_pengingat_seleksi.php b/database/migrations/2026_11_03_090000_induk_organisasi_dan_pengingat_seleksi.php
+new file mode 100644
+index 0000000..c9890d7
+--- /dev/null
++++ b/database/migrations/2026_11_03_090000_induk_organisasi_dan_pengingat_seleksi.php
+@@ -0,0 +1,37 @@
++<?php
++
++use Illuminate\Database\Migrations\Migration;
++use Illuminate\Database\Schema\Blueprint;
++use Illuminate\Support\Facades\Schema;
++
++return new class extends Migration
++{
++    public function up(): void
++    {
++        // Hierarki organisasi: OSIS berada di bawah MPK -> OSIS.induk_id = id MPK. Hanya berarti untuk tipe Organisasi.
++        Schema::table('ekstrakurikulers', function (Blueprint $table) {
++            $table->foreignId('induk_id')->nullable()->constrained('ekstrakurikulers')->nullOnDelete();
++        });
++
++        // Catatan pengingat jadwal seleksi yang sudah terkirim, supaya tidak dobel. Dihapus saat jadwal tahap diubah
++        // (jadi pengingat dikirim ulang untuk jadwal yang baru).
++        Schema::create('seleksi_pengingats', function (Blueprint $table) {
++            $table->id();
++            $table->foreignId('seleksi_tahap_id')->constrained('seleksi_tahaps')->onDelete('cascade');
++            $table->string('jenis', 8); // 24j = dalam 24 jam, 1j = kurang dari 1 jam
++            $table->timestamp('dikirim_pada')->nullable();
++            $table->timestamps();
++
++            $table->unique(['seleksi_tahap_id', 'jenis']);
++        });
++    }
++
++    public function down(): void
++    {
++        Schema::dropIfExists('seleksi_pengingats');
++
++        Schema::table('ekstrakurikulers', function (Blueprint $table) {
++            $table->dropConstrainedForeignId('induk_id');
++        });
++    }
++};
+diff --git a/resources/views/ekstrakurikuler/_hierarki.blade.php b/resources/views/ekstrakurikuler/_hierarki.blade.php
+new file mode 100644
+index 0000000..5080256
+--- /dev/null
++++ b/resources/views/ekstrakurikuler/_hierarki.blade.php
+@@ -0,0 +1,18 @@
++{{-- Variabel: $ekskul. Posisi organisasi dalam hierarki: di bawah siapa, dan membawahi siapa. --}}
++@php
++    $induk   = $ekskul->induk;
++    $bawahan = $ekskul->bawahan()->orderBy('nama_ekstrakurikuler')->get(['id', 'nama_ekstrakurikuler']);
++@endphp
++@if($induk || $bawahan->isNotEmpty())
++    <div class="mt-4 pt-4 border-t border-gray-200">
++        <p class="text-xs font-semibold text-gray-500 uppercase mb-2">🏛️ Hierarki organisasi</p>
++        <div class="flex flex-wrap gap-2 text-sm">
++            @if($induk)
++                <a href="{{ route('ekstrakurikuler.show', $induk->id) }}" class="px-3 py-1 rounded-full bg-purple-100 text-purple-800 font-semibold hover:bg-purple-200">⬆️ Di bawah {{ $induk->nama_ekstrakurikuler }}</a>
++            @endif
++            @foreach($bawahan as $b)
++                <a href="{{ route('ekstrakurikuler.show', $b->id) }}" class="px-3 py-1 rounded-full bg-indigo-100 text-indigo-800 font-semibold hover:bg-indigo-200">⬇️ Membawahi {{ $b->nama_ekstrakurikuler }}</a>
++            @endforeach
++        </div>
++    </div>
++@endif
+diff --git a/resources/views/ekstrakurikuler/_jenis.blade.php b/resources/views/ekstrakurikuler/_jenis.blade.php
+index f64ed33..726f481 100644
+--- a/resources/views/ekstrakurikuler/_jenis.blade.php
++++ b/resources/views/ekstrakurikuler/_jenis.blade.php
+@@ -8,11 +8,11 @@
+         ->get();
+     $terpilih = (int) old('jenis_ekskul_id', $idSekarang ?: ($daftarJenis->firstWhere('kode', 'ekskul')->id ?? 0));
+ @endphp
+-<div>
++<div id="blok-tipe">
+     <label class="block text-sm font-semibold text-gray-700">Tipe ekskul</label>
+     <select name="jenis_ekskul_id" class="w-full border p-2 rounded-lg mt-1">
+         @foreach($daftarJenis as $j)
+-            <option value="{{ $j->id }}" {{ $terpilih === $j->id ? 'selected' : '' }}>
++            <option value="{{ $j->id }}" data-organisasi="{{ $j->isOrganisasi() ? '1' : '0' }}" {{ $terpilih === $j->id ? 'selected' : '' }}>
+                 {{ $j->nama }}{{ $j->memakaiCasis() ? ' (pendaftaran lewat seleksi bertahap)' : '' }}{{ $j->aktif ? '' : ' (nonaktif)' }}
+             </option>
+         @endforeach
+@@ -21,4 +21,37 @@
+         Ekskul Biasa: daftar langsung. Ekskul Seleksi dan Organisasi (OSIS, MPK, dst): masuk lewat seleksi yang bisa diatur beberapa tahap.
+         <a href="{{ route('jenis-ekskul.index') }}" class="underline">Kelola tipe ekskul</a>
+     </p>
++
++    {{-- Hierarki organisasi: hanya untuk tipe Organisasi (mis. OSIS berada di bawah MPK) --}}
++    @php
++        $calonInduk = \App\Models\Ekstrakurikuler::organisasi()
++            ->when(($ekstrakurikuler ?? null)?->id, fn ($q, $id) => $q->where('id', '!=', $id))
++            ->orderBy('nama_ekstrakurikuler')
++            ->get(['id', 'nama_ekstrakurikuler']);
++        $indukTerpilih = (int) old('induk_id', $ekstrakurikuler->induk_id ?? 0);
++    @endphp
++    <div id="blok-induk" class="mt-3" style="display:none">
++        <label for="induk_id" class="block text-sm font-semibold text-gray-700">Berada di bawah organisasi <span class="font-normal text-gray-400">(opsional)</span></label>
++        <select id="induk_id" name="induk_id" class="w-full border p-2 rounded-lg mt-1">
++            <option value="">Tidak ada (organisasi tingkat tertinggi)</option>
++            @foreach($calonInduk as $c)
++                <option value="{{ $c->id }}" {{ $indukTerpilih === $c->id ? 'selected' : '' }}>{{ $c->nama_ekstrakurikuler }}</option>
++            @endforeach
++        </select>
++        <p class="text-xs text-gray-500 mt-1">Contoh: pilih <strong>MPK</strong> pada OSIS, karena MPK berada di atas OSIS. Hanya organisasi yang bisa menjadi induk.</p>
++    </div>
+ </div>
++
++<script>
++    (function () {
++        var tipe = document.querySelector('select[name="jenis_ekskul_id"]');
++        var blok = document.getElementById('blok-induk');
++        if (!tipe || !blok) return;
++        function atur() {
++            var opsi = tipe.options[tipe.selectedIndex];
++            blok.style.display = opsi && opsi.dataset.organisasi === '1' ? '' : 'none';
++        }
++        tipe.addEventListener('change', atur);
++        atur();
++    })();
++</script>
+diff --git a/resources/views/ekstrakurikuler/index.blade.php b/resources/views/ekstrakurikuler/index.blade.php
+index f41bd3d..23e7dc7 100644
+--- a/resources/views/ekstrakurikuler/index.blade.php
++++ b/resources/views/ekstrakurikuler/index.blade.php
+@@ -87,6 +87,9 @@
+                         @elseif($ekskul->jenisEkskul && $ekskul->jenisEkskul->kode !== 'ekskul')
+                             <span class="inline-block px-2 py-0.5 ml-1 text-xs rounded-full bg-purple-100 text-purple-800">{{ $ekskul->memakaiCasis() ? '🗳️ ' : '' }}{{ $ekskul->jenisEkskul->nama }}</span>
+                         @endif
++                        @if($ekskul->induk)
++                            <span class="inline-block px-2 py-0.5 ml-1 text-xs rounded-full bg-indigo-100 text-indigo-800">⬆️ Di bawah {{ $ekskul->induk->nama_ekstrakurikuler }}</span>
++                        @endif
+                         @if(auth()->user()->isAdmin() && $ekskul->pembinaAktif->isEmpty())
+                             <span class="inline-block px-2 py-0.5 ml-1 text-xs rounded-full bg-red-100 text-red-700">Belum ada pembina</span>
+                         @endif
+diff --git a/resources/views/ekstrakurikuler/show.blade.php b/resources/views/ekstrakurikuler/show.blade.php
+index 4c698a3..541e34f 100644
+--- a/resources/views/ekstrakurikuler/show.blade.php
++++ b/resources/views/ekstrakurikuler/show.blade.php
+@@ -119,6 +119,8 @@ class="inline-block bg-emerald-600 text-white px-5 py-2 rounded-lg font-semibold
+ 
+                     @include('ekstrakurikuler._komunitas')
+ 
++                    @include('ekstrakurikuler._hierarki')
++
+                     <div class="mt-4 pt-4 border-t border-gray-200">
+                         <a href="{{ route('saran.index', ['ekskul' => $ekskul->id]) }}" class="text-sm text-indigo-600 font-semibold hover:underline">💬 Kirim kritik &amp; saran untuk ekskul ini</a>
+                     </div>
+diff --git a/resources/views/users/_osis_susulan.blade.php b/resources/views/users/_osis_susulan.blade.php
+index 12da47b..ca74001 100644
+--- a/resources/views/users/_osis_susulan.blade.php
++++ b/resources/views/users/_osis_susulan.blade.php
+@@ -1,12 +1,14 @@
+-{{-- Kepengurusan OSIS siswa: koreksi riwayat yang ada + catat angkatan baru tanpa lewat seleksi CaSis.
++{{-- Kepengurusan siswa di ekskul berseleksi (OSIS, MPK, dst): koreksi riwayat yang ada + catat angkatan baru tanpa lewat seleksi.
+      Variabel: $u (siswa), $infoOsis. Saran angkatan memakai <datalist id="angkatan-osis"> di users/index. --}}
+ @php
+     $baris = $infoOsis['riwayat'][$u->id] ?? collect();
+     $tahunIni = now()->year;
++    $ekskulJalur = $infoOsis['ekskul'];
++    $namaJalur   = $ekskulJalur->nama_ekstrakurikuler;
+ @endphp
+ <details class="w-full">
+     <summary class="cursor-pointer inline-block bg-slate-700 text-white px-3 py-1 rounded text-xs font-semibold hover:bg-slate-800 list-none">
+-        Kepengurusan OSIS @if($baris->isNotEmpty())({{ $baris->count() }})@endif
++        {{ ucfirst($ekskulJalur->sebutan_keanggotaan) }} {{ $namaJalur }} @if($baris->isNotEmpty())({{ $baris->count() }})@endif
+     </summary>
+ 
+     <div class="mt-2 w-80 space-y-3 text-xs">
+@@ -32,9 +34,10 @@
+         @endforeach
+ 
+         <form action="{{ route('casis.pengurus', $u->id) }}" method="POST" class="border rounded-lg p-2 space-y-1"
+-              onsubmit="return confirm('Catat {{ e($u->name) }} sebagai pengurus OSIS secara langsung, tanpa seleksi CaSis?')">
++              onsubmit="return confirm({{ json_encode('Catat '.$u->name.' sebagai '.$ekskulJalur->sebutan_anggota.' '.$namaJalur.' secara langsung, tanpa seleksi?') }})">
+             @csrf
+-            <p class="font-semibold text-gray-700">Catat angkatan (tanpa seleksi CaSis)</p>
++            <input type="hidden" name="ekskul_id" value="{{ $ekskulJalur->id }}">
++            <p class="font-semibold text-gray-700">Catat angkatan (tanpa seleksi {{ $ekskulJalur->label_calon }})</p>
+             <div class="grid grid-cols-2 gap-1">
+                 <input type="text" name="angkatan" list="angkatan-osis" placeholder="Angkatan, mis. 2024/2025" maxlength="20" required class="border p-1 rounded col-span-2">
+                 <input type="number" name="tahun_mulai" value="{{ $tahunIni }}" placeholder="Tahun mulai" required class="border p-1 rounded">
+@@ -47,7 +50,7 @@
+                 <input type="text" name="catatan" placeholder="Catatan (opsional)" maxlength="200" class="border p-1 rounded col-span-2">
+             </div>
+             <p class="text-gray-500">Purna tugas wajib diisi tahun selesainya.</p>
+-            <button type="submit" class="bg-slate-700 text-white px-3 py-1 rounded font-semibold hover:bg-slate-800">Catat pengurus OSIS</button>
++            <button type="submit" class="bg-slate-700 text-white px-3 py-1 rounded font-semibold hover:bg-slate-800">Catat {{ $ekskulJalur->sebutan_anggota }} {{ $namaJalur }}</button>
+         </form>
+     </div>
+ </details>
+diff --git a/resources/views/users/index.blade.php b/resources/views/users/index.blade.php
+index dbea39a..53bff69 100644
+--- a/resources/views/users/index.blade.php
++++ b/resources/views/users/index.blade.php
+@@ -78,6 +78,16 @@
+                         @endforeach
+                     </select>
+                 </div>
++                @if(($infoOsis['ada'] ?? false) && $infoOsis['opsi']->count() > 1)
++                    <div class="col-span-2 md:col-span-5">
++                        <label for="f-jalur" class="block text-xs font-semibold text-gray-600 mb-1">Jalur seleksi (lencana &amp; tombol kepengurusan di tabel)</label>
++                        <select id="f-jalur" name="jalur" class="w-full md:w-72 border p-2 rounded-lg text-sm">
++                            @foreach($infoOsis['opsi'] as $j)
++                                <option value="{{ $j->id }}" {{ $infoOsis['ekskul']->id === $j->id ? 'selected' : '' }}>{{ $j->nama_ekstrakurikuler }}</option>
++                            @endforeach
++                        </select>
++                    </div>
++                @endif
+                 <div class="flex gap-2">
+                     <button type="submit" class="flex-1 bg-slate-700 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-slate-800">Terapkan</button>
+                     @if($filter['aktif'])
+@@ -184,9 +194,9 @@ class="cek-user h-4 w-4 {{ $bisaPilih ? 'cursor-pointer' : 'cursor-not-allowed o
+                                         @if($u->status_sekolah)<span class="inline-block mt-1 px-2 py-0.5 text-xs rounded-full {{ $u->is_alumni ? 'bg-amber-100 text-amber-800' : 'bg-gray-100 text-gray-800' }}">🎓 {{ $u->status_sekolah }}</span>@endif
+                                         @if($infoOsis['ada'] ?? false)
+                                             @if(in_array($u->id, $infoOsis['pengurus'], true))
+-                                                <span class="inline-block mt-1 px-2 py-0.5 text-xs rounded-full bg-purple-100 text-purple-800">🏛️ Pengurus OSIS</span>
++                                                <span class="inline-block mt-1 px-2 py-0.5 text-xs rounded-full bg-purple-100 text-purple-800">🏛️ {{ ucfirst($infoOsis['ekskul']->sebutan_anggota) }} {{ $infoOsis['ekskul']->nama_ekstrakurikuler }}</span>
+                                             @elseif(isset($infoOsis['casis'][$u->id]))
+-                                                <span class="inline-block mt-1 px-2 py-0.5 text-xs rounded-full bg-indigo-100 text-indigo-800">🗳️ CaSis: {{ \App\Models\CasisPendaftaran::STATUS[$infoOsis['casis'][$u->id]] }}</span>
++                                                <span class="inline-block mt-1 px-2 py-0.5 text-xs rounded-full bg-indigo-100 text-indigo-800">🗳️ {{ $infoOsis['ekskul']->label_calon }}: {{ \App\Models\CasisPendaftaran::STATUS[$infoOsis['casis'][$u->id]] }}</span>
+                                             @endif
+                                         @endif
+                                     </div>
+@@ -233,9 +243,10 @@ class="cek-user h-4 w-4 {{ $bisaPilih ? 'cursor-pointer' : 'cursor-not-allowed o
+ 
+                                     @if(($infoOsis['ada'] ?? false) && ($infoOsis['boleh'] ?? false) && $u->role === 'siswa' && $u->is_active)
+                                         @if(!in_array($u->id, $infoOsis['pengurus'], true) && $infoOsis['periode'] && !isset($infoOsis['casis'][$u->id]))
+-                                            <form action="{{ route('casis.masukkan', $u->id) }}" method="POST" onsubmit="return confirm('Masukkan {{ e($u->name) }} ke jalur CaSis OSIS? Ia akan diminta melengkapi formulir pendaftaran.')">
++                                            <form action="{{ route('casis.masukkan', $u->id) }}" method="POST" onsubmit="return confirm({{ json_encode('Masukkan '.$u->name.' ke jalur '.$infoOsis['ekskul']->label_calon.' '.$infoOsis['ekskul']->nama_ekstrakurikuler.'? Ia akan diminta melengkapi formulir pendaftaran.') }})">
+                                                 @csrf
+-                                                <button type="submit" class="bg-purple-600 text-white px-3 py-1 rounded text-xs font-semibold hover:bg-purple-700">Masukkan ke jalur CaSis</button>
++                                                <input type="hidden" name="ekskul_id" value="{{ $infoOsis['ekskul']->id }}">
++                                                <button type="submit" class="bg-purple-600 text-white px-3 py-1 rounded text-xs font-semibold hover:bg-purple-700">Masukkan ke jalur {{ $infoOsis['ekskul']->label_calon }}</button>
+                                             </form>
+                                         @endif
+                                         @include('users._osis_susulan', ['u' => $u, 'infoOsis' => $infoOsis])
+diff --git a/routes/console.php b/routes/console.php
+index f3ffc32..468ff8c 100644
+--- a/routes/console.php
++++ b/routes/console.php
+@@ -16,3 +16,7 @@
+ 
+ // Hapus password sementara yang sudah kedaluwarsa (butuh `php artisan schedule:run` berjalan tiap menit di server)
+ Schedule::command('model:prune', ['--model' => [\App\Models\KredensialSementara::class]])->daily();
++
++// Pengingat jadwal tahap seleksi (24 jam dan 1 jam sebelum mulai) ke pendaftar dan penilai.
++// Butuh `php artisan schedule:run` tiap menit di server. Pengingat yang sudah terkirim dicatat, jadi aman jalan berulang.
++Schedule::command('seleksi:ingatkan')->everyFifteenMinutes()->withoutOverlapping();
+diff --git a/tests/Feature/IndukOrganisasiTest.php b/tests/Feature/IndukOrganisasiTest.php
+new file mode 100644
+index 0000000..4c78162
+--- /dev/null
++++ b/tests/Feature/IndukOrganisasiTest.php
+@@ -0,0 +1,142 @@
++<?php
++
++use App\Models\Ekstrakurikuler;
++use App\Models\JenisEkskul;
++use App\Models\User;
++use Illuminate\Foundation\Testing\RefreshDatabase;
++
++uses(RefreshDatabase::class);
++
++beforeEach(function () {
++    $this->withoutVite();
++});
++
++function adminIo(): User
++{
++    return User::factory()->create(['role' => 'admin', 'is_active' => true]);
++}
++
++function ekskulIo(string $nama, string $tipe = 'organisasi', array $tambahan = []): Ekstrakurikuler
++{
++    return Ekstrakurikuler::create(array_merge([
++        'nama_ekstrakurikuler' => $nama,
++        'pembina' => 'Pak Uji',
++        'status' => 'aktif',
++        'jenis_ekskul_id' => JenisEkskul::where('kode', $tipe)->value('id'),
++    ], $tambahan));
++}
++
++function formIo(Ekstrakurikuler $ekskul, array $tambahan = []): array
++{
++    return array_merge([
++        'nama_ekstrakurikuler' => $ekskul->nama_ekstrakurikuler,
++        'pembina' => 'Pak Uji',
++        'status' => 'aktif',
++        'jenis_ekskul_id' => $ekskul->jenis_ekskul_id,
++        'hari' => ['senin'],
++        'jadwal' => ['senin' => ['jam_mulai' => '15:00', 'jam_selesai' => '17:00']],
++    ], $tambahan);
++}
++
++test('admin menempatkan OSIS di bawah MPK, dan MPK tercatat membawahi OSIS', function () {
++    $mpk = ekskulIo('MPK');
++    $osis = ekskulIo('OSIS');
++
++    $this->actingAs(adminIo())->put(route('ekstrakurikuler.update', $osis->id), formIo($osis, ['induk_id' => $mpk->id]))
++        ->assertSessionHasNoErrors();
++
++    expect($osis->fresh()->induk_id)->toBe($mpk->id)
++        ->and($osis->fresh()->induk->nama_ekstrakurikuler)->toBe('MPK')
++        ->and($mpk->bawahan()->pluck('nama_ekstrakurikuler')->all())->toBe(['OSIS']);
++});
++
++test('induk bisa dilepas dengan mengosongkan pilihan', function () {
++    $mpk = ekskulIo('MPK');
++    $osis = ekskulIo('OSIS', 'organisasi', ['induk_id' => $mpk->id]);
++
++    $this->actingAs(adminIo())->put(route('ekstrakurikuler.update', $osis->id), formIo($osis, ['induk_id' => '']))
++        ->assertSessionHasNoErrors();
++
++    expect($osis->fresh()->induk_id)->toBeNull();
++});
++
++test('induk harus organisasi, bukan dirinya sendiri, dan tidak boleh membentuk lingkaran', function () {
++    $mpk = ekskulIo('MPK');
++    $osis = ekskulIo('OSIS', 'organisasi', ['induk_id' => $mpk->id]);
++    $futsal = ekskulIo('Futsal', 'ekskul');
++    $admin = adminIo();
++
++    // ekskul biasa tidak bisa jadi induk
++    $this->actingAs($admin)->put(route('ekstrakurikuler.update', $osis->id), formIo($osis, ['induk_id' => $futsal->id]))
++        ->assertSessionHasErrors('induk_id');
++
++    // organisasi tidak bisa jadi induk dirinya sendiri
++    $this->actingAs($admin)->put(route('ekstrakurikuler.update', $mpk->id), formIo($mpk, ['induk_id' => $mpk->id]))
++        ->assertSessionHasErrors('induk_id');
++
++    // MPK di bawah OSIS padahal OSIS sudah di bawah MPK = lingkaran
++    $this->actingAs($admin)->put(route('ekstrakurikuler.update', $mpk->id), formIo($mpk, ['induk_id' => $osis->id]))
++        ->assertSessionHasErrors('induk_id');
++
++    expect($mpk->fresh()->induk_id)->toBeNull()->and($osis->fresh()->induk_id)->toBe($mpk->id);
++});
++
++test('induk yang tidak ada ditolak', function () {
++    $osis = ekskulIo('OSIS');
++
++    $this->actingAs(adminIo())->put(route('ekstrakurikuler.update', $osis->id), formIo($osis, ['induk_id' => 99999]))
++        ->assertSessionHasErrors('induk_id');
++});
++
++test('mengganti tipe organisasi menjadi bukan organisasi otomatis melepas induknya', function () {
++    $mpk = ekskulIo('MPK');
++    $osis = ekskulIo('OSIS', 'organisasi', ['induk_id' => $mpk->id]);
++    $biasa = JenisEkskul::where('kode', 'ekskul')->value('id');
++
++    $this->actingAs(adminIo())->put(route('ekstrakurikuler.update', $osis->id), formIo($osis, ['jenis_ekskul_id' => $biasa, 'induk_id' => $mpk->id]))
++        ->assertSessionHasNoErrors();
++
++    expect($osis->fresh()->induk_id)->toBeNull();
++});
++
++test('induk hanya bisa diatur lewat model untuk organisasi: ekskul biasa selalu tanpa induk', function () {
++    $mpk = ekskulIo('MPK');
++    $futsal = ekskulIo('Futsal', 'ekskul', ['induk_id' => $mpk->id]);
++
++    expect($futsal->fresh()->induk_id)->toBeNull();
++});
++
++test('menghapus organisasi induk melepas induk bawahannya, bukan menghapus bawahannya', function () {
++    $mpk = ekskulIo('MPK');
++    $osis = ekskulIo('OSIS', 'organisasi', ['induk_id' => $mpk->id]);
++
++    $mpk->delete();
++
++    expect($osis->fresh())->not->toBeNull()->and($osis->fresh()->induk_id)->toBeNull();
++});
++
++test('halaman ekskul dan katalog menampilkan hierarkinya', function () {
++    $mpk = ekskulIo('MPK');
++    $osis = ekskulIo('OSIS', 'organisasi', ['induk_id' => $mpk->id]);
++    $admin = adminIo();
++
++    $this->actingAs($admin)->get(route('ekstrakurikuler.show', $osis->id))->assertOk()->assertSee('Di bawah MPK');
++    $this->actingAs($admin)->get(route('ekstrakurikuler.show', $mpk->id))->assertOk()->assertSee('Membawahi OSIS');
++    $this->actingAs($admin)->get(route('ekstrakurikuler.index'))->assertOk()->assertSee('Di bawah MPK');
++});
++
++test('form edit menawarkan organisasi lain sebagai induk (bukan dirinya sendiri dan bukan ekskul biasa)', function () {
++    $mpk = ekskulIo('MPK');
++    $osis = ekskulIo('OSIS');
++    ekskulIo('Futsal Garuda', 'ekskul');
++
++    $html = $this->actingAs(adminIo())->get(route('ekstrakurikuler.edit', $osis->id))->assertOk()->getContent();
++
++    expect($html)->toContain('name="induk_id"')
++        ->and($html)->toMatch('/<option value="'.$mpk->id.'"[^>]*>MPK<\/option>/')
++        ->and($html)->not->toMatch('/<option value="'.$osis->id.'"[^>]*>OSIS<\/option>/')
++        ->and($html)->not->toMatch('/<option value="\d+"[^>]*>Futsal Garuda<\/option>/');
++
++    // form tambah ekskul juga punya pilihannya
++    $this->actingAs(adminIo())->get(route('ekstrakurikuler.create'))->assertOk()->assertSee('name="induk_id"', false);
++});
+diff --git a/tests/Feature/JalurKelolaUserTest.php b/tests/Feature/JalurKelolaUserTest.php
+new file mode 100644
+index 0000000..7588a09
+--- /dev/null
++++ b/tests/Feature/JalurKelolaUserTest.php
+@@ -0,0 +1,233 @@
++<?php
++
++use App\Models\CasisPendaftaran;
++use App\Models\EkskulPembina;
++use App\Models\Ekstrakurikuler;
++use App\Models\JenisEkskul;
++use App\Models\OsisPeriode;
++use App\Models\PendaftaranEkskul;
++use App\Models\User;
++use Illuminate\Foundation\Testing\RefreshDatabase;
++
++uses(RefreshDatabase::class);
++
++beforeEach(function () {
++    $this->withoutVite();
++});
++
++function akunJl(string $role, string $nama): User
++{
++    return User::factory()->create(['role' => $role, 'name' => $nama, 'is_active' => true]);
++}
++
++function ekskulJl(string $nama, string $tipe): Ekstrakurikuler
++{
++    return Ekstrakurikuler::create([
++        'nama_ekstrakurikuler' => $nama, 'pembina' => 'Pak Uji', 'status' => 'aktif',
++        'jenis_ekskul_id' => JenisEkskul::where('kode', $tipe)->value('id'),
++    ]);
++}
++
++function periodeJl(Ekstrakurikuler $ekskul, string $status = 'rekrutmen'): OsisPeriode
++{
++    return OsisPeriode::create(['ekstrakurikuler_id' => $ekskul->id, 'nama' => '2026/2027', 'status' => $status]);
++}
++
++function judulJl(User $user): array
++{
++    return $user->notifications()->get()->map(fn ($n) => $n->data['judul'] ?? null)->all();
++}
++
++function isianJl(array $tambahan = []): array
++{
++    return array_merge(['angkatan' => '2024/2025', 'tahun_mulai' => 2024, 'tahun_selesai' => '', 'status' => 'aktif'], $tambahan);
++}
++
++// OSIS (organisasi, jadi organisasi utama) + Paskibra (ekskul seleksi), masing-masing dengan periode rekrutmen terbuka
++function duaJalurJl(): array
++{
++    $osis = ekskulJl('OSIS', 'organisasi');
++    $paskibra = ekskulJl('Paskibra', 'seleksi');
++
++    return ['osis' => $osis, 'paskibra' => $paskibra, 'periodeOsis' => periodeJl($osis), 'periodePaskibra' => periodeJl($paskibra), 'admin' => akunJl('admin', 'Admin Jalur'), 'siswa' => akunJl('siswa', 'Siswa Jalur')];
++}
++
++test('Kelola User memakai organisasi utama secara bawaan dan jalur lain lewat saringan Jalur seleksi', function () {
++    $d = duaJalurJl();
++
++    $bawaan = $this->actingAs($d['admin'])->get(route('users.index'))->assertOk();
++    $bawaan->assertSee('Masukkan ke jalur CaSis')->assertSee('Kepengurusan OSIS')->assertSee('Catat pengurus OSIS')
++        ->assertSee('name="ekskul_id" value="'.$d['osis']->id.'"', false)
++        ->assertDontSee('Keanggotaan Paskibra');
++
++    $paskibra = $this->actingAs($d['admin'])->get(route('users.index', ['jalur' => $d['paskibra']->id]))->assertOk();
++    $paskibra->assertSee('Masukkan ke jalur Calon Anggota')->assertSee('Keanggotaan Paskibra')->assertSee('Catat anggota Paskibra')
++        ->assertSee('name="ekskul_id" value="'.$d['paskibra']->id.'"', false)
++        ->assertDontSee('Catat pengurus OSIS');
++});
++
++test('jalur yang tidak dikenal kembali ke organisasi utama', function () {
++    $d = duaJalurJl();
++    $biasa = ekskulJl('Futsal', 'ekskul');
++
++    foreach ([99999, $biasa->id] as $id) {
++        $this->actingAs($d['admin'])->get(route('users.index', ['jalur' => $id]))->assertOk()->assertSee('Catat pengurus OSIS');
++    }
++});
++
++test('saringan Jalur seleksi hanya muncul kalau ada lebih dari satu ekskul berseleksi', function () {
++    $osis = ekskulJl('OSIS', 'organisasi');
++    periodeJl($osis);
++    $admin = akunJl('admin', 'Admin Jalur');
++
++    $this->actingAs($admin)->get(route('users.index'))->assertOk()->assertDontSee('id="f-jalur"', false);
++
++    ekskulJl('Paskibra', 'seleksi');
++
++    $this->actingAs($admin)->get(route('users.index'))->assertOk()->assertSee('id="f-jalur"', false)->assertSee('Jalur seleksi');
++});
++
++test('tanpa organisasi, ekskul seleksi pertama menjadi jalur bawaan', function () {
++    $paskibra = ekskulJl('Paskibra', 'seleksi');
++    periodeJl($paskibra);
++    akunJl('siswa', 'Siswa Jalur');   // tombolnya muncul di baris siswa
++
++    $this->actingAs(akunJl('admin', 'Admin Jalur'))->get(route('users.index'))->assertOk()->assertSee('Catat anggota Paskibra');
++});
++
++test('memasukkan siswa ke jalur seleksi ekskul pilihan', function () {
++    $d = duaJalurJl();
++
++    $this->actingAs($d['admin'])->post(route('casis.masukkan', $d['siswa']->id), ['ekskul_id' => $d['paskibra']->id])
++        ->assertSessionHas('success');
++
++    $casis = CasisPendaftaran::firstOrFail();
++
++    expect($casis->osis_periode_id)->toBe($d['periodePaskibra']->id)
++        ->and($casis->status)->toBe('draft')
++        ->and($casis->didaftarkan_oleh)->toBe($d['admin']->id)
++        ->and(judulJl($d['siswa']))->toContain('Kamu didaftarkan ke jalur Paskibra');
++});
++
++test('tanpa ekskul_id, siswa dimasukkan ke jalur organisasi utama', function () {
++    $d = duaJalurJl();
++
++    $this->actingAs($d['admin'])->post(route('casis.masukkan', $d['siswa']->id))->assertSessionHas('success');
++
++    expect(CasisPendaftaran::firstOrFail()->osis_periode_id)->toBe($d['periodeOsis']->id)
++        ->and(judulJl($d['siswa']))->toContain('Kamu didaftarkan ke jalur OSIS');
++});
++
++test('memasukkan ke jalur ditolak kalau periodenya belum dibuka atau siswa sudah anggota', function () {
++    $d = duaJalurJl();
++    $d['periodePaskibra']->update(['status' => 'berjalan']);
++
++    $this->actingAs($d['admin'])->post(route('casis.masukkan', $d['siswa']->id), ['ekskul_id' => $d['paskibra']->id])
++        ->assertSessionHas('error', fn ($m) => str_contains($m, 'Belum ada periode pendaftaran Calon Anggota yang dibuka'));
++
++    PendaftaranEkskul::create([
++        'user_id' => $d['siswa']->id, 'ekstrakurikuler_id' => $d['osis']->id, 'nama_pendaftar' => 'Siswa Jalur',
++        'peran' => 'siswa', 'status' => 'diterima', 'status_anggota' => 'aktif', 'tahun_mulai' => 2026,
++    ]);
++
++    $this->actingAs($d['admin'])->post(route('casis.masukkan', $d['siswa']->id), ['ekskul_id' => $d['osis']->id])
++        ->assertSessionHas('error', fn ($m) => str_contains($m, 'sudah menjadi pengurus OSIS'));
++
++    expect(CasisPendaftaran::count())->toBe(0);
++});
++
++test('mencatat anggota ekskul seleksi tanpa seleksi memakai sebutan anggota; organisasi memakai pengurus', function () {
++    $d = duaJalurJl();
++
++    $this->actingAs($d['admin'])->post(route('casis.pengurus', $d['siswa']->id), isianJl(['ekskul_id' => $d['paskibra']->id, 'catatan' => 'Lupa diinput']))
++        ->assertSessionHas('success', fn ($m) => str_contains($m, 'sekarang anggota Paskibra angkatan 2024/2025'));
++
++    $baris = PendaftaranEkskul::where('user_id', $d['siswa']->id)->firstOrFail();
++
++    expect($baris->ekstrakurikuler_id)->toBe($d['paskibra']->id)
++        ->and($baris->status)->toBe('diterima')
++        ->and($baris->status_anggota)->toBe('aktif')
++        ->and($baris->angkatan_ekskul)->toBe('2024/2025')
++        ->and($baris->dibuat_susulan_oleh)->toBe($d['admin']->id)
++        ->and(judulJl($d['siswa']))->toContain('Kamu menjadi anggota Paskibra');
++
++    $lain = akunJl('siswa', 'Siswa Organisasi');
++    $this->actingAs($d['admin'])->post(route('casis.pengurus', $lain->id), isianJl(['ekskul_id' => $d['osis']->id]))->assertSessionHas('success');
++
++    expect(judulJl($lain))->toContain('Kamu menjadi pengurus OSIS');
++});
++
++test('angkatan susulan yang sama atau dua yang masih menjabat ditolak per ekskul, bukan lintas ekskul', function () {
++    $d = duaJalurJl();
++    $url = route('casis.pengurus', $d['siswa']->id);
++
++    $this->actingAs($d['admin'])->post($url, isianJl(['ekskul_id' => $d['paskibra']->id]))->assertSessionHas('success');
++
++    $this->actingAs($d['admin'])->post($url, isianJl(['ekskul_id' => $d['paskibra']->id]))
++        ->assertSessionHas('error', fn ($m) => str_contains($m, 'sudah tercatat di angkatan 2024/2025'));
++    $this->actingAs($d['admin'])->post($url, isianJl(['ekskul_id' => $d['paskibra']->id, 'angkatan' => '2025/2026', 'tahun_mulai' => 2025]))
++        ->assertSessionHas('error', fn ($m) => str_contains($m, 'anggota Paskibra yang masih menjabat'));
++
++    // angkatan yang sama di ekskul lain (OSIS) tidak bentrok
++    $this->actingAs($d['admin'])->post($url, isianJl(['ekskul_id' => $d['osis']->id]))->assertSessionHas('success');
++
++    expect(PendaftaranEkskul::where('user_id', $d['siswa']->id)->count())->toBe(2);
++});
++
++test('mencatat anggota yang masih menjabat menyelesaikan pendaftaran seleksinya di ekskul itu saja', function () {
++    $d = duaJalurJl();
++    $dipaskibra = CasisPendaftaran::create(['osis_periode_id' => $d['periodePaskibra']->id, 'user_id' => $d['siswa']->id, 'status' => 'draft']);
++    $diOsis = CasisPendaftaran::create(['osis_periode_id' => $d['periodeOsis']->id, 'user_id' => $d['siswa']->id, 'status' => 'draft']);
++
++    $this->actingAs($d['admin'])->post(route('casis.pengurus', $d['siswa']->id), isianJl(['ekskul_id' => $d['paskibra']->id]))->assertSessionHas('success');
++
++    expect($dipaskibra->fresh()->status)->toBe('diterima')->and($diOsis->fresh()->status)->toBe('draft');
++});
++
++test('koreksi kepengurusan bekerja untuk ekskul seleksi dan memakai sebutan keanggotaan', function () {
++    $d = duaJalurJl();
++    $baris = PendaftaranEkskul::create([
++        'user_id' => $d['siswa']->id, 'ekstrakurikuler_id' => $d['paskibra']->id, 'nama_pendaftar' => 'Siswa Jalur',
++        'peran' => 'siswa', 'status' => 'diterima', 'status_anggota' => 'aktif', 'angkatan_ekskul' => '2023/2024', 'tahun_mulai' => 2023,
++    ]);
++
++    $this->actingAs($d['admin'])->patch(route('casis.pengurus.koreksi', $baris->id), isianJl(['angkatan' => '2024/2025', 'status' => 'selesai', 'tahun_selesai' => 2025]))
++        ->assertSessionHas('success', fn ($m) => str_contains($m, 'keanggotaan Paskibra'));
++
++    expect($baris->fresh()->angkatan_ekskul)->toBe('2024/2025')
++        ->and($baris->fresh()->status_anggota)->toBe('selesai')
++        ->and(judulJl($d['siswa']))->toContain('Data keanggotaan Paskibra dikoreksi');
++});
++
++test('pembina hanya bisa mengelola jalur ekskulnya sendiri', function () {
++    $d = duaJalurJl();
++    $pembinaOsis = akunJl('pembina', 'Pembina OSIS');
++    EkskulPembina::create(['ekstrakurikuler_id' => $d['osis']->id, 'user_id' => $pembinaOsis->id, 'mulai' => now()->toDateString()]);
++
++    $this->actingAs($pembinaOsis)->post(route('casis.masukkan', $d['siswa']->id), ['ekskul_id' => $d['paskibra']->id])->assertForbidden();
++    $this->actingAs($pembinaOsis)->post(route('casis.pengurus', $d['siswa']->id), isianJl(['ekskul_id' => $d['paskibra']->id]))->assertForbidden();
++    $this->actingAs($pembinaOsis)->post(route('casis.masukkan', $d['siswa']->id), ['ekskul_id' => $d['osis']->id])->assertSessionHas('success');
++
++    $pembinaPaskibra = akunJl('pembina', 'Pembina Paskibra');
++    EkskulPembina::create(['ekstrakurikuler_id' => $d['paskibra']->id, 'user_id' => $pembinaPaskibra->id, 'mulai' => now()->toDateString()]);
++    $lain = akunJl('siswa', 'Siswa Lain');
++
++    $this->actingAs($pembinaPaskibra)->post(route('casis.pengurus', $lain->id), isianJl(['ekskul_id' => $d['paskibra']->id]))->assertSessionHas('success');
++
++    expect(PendaftaranEkskul::where('user_id', $lain->id)->value('ekstrakurikuler_id'))->toBe($d['paskibra']->id);
++});
++
++test('ekskul_id yang bukan ekskul berseleksi ditolak, begitu pula koreksi baris ekskul biasa', function () {
++    $d = duaJalurJl();
++    $biasa = ekskulJl('Futsal', 'ekskul');
++
++    $this->actingAs($d['admin'])->post(route('casis.masukkan', $d['siswa']->id), ['ekskul_id' => $biasa->id])->assertNotFound();
++    $this->actingAs($d['admin'])->post(route('casis.pengurus', $d['siswa']->id), isianJl(['ekskul_id' => $biasa->id]))->assertNotFound();
++
++    $baris = PendaftaranEkskul::create([
++        'user_id' => $d['siswa']->id, 'ekstrakurikuler_id' => $biasa->id, 'nama_pendaftar' => 'Siswa Jalur',
++        'peran' => 'siswa', 'status' => 'diterima', 'status_anggota' => 'aktif', 'tahun_mulai' => 2025,
++    ]);
++
++    $this->actingAs($d['admin'])->patch(route('casis.pengurus.koreksi', $baris->id), isianJl())->assertNotFound();
++});
+diff --git a/tests/Feature/PengingatSeleksiTest.php b/tests/Feature/PengingatSeleksiTest.php
+new file mode 100644
+index 0000000..13a6e88
+--- /dev/null
++++ b/tests/Feature/PengingatSeleksiTest.php
+@@ -0,0 +1,202 @@
++<?php
++
++use App\Models\CasisPendaftaran;
++use App\Models\EkskulPembina;
++use App\Models\Ekstrakurikuler;
++use App\Models\JenisEkskul;
++use App\Models\OsisPeriode;
++use App\Models\SeleksiPengingat;
++use App\Models\SeleksiTahap;
++use App\Models\User;
++use Illuminate\Foundation\Testing\RefreshDatabase;
++use Illuminate\Support\Facades\Artisan;
++
++uses(RefreshDatabase::class);
++
++beforeEach(function () {
++    $this->withoutVite();
++});
++
++function akunPg(string $role, string $nama): User
++{
++    return User::factory()->create(['role' => $role, 'name' => $nama, 'is_active' => true]);
++}
++
++// Skenario dasar: ekskul seleksi + periode berstatus seleksi + admin, pembina, senior, dan satu pendaftar yang diajukan
++function skenarioPg(string $statusPeriode = 'seleksi', string $namaEkskul = 'Paskibra Garuda'): array
++{
++    $ekskul = Ekstrakurikuler::create([
++        'nama_ekstrakurikuler' => $namaEkskul, 'pembina' => 'Pak Uji', 'status' => 'aktif',
++        'jenis_ekskul_id' => JenisEkskul::where('kode', 'seleksi')->value('id'),
++    ]);
++    $periode = OsisPeriode::create(['ekstrakurikuler_id' => $ekskul->id, 'nama' => '2026/2027', 'status' => $statusPeriode]);
++
++    $pembina = akunPg('pembina', 'Pembina Uji');
++    EkskulPembina::create(['ekstrakurikuler_id' => $ekskul->id, 'user_id' => $pembina->id, 'mulai' => now()->toDateString()]);
++
++    $senior = akunPg('siswa', 'Senior Uji');
++    $periode->seniors()->attach($senior->id);
++
++    $siswa = akunPg('siswa', 'Calon Uji');
++    $casis = CasisPendaftaran::create(['osis_periode_id' => $periode->id, 'user_id' => $siswa->id, 'motivasi' => str_repeat('Ingin ikut. ', 6), 'status' => 'diajukan']);
++
++    return ['ekskul' => $ekskul, 'periode' => $periode, 'admin' => akunPg('admin', 'Admin Uji'), 'pembina' => $pembina, 'senior' => $senior, 'siswa' => $siswa, 'casis' => $casis];
++}
++
++function tahapPg(OsisPeriode $periode, int $urutan, string $nama, $mulai = null): SeleksiTahap
++{
++    return SeleksiTahap::create([
++        'osis_periode_id' => $periode->id, 'urutan' => $urutan, 'nama' => $nama,
++        'mulai_pada' => $mulai, 'selesai_pada' => $mulai ? $mulai->copy()->addHour() : null, 'tempat' => $mulai ? 'Aula' : null,
++    ]);
++}
++
++function pengingatPg(User $user): array
++{
++    return $user->notifications()->get()->map(fn ($n) => $n->data['judul'] ?? '')->filter(fn ($j) => str_starts_with($j, 'Pengingat seleksi'))->values()->all();
++}
++
++function jalankanPg(): void
++{
++    Artisan::call('seleksi:ingatkan');
++}
++
++test('tahap yang mulai dalam 24 jam diingatkan ke pendaftar dan semua penilai, sekali saja', function () {
++    $d = skenarioPg();
++    tahapPg($d['periode'], 1, 'Tes tulis', now()->addHours(20));
++
++    jalankanPg();
++
++    foreach (['siswa', 'admin', 'pembina', 'senior'] as $peran) {
++        expect(pengingatPg($d[$peran]))->toBe(['Pengingat seleksi: Tes tulis']);
++    }
++
++    $pesan = $d['siswa']->notifications()->first()->data['pesan'];
++    expect($pesan)->toContain('Dalam 24 jam ke depan')->toContain('Paskibra Garuda')->toContain('Aula');
++    expect($d['admin']->notifications()->first()->data['pesan'])->toContain('untuk 1 pendaftar');
++
++    // dijalankan lagi: tidak ada pengingat ganda
++    jalankanPg();
++    jalankanPg();
++
++    expect(pengingatPg($d['siswa']))->toHaveCount(1)->and(pengingatPg($d['admin']))->toHaveCount(1);
++});
++
++test('tahap yang masih lebih dari 24 jam lagi belum diingatkan, lalu diingatkan setelah masuk jendela', function () {
++    $d = skenarioPg();
++    tahapPg($d['periode'], 1, 'Wawancara', now()->addHours(30));
++
++    jalankanPg();
++    expect(pengingatPg($d['siswa']))->toBe([]);
++
++    $this->travel(7)->hours();
++    jalankanPg();
++
++    expect(pengingatPg($d['siswa']))->toBe(['Pengingat seleksi: Wawancara']);
++});
++
++test('tahap yang sudah dekat (kurang dari 1 jam) hanya mendapat satu pengingat, bukan dua', function () {
++    $d = skenarioPg();
++    $tahap = tahapPg($d['periode'], 1, 'Praktik', now()->addMinutes(40));
++
++    jalankanPg();
++    jalankanPg();
++
++    expect(pengingatPg($d['siswa']))->toHaveCount(1)
++        ->and($d['siswa']->notifications()->first()->data['pesan'])->toContain('Kurang dari 1 jam lagi')
++        ->and(SeleksiPengingat::where('seleksi_tahap_id', $tahap->id)->pluck('jenis')->sort()->values()->all())->toBe(['1j', '24j']);
++});
++
++test('pengingat 24 jam lalu 1 jam: dua pengingat berbeda untuk tahap yang sama', function () {
++    $d = skenarioPg();
++    tahapPg($d['periode'], 1, 'Tes tulis', now()->addHours(20));
++
++    jalankanPg();
++    $this->travel(19)->hours();
++    $this->travel(30)->minutes();
++    jalankanPg();
++
++    $pesan = $d['siswa']->notifications()->get()->pluck('data.pesan')->all();
++
++    expect(pengingatPg($d['siswa']))->toHaveCount(2)
++        ->and(collect($pesan)->contains(fn ($p) => str_contains($p, 'Dalam 24 jam ke depan')))->toBeTrue()
++        ->and(collect($pesan)->contains(fn ($p) => str_contains($p, 'Kurang dari 1 jam lagi')))->toBeTrue();
++});
++
++test('hanya pendaftar yang sedang berada di tahap itu yang diingatkan', function () {
++    $d = skenarioPg();
++    $satu = tahapPg($d['periode'], 1, 'Tes tulis');
++    tahapPg($d['periode'], 2, 'Wawancara', now()->addHours(10));
++
++    // satu pendaftar lagi: belum lolos tahap 1; pendaftar utama sudah lolos tahap 1 (sekarang di tahap 2)
++    $belum = akunPg('siswa', 'Calon Belum Lolos');
++    CasisPendaftaran::create(['osis_periode_id' => $d['periode']->id, 'user_id' => $belum->id, 'motivasi' => str_repeat('Ingin ikut. ', 6), 'status' => 'diajukan']);
++    $d['casis']->hasils()->create(['seleksi_tahap_id' => $satu->id, 'hasil' => 'lolos']);
++
++    jalankanPg();
++
++    expect(pengingatPg($d['siswa']))->toBe(['Pengingat seleksi: Wawancara'])
++        ->and(pengingatPg($belum))->toBe([])
++        ->and($d['admin']->notifications()->first()->data['pesan'])->toContain('untuk 1 pendaftar');
++});
++
++test('tidak ada pengingat tanpa jadwal, untuk jadwal yang sudah lewat, periode yang sudah berjalan, atau pendaftar yang sudah ditolak', function () {
++    $d = skenarioPg();
++    tahapPg($d['periode'], 1, 'Tanpa jadwal');
++    tahapPg($d['periode'], 2, 'Sudah lewat', now()->subHours(2));
++
++    $berjalan = skenarioPg('berjalan', 'Ekskul Berjalan');
++    tahapPg($berjalan['periode'], 1, 'Periode selesai', now()->addHours(5));
++
++    $ditolak = skenarioPg('seleksi', 'Ekskul Ditolak');
++    $ditolak['casis']->update(['status' => 'ditolak']);
++    tahapPg($ditolak['periode'], 1, 'Pendaftar ditolak', now()->addHours(5));
++
++    jalankanPg();
++
++    foreach ([$d, $berjalan, $ditolak] as $skenario) {
++        expect(pengingatPg($skenario['siswa']))->toBe([])->and(pengingatPg($skenario['admin']))->toBe([]);
++    }
++});
++
++test('tahap tanpa pendaftar tidak ditandai terkirim, jadi tetap diingatkan begitu ada pendaftar', function () {
++    $d = skenarioPg();
++    $d['casis']->update(['status' => 'draft']);
++    $tahap = tahapPg($d['periode'], 1, 'Tes tulis', now()->addHours(10));
++
++    jalankanPg();
++    expect(SeleksiPengingat::count())->toBe(0);
++
++    $d['casis']->update(['status' => 'diajukan']);
++    jalankanPg();
++
++    expect(pengingatPg($d['siswa']))->toHaveCount(1)->and(SeleksiPengingat::where('seleksi_tahap_id', $tahap->id)->pluck('jenis')->all())->toBe(['24j']);
++});
++
++test('mengubah jadwal tahap menghapus catatan pengingat, jadi jadwal baru diingatkan lagi', function () {
++    $d = skenarioPg();
++    $tahap = tahapPg($d['periode'], 1, 'Tes tulis', now()->addHours(20));
++
++    jalankanPg();
++    expect(pengingatPg($d['siswa']))->toHaveCount(1);
++
++    $this->actingAs($d['admin'])->patch(route('tahap.update', $tahap->id), [
++        'nama' => 'Tes tulis',
++        'mulai_pada' => now()->addHours(10)->format('Y-m-d H:i'),
++        'selesai_pada' => now()->addHours(11)->format('Y-m-d H:i'),
++        'tempat' => 'Lab Komputer',
++    ])->assertSessionHas('success');
++
++    expect(SeleksiPengingat::count())->toBe(0);
++
++    jalankanPg();
++
++    expect(pengingatPg($d['siswa']))->toHaveCount(2)
++        ->and($d['siswa']->notifications()->get()->pluck('data.pesan')->contains(fn ($p) => str_contains($p, 'Lab Komputer')))->toBeTrue();
++});
++
++test('perintah seleksi:ingatkan terdaftar di penjadwal', function () {
++    Artisan::call('schedule:list');
++
++    expect(Artisan::output())->toContain('seleksi:ingatkan');
++});

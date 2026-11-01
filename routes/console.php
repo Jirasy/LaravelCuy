@@ -16,3 +16,7 @@ Schedule::command('ekskul:pengingat')->dailyAt('16:00')->timezone('Asia/Jakarta'
 
 // Hapus password sementara yang sudah kedaluwarsa (butuh `php artisan schedule:run` berjalan tiap menit di server)
 Schedule::command('model:prune', ['--model' => [\App\Models\KredensialSementara::class]])->daily();
+
+// Pengingat jadwal tahap seleksi (24 jam dan 1 jam sebelum mulai) ke pendaftar dan penilai.
+// Butuh `php artisan schedule:run` tiap menit di server. Pengingat yang sudah terkirim dicatat, jadi aman jalan berulang.
+Schedule::command('seleksi:ingatkan')->everyFifteenMinutes()->withoutOverlapping();

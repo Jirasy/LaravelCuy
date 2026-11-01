@@ -119,6 +119,8 @@
 
                     @include('ekstrakurikuler._komunitas')
 
+                    @include('ekstrakurikuler._hierarki')
+
                     <div class="mt-4 pt-4 border-t border-gray-200">
                         <a href="{{ route('saran.index', ['ekskul' => $ekskul->id]) }}" class="text-sm text-indigo-600 font-semibold hover:underline">💬 Kirim kritik &amp; saran untuk ekskul ini</a>
                     </div>

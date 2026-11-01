@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Support\Nisn;
 use DOMDocument;
 use DOMNode;
 use DOMXPath;
@@ -396,11 +397,10 @@ class DaftarSiswaPembaca
         return $nama;
     }
 
+    // NISN dibaca sebagai teks apa adanya (titik/strip pemisah dipertahankan, nol di depan tidak hilang)
     private function ambilNisn(string $sel): ?string
     {
-        $digit = preg_replace('/\D+/', '', $sel) ?? '';
-
-        return strlen($digit) >= 5 && strlen($digit) <= 30 ? $digit : null;
+        return Nisn::dariBerkas($sel);
     }
 
     private function ambilKelas(string $sel): ?string

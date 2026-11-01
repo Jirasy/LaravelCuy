@@ -182,13 +182,13 @@
                                         <p class="font-semibold text-gray-800">{{ $u->name }}@if($saya) <span class="text-xs text-gray-400">(kamu)</span>@endif</p>
                                         <p class="text-xs text-gray-500">{{ $u->email }}</p>
                                         @if($u->status_sekolah)<span class="inline-block mt-1 px-2 py-0.5 text-xs rounded-full {{ $u->is_alumni ? 'bg-amber-100 text-amber-800' : 'bg-gray-100 text-gray-800' }}">🎓 {{ $u->status_sekolah }}</span>@endif
-                                        @if($infoOsis['ada'] ?? false)
-                                            @if(in_array($u->id, $infoOsis['pengurus'], true))
-                                                <span class="inline-block mt-1 px-2 py-0.5 text-xs rounded-full bg-purple-100 text-purple-800">🏛️ Pengurus OSIS</span>
-                                            @elseif(isset($infoOsis['casis'][$u->id]))
-                                                <span class="inline-block mt-1 px-2 py-0.5 text-xs rounded-full bg-indigo-100 text-indigo-800">🗳️ CaSis: {{ \App\Models\CasisPendaftaran::STATUS[$infoOsis['casis'][$u->id]] }}</span>
+                                        @foreach($infoJalur as $info)
+                                            @if(in_array($u->id, $info['pengurus'], true))
+                                                <span class="inline-block mt-1 mr-1 px-2 py-0.5 text-xs rounded-full bg-purple-100 text-purple-800">🏛️ {{ ucfirst($info['ekskul']->sebutan_anggota) }} {{ $info['ekskul']->nama_ekstrakurikuler }}</span>
+                                            @elseif(isset($info['casis'][$u->id]))
+                                                <span class="inline-block mt-1 mr-1 px-2 py-0.5 text-xs rounded-full bg-indigo-100 text-indigo-800">🗳️ {{ $info['ekskul']->label_calon }} {{ $info['ekskul']->nama_ekstrakurikuler }}: {{ \App\Models\CasisPendaftaran::STATUS[$info['casis'][$u->id]] }}</span>
                                             @endif
-                                        @endif
+                                        @endforeach
                                     </div>
                                 </div>
                             </td>
@@ -231,14 +231,19 @@
                                         </details>
                                     @endif
 
-                                    @if(($infoOsis['ada'] ?? false) && ($infoOsis['boleh'] ?? false) && $u->role === 'siswa' && $u->is_active)
-                                        @if(!in_array($u->id, $infoOsis['pengurus'], true) && $infoOsis['periode'] && !isset($infoOsis['casis'][$u->id]))
-                                            <form action="{{ route('casis.masukkan', $u->id) }}" method="POST" onsubmit="return confirm('Masukkan {{ e($u->name) }} ke jalur CaSis OSIS? Ia akan diminta melengkapi formulir pendaftaran.')">
-                                                @csrf
-                                                <button type="submit" class="bg-purple-600 text-white px-3 py-1 rounded text-xs font-semibold hover:bg-purple-700">Masukkan ke jalur CaSis</button>
-                                            </form>
-                                        @endif
-                                        @include('users._osis_susulan', ['u' => $u, 'infoOsis' => $infoOsis])
+                                    @if($u->role === 'siswa' && $u->is_active)
+                                        @foreach($infoJalur as $info)
+                                            @if($info['boleh'])
+                                                @if(!in_array($u->id, $info['pengurus'], true) && $info['periode'] && !isset($info['casis'][$u->id]))
+                                                    <form action="{{ route('casis.masukkan', $u->id) }}" method="POST" onsubmit="return confirm({{ json_encode('Masukkan '.$u->name.' ke jalur '.$info['ekskul']->label_calon.' '.$info['ekskul']->nama_ekstrakurikuler.'? Ia akan diminta melengkapi formulir pendaftaran.') }})">
+                                                        @csrf
+                                                        <input type="hidden" name="ekskul_id" value="{{ $info['ekskul']->id }}">
+                                                        <button type="submit" class="bg-purple-600 text-white px-3 py-1 rounded text-xs font-semibold hover:bg-purple-700">Masukkan ke jalur {{ $info['ekskul']->label_calon }} {{ $info['ekskul']->nama_ekstrakurikuler }}</button>
+                                                    </form>
+                                                @endif
+                                                @include('users._osis_susulan', ['u' => $u, 'info' => $info])
+                                            @endif
+                                        @endforeach
                                     @endif
                                     @can('kelola', $u)
                                         <x-tombol jenis="edit" href="{{ route('users.edit', $u->id) }}">Edit</x-tombol>
@@ -360,9 +365,9 @@
             segarkan();
         })();
     </script>
-    @if(($infoOsis['ada'] ?? false) && ($infoOsis['boleh'] ?? false))
+    @if(collect($infoJalur)->contains('boleh', true))
         <datalist id="angkatan-osis">
-            @foreach($infoOsis['angkatan'] as $angkatan)
+            @foreach($angkatanSaran as $angkatan)
                 <option value="{{ $angkatan }}"></option>
             @endforeach
         </datalist>

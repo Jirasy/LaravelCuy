@@ -1,12 +1,14 @@
-{{-- Kepengurusan OSIS siswa: koreksi riwayat yang ada + catat angkatan baru tanpa lewat seleksi CaSis.
-     Variabel: $u (siswa), $infoOsis. Saran angkatan memakai <datalist id="angkatan-osis"> di users/index. --}}
+{{-- Kepengurusan siswa di ekskul berseleksi (OSIS, MPK, dst): koreksi riwayat yang ada + catat angkatan baru tanpa lewat seleksi.
+     Variabel: $u (siswa), $info (data satu jalur seleksi). Saran angkatan memakai <datalist id="angkatan-osis"> di users/index. --}}
 @php
-    $baris = $infoOsis['riwayat'][$u->id] ?? collect();
+    $baris = $info['riwayat'][$u->id] ?? collect();
     $tahunIni = now()->year;
+    $ekskulJalur = $info['ekskul'];
+    $namaJalur   = $ekskulJalur->nama_ekstrakurikuler;
 @endphp
 <details class="w-full">
     <summary class="cursor-pointer inline-block bg-slate-700 text-white px-3 py-1 rounded text-xs font-semibold hover:bg-slate-800 list-none">
-        Kepengurusan OSIS @if($baris->isNotEmpty())({{ $baris->count() }})@endif
+        {{ ucfirst($ekskulJalur->sebutan_keanggotaan) }} {{ $namaJalur }} @if($baris->isNotEmpty())({{ $baris->count() }})@endif
     </summary>
 
     <div class="mt-2 w-80 space-y-3 text-xs">
@@ -32,9 +34,10 @@
         @endforeach
 
         <form action="{{ route('casis.pengurus', $u->id) }}" method="POST" class="border rounded-lg p-2 space-y-1"
-              onsubmit="return confirm('Catat {{ e($u->name) }} sebagai pengurus OSIS secara langsung, tanpa seleksi CaSis?')">
+              onsubmit="return confirm({{ json_encode('Catat '.$u->name.' sebagai '.$ekskulJalur->sebutan_anggota.' '.$namaJalur.' secara langsung, tanpa seleksi?') }})">
             @csrf
-            <p class="font-semibold text-gray-700">Catat angkatan (tanpa seleksi CaSis)</p>
+            <input type="hidden" name="ekskul_id" value="{{ $ekskulJalur->id }}">
+            <p class="font-semibold text-gray-700">Catat angkatan (tanpa seleksi {{ $ekskulJalur->label_calon }})</p>
             <div class="grid grid-cols-2 gap-1">
                 <input type="text" name="angkatan" list="angkatan-osis" placeholder="Angkatan, mis. 2024/2025" maxlength="20" required class="border p-1 rounded col-span-2">
                 <input type="number" name="tahun_mulai" value="{{ $tahunIni }}" placeholder="Tahun mulai" required class="border p-1 rounded">
@@ -47,7 +50,7 @@
                 <input type="text" name="catatan" placeholder="Catatan (opsional)" maxlength="200" class="border p-1 rounded col-span-2">
             </div>
             <p class="text-gray-500">Purna tugas wajib diisi tahun selesainya.</p>
-            <button type="submit" class="bg-slate-700 text-white px-3 py-1 rounded font-semibold hover:bg-slate-800">Catat pengurus OSIS</button>
+            <button type="submit" class="bg-slate-700 text-white px-3 py-1 rounded font-semibold hover:bg-slate-800">Catat {{ $ekskulJalur->sebutan_anggota }} {{ $namaJalur }}</button>
         </form>
     </div>
 </details>

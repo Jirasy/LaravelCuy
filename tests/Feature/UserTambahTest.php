@@ -5,6 +5,7 @@ use App\Models\Ekstrakurikuler;
 use App\Models\KredensialSementara;
 use App\Models\User;
 use App\Notifications\RekapImportSiswa;
+use App\Services\ImportSiswaService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 
@@ -143,11 +144,47 @@ test('data siswa yang tidak valid ditolak', function (array $isian, string $kolo
     expect(User::where('role', 'siswa')->count())->toBe(0);
 })->with([
     'tanpa nama' => [['nama' => '', 'kelas' => 'X'], 'nama'],
-    'NISN bukan angka' => [['nama' => 'Fajar', 'nisn' => 'abc123'], 'nisn'],
+    'NISN berisi simbol' => [['nama' => 'Fajar', 'nisn' => '12@4567'], 'nisn'],
+    'NISN diawali titik' => [['nama' => 'Fajar', 'nisn' => '.12345'], 'nisn'],
+    'NISN diakhiri strip' => [['nama' => 'Fajar', 'nisn' => '12345-'], 'nisn'],
     'NISN terlalu pendek' => [['nama' => 'Fajar', 'nisn' => '123'], 'nisn'],
+    'NISN terlalu panjang' => [['nama' => 'Fajar', 'nisn' => str_repeat('1', 31)], 'nisn'],
     'email salah format' => [['nama' => 'Fajar', 'email' => 'bukan-email'], 'email'],
     'domain salah' => [['nama' => 'Fajar', 'domain_email' => 'tanpa titik'], 'domain_email'],
 ]);
+
+test('NISN disimpan sebagai teks apa adanya: titik, strip, garis miring, dan nol di depan tidak diubah', function (string $nisn) {
+    $this->actingAs(akunTb('admin'))->post(route('users.store-siswa'), ['nama' => 'Adly Raditya Hamdani', 'kelas' => 'XI PPLG', 'nisn' => $nisn])
+        ->assertSessionHasNoErrors()->assertSessionHas('success');
+
+    expect(User::where('role', 'siswa')->firstOrFail()->nisn)->toBe($nisn);
+})->with([
+    'berpemisah titik' => '2526.0.10.001',
+    'nol di depan' => '0051234567',
+    'strip dan garis miring' => '12345-6789/01',
+    'ada huruf' => 'N1234567',
+]);
+
+test('spasi di dalam NISN dibuang tanpa mengubah titiknya', function () {
+    $this->actingAs(akunTb('admin'))->post(route('users.store-siswa'), ['nama' => 'Adly Raditya', 'nisn' => ' 2526 .0.10.001 '])->assertSessionHas('success');
+
+    expect(User::where('role', 'siswa')->firstOrFail()->nisn)->toBe('2526.0.10.001');
+});
+
+test('NISN berformat titik yang sudah terdaftar ditolak sebagai duplikat', function () {
+    akunTb('siswa', ['name' => 'Siswa Lama', 'nisn' => '2526.0.10.001']);
+
+    $this->actingAs(akunTb('admin'))->post(route('users.store-siswa'), ['nama' => 'Siswa Baru', 'nisn' => '2526.0.10.001'])
+        ->assertSessionHas('error', fn ($m) => str_contains($m, 'NISN 2526.0.10.001 sudah terdaftar'));
+});
+
+test('teks bantuan email menampilkan contoh nyata, bukan kode template mentah', function () {
+    $admin = akunTb('admin');
+    $contoh = 'budi.santoso@'.ImportSiswaService::DOMAIN_EMAIL_DEFAULT;
+
+    $this->actingAs($admin)->get(route('users.create'))->assertOk()->assertSee($contoh)->assertDontSee('$domainDefault', false);
+    $this->actingAs($admin)->get(route('import-siswa.create'))->assertOk()->assertSee($contoh)->assertDontSee('$domainDefault', false);
+});
 
 test('siswa tidak bisa menambah akun, dan pembina tidak bisa menambah pembina', function () {
     $this->actingAs(akunTb('siswa'))->post(route('users.store-siswa'), ['nama' => 'Gita'])->assertForbidden();

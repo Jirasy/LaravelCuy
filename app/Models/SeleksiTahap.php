@@ -27,6 +27,11 @@ class SeleksiTahap extends Model
         return $this->hasMany(SeleksiHasil::class);
     }
 
+    public function pengingats()
+    {
+        return $this->hasMany(SeleksiPengingat::class);
+    }
+
     public function reviews()
     {
         return $this->hasMany(CasisReview::class);

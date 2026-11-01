@@ -140,8 +140,14 @@ test('tanpa email, ekskul dibuat seperti biasa tanpa akun baru', function () {
 test('pembina yang membuat ekskul menjadi pembinanya sendiri dan email_pembina diabaikan', function () {
     $pembina = akunAp('pembina');
 
+    // Sementara untuk diagnosis: tanpa ini, exception di dalam store() diubah jadi respons 500 dan pesannya tidak terlihat.
+    // Hapus baris ini setelah penyebabnya ketemu dan diperbaiki.
+    $this->withoutExceptionHandling();
+
     $this->actingAs($pembina)
-        ->post(route('ekstrakurikuler.store'), payloadEkskulAp(['email_pembina' => 'orang.lain@sekolah.test']));
+        ->post(route('ekstrakurikuler.store'), payloadEkskulAp(['email_pembina' => 'orang.lain@sekolah.test']))
+        ->assertRedirect(route('ekstrakurikuler.index'))
+        ->assertSessionHasNoErrors();
 
     expect(User::where('email', 'orang.lain@sekolah.test')->exists())->toBeFalse()
         ->and(Ekstrakurikuler::firstOrFail()->pembinaAktif->pluck('id')->all())->toBe([$pembina->id]);
