@@ -44,7 +44,7 @@
                                 @else
                                     Task pribadi
                                 @endif
-                                @if($p->tugas->ekstrakurikuler) &middot; {{ $p->tugas->ekstrakurikuler->nama_ekstrakurikuler }} @endif
+                                @if($p->tugas->ekstrakurikuler) &middot; {{ $p->tugas->ekstrakurikuler->nama_tampil }} @endif
                             </p>
                         </div>
                         <div class="text-right shrink-0">
@@ -122,7 +122,7 @@
                                 <h3 class="font-bold text-gray-900">{{ $t->judul }}</h3>
                                 <p class="text-xs text-gray-500 mt-0.5">
                                     {{ $selesaiN }} dari {{ $total }} selesai
-                                    @if($t->ekstrakurikuler) &middot; {{ $t->ekstrakurikuler->nama_ekstrakurikuler }} @endif
+                                    @if($t->ekstrakurikuler) &middot; {{ $t->ekstrakurikuler->nama_tampil }} @endif
                                     @if($t->tenggat) &middot; tenggat {{ $t->tenggat->format('d-m-Y') }} @endif
                                 </p>
                             </div>

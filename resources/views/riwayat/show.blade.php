@@ -51,7 +51,7 @@
                     <div class="flex flex-wrap justify-between items-start gap-2">
                         <div>
                             <a href="{{ route('ekstrakurikuler.show', $r->ekstrakurikuler_id) }}" class="text-lg font-bold text-gray-900 hover:underline">
-                                {{ $r->ekstrakurikuler->nama_ekstrakurikuler ?? 'Ekskul dihapus' }}
+                                {{ $r->ekstrakurikuler->nama_tampil ?? 'Ekskul dihapus' }}
                             </a>
                             <p class="text-sm text-gray-600 mt-0.5">
                                 {{ $r->jabatan_label }}
@@ -104,7 +104,7 @@
                         <span class="text-xs text-gray-500">{{ $p->tahun }}</span>
                     </div>
                     <p class="font-bold text-gray-900">{{ $p->judul }}</p>
-                    <p class="text-xs text-gray-500">{{ $p->ekstrakurikuler->nama_ekstrakurikuler ?? '' }}@if($p->penyelenggara) &middot; {{ $p->penyelenggara }}@endif</p>
+                    <p class="text-xs text-gray-500">{{ $p->ekstrakurikuler->nama_tampil ?? '' }}@if($p->penyelenggara) &middot; {{ $p->penyelenggara }}@endif</p>
                 </div>
             @empty
                 <div class="bg-white p-8 rounded-xl border border-gray-200 text-center text-gray-500">Belum ada prestasi yang tercatat.</div>

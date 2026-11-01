@@ -403,9 +403,96 @@ html.dark .sparkle { color: #e0e7ff; }
                 box-shadow: inset 0 1px 0 rgba(255, 255, 255, .08), 0 10px 30px -14px rgba(0, 0, 0, .6); }
     .nav-solid { background: #fff; border-radius: .6rem; border-bottom: 3px solid rgb(var(--p1-rgb)); box-shadow: 0 1px 2px rgba(15, 23, 42, .08); }
     html.dark .nav-solid { background: #1e293b; border-color: rgba(148, 163, 184, .2); border-bottom-color: rgb(var(--p1-rgb)); }
-    .nav-ringkas { background: rgba(255, 255, 255, .78); backdrop-filter: blur(12px); padding: .35rem 1rem; font-size: .8rem; border-radius: 9999px; }
+    .nav-ringkas { background: rgba(255, 255, 255, .78); backdrop-filter: blur(12px); padding: .35rem 1rem; font-size: .8rem; border-radius: 1.25rem; }
     html.dark .nav-ringkas { background: rgba(30, 41, 59, .7); border-color: rgba(148, 163, 184, .2); }
-    .nav-ringkas .nav-role { display: none; }
+    @media (min-width: 1024px) { .nav-ringkas { border-radius: 9999px; } }
+    .nav-ringkas .nav-tab { padding: .35rem .6rem; }
+
+    /* ============ NAVBAR: tata letak responsif ============
+       HP & tablet (< 1024px): baris 1 = foto profil + tombol aksi, baris 2 = menu yang bisa digeser (seperti GitHub).
+       Laptop & desktop (>= 1024px): satu baris = foto profil | menu | tombol aksi. Menu yang kepanjangan
+       tidak turun ke baris baru, tetapi digeser dengan panah atau sentuhan (seperti YouTube / Pinterest). */
+    .nav-grid {
+        display: grid; align-items: center; gap: .5rem .75rem;
+        grid-template-columns: auto minmax(0, 1fr);
+        grid-template-areas: "avatar actions" "links links";
+    }
+    @media (min-width: 1024px) {
+        .nav-grid { gap: .75rem 1rem; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "avatar links actions"; }
+    }
+    .nav-avatar {
+        grid-area: avatar; display: inline-flex; border-radius: 9999px; padding: 2px;
+        border: 2px solid transparent; transition: border-color .2s ease, transform .2s ease;
+    }
+    .nav-avatar, .nav-tab { text-decoration: none; }
+    .nav-avatar:hover { border-color: rgb(var(--p1-rgb) / .5); transform: scale(1.04); }
+    .nav-avatar.is-active { border-color: rgb(var(--p1-rgb)); }
+    .nav-avatar:focus-visible, .nav-arrow:focus-visible { outline: 2px solid rgb(var(--p1-rgb)); outline-offset: 2px; }
+    .nav-tab:focus-visible { outline: 2px solid rgb(var(--p1-rgb)); outline-offset: -2px; } /* di dalam, supaya tidak terpotong area geser */
+    .nav-actions { grid-area: actions; justify-self: end; display: flex; align-items: center; gap: .4rem; }
+
+    .nav-links { grid-area: links; position: relative; min-width: 0; }
+    .nav-scroll {
+        --fade-kiri: 0px; --fade-kanan: 0px;
+        position: relative; display: flex; align-items: center; gap: .15rem;
+        overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; -webkit-overflow-scrolling: touch;
+        -webkit-mask-image: linear-gradient(to right, transparent, #000 var(--fade-kiri), #000 calc(100% - var(--fade-kanan)), transparent);
+        mask-image: linear-gradient(to right, transparent, #000 var(--fade-kiri), #000 calc(100% - var(--fade-kanan)), transparent);
+    }
+    .nav-scroll::-webkit-scrollbar { display: none; }
+    .nav-links.can-l .nav-scroll { --fade-kiri: 2.75rem; }
+    .nav-links.can-r .nav-scroll { --fade-kanan: 2.75rem; }
+
+    .nav-tab {
+        position: relative; flex: none; white-space: nowrap; display: inline-flex; align-items: center; gap: .3rem;
+        padding: .5rem .7rem; border-radius: .6rem; font-weight: 500; color: #475569;
+        transition: background .2s ease, color .2s ease;
+    }
+    .nav-tab::after { /* garis bawah penanda halaman aktif */
+        content: ''; position: absolute; left: .7rem; right: .7rem; bottom: .15rem; height: 2px; border-radius: 9999px;
+        background: rgb(var(--p1-rgb)); transform: scaleX(0); transition: transform .25s ease;
+    }
+    .nav-tab:hover { background: rgb(var(--p1-rgb) / .12); color: #1e1b4b; }
+    .nav-tab.is-active { color: #4338ca; font-weight: 600; }
+    .nav-tab.is-active::after { transform: scaleX(1); }
+    .nav-tab-alert { color: #dc2626; font-weight: 600; }
+    .nav-tab-alert:hover { color: #b91c1c; }
+    html.dark .nav-tab { color: #cbd5e1; }
+    html.dark .nav-tab:hover { background: rgba(255, 255, 255, .09); color: #fff; }
+    html.dark .nav-tab.is-active { color: #c7d2fe; }
+    html.dark .nav-tab-alert { color: #f87171; }
+    html.dark .nav-tab-alert:hover { color: #fca5a5; }
+    .nav-badge {
+        min-width: 1.15rem; padding: .05rem .35rem; border-radius: 9999px; text-align: center;
+        font-size: .68rem; font-weight: 700; line-height: 1.1rem; background: #dc2626; color: #fff;
+    }
+
+    /* Panah geser menu: hanya muncul bila menu memang terpotong */
+    .nav-arrow {
+        position: absolute; top: 50%; z-index: 2; width: 1.85rem; height: 1.85rem; border-radius: 9999px;
+        display: inline-flex; align-items: center; justify-content: center; color: #334155;
+        background: rgba(255, 255, 255, .92); border: 1px solid rgba(148, 163, 184, .5); box-shadow: 0 2px 8px rgba(15, 23, 42, .15);
+        opacity: 0; pointer-events: none; transition: opacity .2s ease, background .2s ease;
+        transform: translateY(-50%);
+    }
+    .nav-arrow:hover { background: #fff; }
+    .nav-arrow-kiri { left: 0; }
+    .nav-arrow-kanan { right: 0; }
+    .nav-links.can-l .nav-arrow-kiri, .nav-links.can-r .nav-arrow-kanan { opacity: 1; pointer-events: auto; }
+    html.dark .nav-arrow { color: #e2e8f0; background: rgba(30, 41, 59, .95); border-color: rgba(148, 163, 184, .35); }
+    html.dark .nav-arrow:hover { background: #334155; }
+    @media (hover: none) { .nav-arrow { display: none; } } /* layar sentuh cukup digeser dengan jari */
+
+    /* Tombol keluar: ikon merah, tulisannya baru tampil di layar lebar */
+    .nav-logout { color: #dc2626; gap: .35rem; }
+    .nav-logout:hover { transform: none; background: rgba(220, 38, 38, .12); border-color: rgba(220, 38, 38, .45); }
+    html.dark .nav-logout { color: #f87171; }
+    html.dark .nav-logout:hover { background: rgba(248, 113, 113, .16); border-color: rgba(248, 113, 113, .5); }
+    .nav-logout-label { display: none; font-size: .8rem; font-weight: 600; }
+    @media (min-width: 1280px) {
+        .nav-logout { width: auto; padding: 0 .85rem; }
+        .nav-logout-label { display: inline; }
+    }
 
     /* Aksen warna: navbar ikut diwarnai (lapisan tipis, teks tetap terbaca) */
     html.has-aksen-warna .nav-bar { background-image: linear-gradient(135deg, rgb(var(--p1-rgb) / .16), rgb(var(--p2-rgb) / .10), rgb(var(--p3-rgb) / .16)); }

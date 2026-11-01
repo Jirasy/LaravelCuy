@@ -32,8 +32,12 @@ class KomunitasController extends Controller
 
         $data = $request->validate([
             'nama_ekstrakurikuler' => 'required|string|max:255',
+            'nama_singkatan'       => Ekstrakurikuler::aturanSingkatan(),
             'deskripsi'            => 'nullable|string|max:2000',
-        ], ['nama_ekstrakurikuler.required' => 'Isi nama komunitas.']);
+        ], [
+            'nama_ekstrakurikuler.required' => 'Isi nama komunitas.',
+            'nama_singkatan.max'            => 'Singkatan maksimal 30 karakter.',
+        ]);
 
         $tipe = JenisEkskul::where('kategori', 'komunitas')->first();
 
@@ -44,6 +48,7 @@ class KomunitasController extends Controller
         $ekskul = DB::transaction(function () use ($data, $tipe, $user, $osis) {
             $ekskul = Ekstrakurikuler::create([
                 'nama_ekstrakurikuler' => $data['nama_ekstrakurikuler'],
+                'nama_singkatan'       => $data['nama_singkatan'] ?? null,
                 'pembina'              => $user->isPembina() ? $user->name : '-',
                 'deskripsi'            => $data['deskripsi'] ?? null,
                 'status'               => 'aktif',

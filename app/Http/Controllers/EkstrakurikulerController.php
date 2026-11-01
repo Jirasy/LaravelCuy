@@ -29,7 +29,7 @@ class EkstrakurikulerController extends Controller
         $jenisFilter = JenisEkskul::withCount('ekskuls')->has('ekskuls')->urut()->get();
         $jenisAktif  = $jenisFilter->firstWhere('kode', $request->query('jenis'));
 
-        $ekskuls = Ekstrakurikuler::with(['haris', 'pembinaAktif', 'jenisEkskul', 'kategoris', 'induk:id,nama_ekstrakurikuler'])
+        $ekskuls = Ekstrakurikuler::with(['haris', 'pembinaAktif', 'jenisEkskul', 'kategoris', 'induk:id,nama_ekstrakurikuler,nama_singkatan'])
             ->withCount(['pendaftaran as anggota_count' => fn ($q) => $q->where('status', 'diterima')->where('status_anggota', 'aktif')])
             ->when($jenisAktif, fn ($q) => $q->where('jenis_ekskul_id', $jenisAktif->id))
             ->latest()
@@ -412,7 +412,7 @@ class EkstrakurikulerController extends Controller
     // Kolom yang disimpan. Tipe ekskul (Ekskul Biasa, Ekskul Seleksi, Organisasi) hanya boleh diubah admin.
     private function kolomEkskul(array $data): array
     {
-        $kolom = Arr::only($data, ['nama_ekstrakurikuler', 'pembina', 'deskripsi', 'status']);
+        $kolom = Arr::only($data, ['nama_ekstrakurikuler', 'nama_singkatan', 'pembina', 'deskripsi', 'status']);
 
         if (Auth::user()->isAdmin() && ! empty($data['jenis_ekskul_id'])) {
             $kolom['jenis_ekskul_id'] = (int) $data['jenis_ekskul_id'];
@@ -459,6 +459,7 @@ class EkstrakurikulerController extends Controller
 
         $rules = [
             'nama_ekstrakurikuler' => 'required|string|max:255',
+            'nama_singkatan' => Ekstrakurikuler::aturanSingkatan((int) $request->route('id') ?: null),
             'pembina' => 'required|string|max:255',
             'hari' => 'required|array|min:1',
             'hari.*' => ['required', Rule::in($valid)],
@@ -532,6 +533,7 @@ class EkstrakurikulerController extends Controller
     private function messages(): array
     {
         return [
+            'nama_singkatan.max' => 'Singkatan maksimal 30 karakter.',
             'kategori_ids.*.exists' => 'Ada kategori yang tidak dikenal.',
             'hari.required' => 'Pilih minimal satu hari pelaksanaan.',
             'hari.min' => 'Pilih minimal satu hari pelaksanaan.',

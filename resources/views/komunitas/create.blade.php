@@ -31,6 +31,11 @@
                 <input type="text" name="nama_ekstrakurikuler" value="{{ old('nama_ekstrakurikuler') }}" maxlength="255" required class="w-full border p-2 rounded-lg mt-1">
             </div>
             <div>
+                <label class="block text-sm font-semibold text-gray-700">Nama Singkatan / Alias <span class="font-normal text-gray-500">(opsional)</span></label>
+                <input type="text" name="nama_singkatan" value="{{ old('nama_singkatan') }}" maxlength="30" placeholder="Contoh: PMR" class="w-full border p-2 rounded-lg mt-1 focus:ring focus:ring-indigo-200">
+                <p class="text-xs text-gray-500 mt-1">Ditampilkan di katalog, kartu, dan badge agar rapi. Nama lengkap tetap tampil di halaman detail. Kosongkan kalau tidak ada singkatan.</p>
+            </div>
+            <div>
                 <label class="block text-sm font-semibold text-gray-700">Deskripsi <span class="font-normal text-gray-400">(opsional)</span></label>
                 <textarea name="deskripsi" rows="4" maxlength="2000" class="w-full border p-2 rounded-lg mt-1">{{ old('deskripsi') }}</textarea>
             </div>

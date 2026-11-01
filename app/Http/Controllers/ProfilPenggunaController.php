@@ -37,11 +37,11 @@ class ProfilPenggunaController extends Controller
         // Badge ekskul (non-interaktif) + jabatan
         $badges = collect();
         foreach ($dibina as $e) {
-            $badges->push(['ekskul' => $e->nama_ekstrakurikuler, 'jabatan' => 'Pembina']);
+            $badges->push(['ekskul' => $e->nama_tampil, 'jabatan' => 'Pembina']);
         }
         foreach ($keanggotaan as $p) {
             $badges->push([
-                'ekskul' => $p->ekstrakurikuler->nama_ekstrakurikuler,
+                'ekskul' => $p->ekstrakurikuler->nama_tampil,
                 'jabatan' => $p->jabatanAktif->isEmpty() ? null : $p->jabatan_label,
             ]);
         }
@@ -50,12 +50,12 @@ class ProfilPenggunaController extends Controller
         $semua = collect();
         foreach ($dibina as $e) {
             foreach ($e->haris as $j) {
-                $semua->push($this->barisJadwal($e->id, $e->nama_ekstrakurikuler, $j, 'Pembina'));
+                $semua->push($this->barisJadwal($e->id, $e->nama_tampil, $j, 'Pembina'));
             }
         }
         foreach ($keanggotaan as $p) {
             foreach ($p->ekstrakurikuler->haris as $j) {
-                $semua->push($this->barisJadwal($p->ekstrakurikuler->id, $p->ekstrakurikuler->nama_ekstrakurikuler, $j, $p->jabatan_label));
+                $semua->push($this->barisJadwal($p->ekstrakurikuler->id, $p->ekstrakurikuler->nama_tampil, $j, $p->jabatan_label));
             }
         }
 

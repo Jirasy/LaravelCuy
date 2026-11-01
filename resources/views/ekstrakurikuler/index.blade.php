@@ -88,13 +88,13 @@
                             <span class="inline-block px-2 py-0.5 ml-1 text-xs rounded-full bg-purple-100 text-purple-800">{{ $ekskul->memakaiCasis() ? '🗳️ ' : '' }}{{ $ekskul->jenisEkskul->nama }}</span>
                         @endif
                         @if($ekskul->induk)
-                            <span class="inline-block px-2 py-0.5 ml-1 text-xs rounded-full bg-indigo-100 text-indigo-800">⬆️ Di bawah {{ $ekskul->induk->nama_ekstrakurikuler }}</span>
+                            <span class="inline-block px-2 py-0.5 ml-1 text-xs rounded-full bg-indigo-100 text-indigo-800">⬆️ Di bawah {{ $ekskul->induk->nama_tampil }}</span>
                         @endif
                         @if(auth()->user()->isAdmin() && $ekskul->pembinaAktif->isEmpty())
                             <span class="inline-block px-2 py-0.5 ml-1 text-xs rounded-full bg-red-100 text-red-700">Belum ada pembina</span>
                         @endif
 
-                        <h2 class="text-xl font-bold text-gray-900 mt-2">{{ $ekskul->nama_ekstrakurikuler }}</h2>
+                        <h2 class="text-xl font-bold text-gray-900 mt-2" title="{{ $ekskul->nama_ekstrakurikuler }}">{{ $ekskul->nama_tampil }}</h2>
                         <p class="text-sm text-gray-600 mt-1">Pembina: <strong>{{ $ekskul->pembina_tampil }}</strong></p>
                         @if($ekskul->kategoris->isNotEmpty())
                             <div class="flex flex-wrap gap-1 mt-2">

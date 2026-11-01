@@ -16,7 +16,7 @@
                 <span class="inline-block px-3 py-1 text-xs font-semibold rounded-full {{ $ekskul->status === 'aktif' ? 'bg-green-100 text-green-800' : 'bg-gray-200 text-gray-700' }}">
                     {{ ucfirst($ekskul->status) }}
                 </span>
-                <h1 class="text-3xl font-bold text-gray-800 mt-2">{{ $ekskul->nama_ekstrakurikuler }}</h1>
+                <h1 class="text-3xl font-bold text-gray-800 mt-2">{{ $ekskul->nama_ekstrakurikuler }}@if($ekskul->nama_singkatan) <span class="align-middle ml-2 px-3 py-1 text-sm font-semibold rounded-full bg-indigo-100 text-indigo-800">{{ $ekskul->nama_singkatan }}</span>@endif</h1>
                 <p class="text-gray-600 text-sm">Pembina: <strong>{{ $ekskul->pembina_tampil }}</strong></p>
                 @if($ekskul->kategoris->isNotEmpty())
                     <div class="flex flex-wrap gap-1 mt-2">

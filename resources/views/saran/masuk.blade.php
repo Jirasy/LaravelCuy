@@ -50,7 +50,7 @@
                                 <span class="font-normal text-gray-500">dari</span> {{ $s->nama_pengirim }}
                             </p>
                             <p class="text-xs text-gray-500 mt-0.5">
-                                {{ $s->ekstrakurikuler->nama_ekstrakurikuler ?? 'Umum (sekolah)' }} &middot; {{ $s->created_at->format('d-m-Y H:i') }}
+                                {{ $s->ekstrakurikuler->nama_tampil ?? 'Umum (sekolah)' }} &middot; {{ $s->created_at->format('d-m-Y H:i') }}
                             </p>
                         </div>
                         <span class="px-2.5 py-0.5 text-xs font-semibold rounded-full {{ $s->status === 'baru' ? 'bg-yellow-100 text-yellow-800' : ($s->status === 'dibaca' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800') }}">

@@ -15,6 +15,7 @@ class Ekstrakurikuler extends Model
 
     protected $fillable = [
         'nama_ekstrakurikuler',
+        'nama_singkatan',
         'pembina',
         'deskripsi',
         'status',
@@ -78,6 +79,35 @@ class Ekstrakurikuler extends Model
     public function jenisEkskul()
     {
         return $this->belongsTo(JenisEkskul::class, 'jenis_ekskul_id');
+    }
+
+    // Nama untuk katalog, kartu, badge, dan label ringkas: singkatan kalau ada, kalau tidak nama lengkap.
+    // Judul halaman detail, tabel admin, laporan/dokumen, dan teks notifikasi tetap memakai nama_ekstrakurikuler (nama lengkap).
+    public function getNamaTampilAttribute(): string
+    {
+        return $this->nama_singkatan ?: (string) $this->nama_ekstrakurikuler;
+    }
+
+    // Singkatan kosong/spasi saja disimpan sebagai null (kolomnya unik; null boleh banyak, string kosong tidak)
+    public function setNamaSingkatanAttribute($nilai): void
+    {
+        $nilai = is_string($nilai) ? trim($nilai) : $nilai;
+        $this->attributes['nama_singkatan'] = $nilai === '' ? null : $nilai;
+    }
+
+    // Aturan validasi singkatan: opsional, maks 30 karakter, unik tanpa membedakan huruf besar/kecil.
+    // Dipakai form ekskul dan form komunitas supaya aturannya satu.
+    public static function aturanSingkatan(?int $abaikanId = null): array
+    {
+        return ['nullable', 'string', 'max:30', function ($atribut, $nilai, $gagal) use ($abaikanId) {
+            $kembar = static::whereRaw('LOWER(nama_singkatan) = ?', [mb_strtolower((string) $nilai)])
+                ->when($abaikanId, fn ($q) => $q->where('id', '!=', $abaikanId))
+                ->exists();
+
+            if ($kembar) {
+                $gagal("Singkatan {$nilai} sudah dipakai ekskul lain.");
+            }
+        }];
     }
 
     // Kategori/label (boleh lebih dari satu), mis. Silat = Bela Diri + Seni & Olahraga. Beda dengan tipe di atas.

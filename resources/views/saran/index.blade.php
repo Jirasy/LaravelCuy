@@ -72,7 +72,7 @@
                     <div class="flex flex-wrap justify-between items-start gap-2">
                         <p class="text-xs text-gray-500">
                             {{ $s->jenis === 'kritik' ? '📣 Kritik' : '💡 Saran' }}
-                            &middot; {{ $s->ekstrakurikuler->nama_ekstrakurikuler ?? 'Umum' }}
+                            &middot; {{ $s->ekstrakurikuler->nama_tampil ?? 'Umum' }}
                             &middot; {{ $s->created_at->format('d-m-Y H:i') }}
                             @if($s->anonim) &middot; anonim @endif
                         </p>

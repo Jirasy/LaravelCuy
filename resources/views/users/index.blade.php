@@ -184,9 +184,9 @@
                                         @if($u->status_sekolah)<span class="inline-block mt-1 px-2 py-0.5 text-xs rounded-full {{ $u->is_alumni ? 'bg-amber-100 text-amber-800' : 'bg-gray-100 text-gray-800' }}">🎓 {{ $u->status_sekolah }}</span>@endif
                                         @foreach($infoJalur as $info)
                                             @if(in_array($u->id, $info['pengurus'], true))
-                                                <span class="inline-block mt-1 mr-1 px-2 py-0.5 text-xs rounded-full bg-purple-100 text-purple-800">🏛️ {{ ucfirst($info['ekskul']->sebutan_anggota) }} {{ $info['ekskul']->nama_ekstrakurikuler }}</span>
+                                                <span class="inline-block mt-1 mr-1 px-2 py-0.5 text-xs rounded-full bg-purple-100 text-purple-800">🏛️ {{ ucfirst($info['ekskul']->sebutan_anggota) }} {{ $info['ekskul']->nama_tampil }}</span>
                                             @elseif(isset($info['casis'][$u->id]))
-                                                <span class="inline-block mt-1 mr-1 px-2 py-0.5 text-xs rounded-full bg-indigo-100 text-indigo-800">🗳️ {{ $info['ekskul']->label_calon }} {{ $info['ekskul']->nama_ekstrakurikuler }}: {{ \App\Models\CasisPendaftaran::STATUS[$info['casis'][$u->id]] }}</span>
+                                                <span class="inline-block mt-1 mr-1 px-2 py-0.5 text-xs rounded-full bg-indigo-100 text-indigo-800">🗳️ {{ $info['ekskul']->label_calon }} {{ $info['ekskul']->nama_tampil }}: {{ \App\Models\CasisPendaftaran::STATUS[$info['casis'][$u->id]] }}</span>
                                             @endif
                                         @endforeach
                                     </div>

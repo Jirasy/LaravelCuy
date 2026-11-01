@@ -24,8 +24,14 @@
         <form action="{{ route('ekstrakurikuler.store') }}" method="POST" class="space-y-4">
             @csrf
             <div>
-                <label class="block text-sm font-semibold text-gray-700">Nama Ekstrakurikuler</label>
-                <input type="text" name="nama_ekstrakurikuler" placeholder="Contoh: Basket" required class="w-full border p-2 rounded-lg mt-1 focus:ring focus:ring-indigo-200">
+                <label class="block text-sm font-semibold text-gray-700">Nama Lengkap Ekskul</label>
+                <input type="text" name="nama_ekstrakurikuler" value="{{ old('nama_ekstrakurikuler') }}" placeholder="Contoh: Palang Merah Remaja" required class="w-full border p-2 rounded-lg mt-1 focus:ring focus:ring-indigo-200">
+            </div>
+
+            <div>
+                <label class="block text-sm font-semibold text-gray-700">Nama Singkatan / Alias <span class="font-normal text-gray-500">(opsional)</span></label>
+                <input type="text" name="nama_singkatan" value="{{ old('nama_singkatan') }}" maxlength="30" placeholder="Contoh: PMR" class="w-full border p-2 rounded-lg mt-1 focus:ring focus:ring-indigo-200">
+                <p class="text-xs text-gray-500 mt-1">Ditampilkan di katalog, kartu, dan badge agar rapi. Nama lengkap tetap tampil di halaman detail. Kosongkan kalau tidak ada singkatan.</p>
             </div>
 
             <div>
