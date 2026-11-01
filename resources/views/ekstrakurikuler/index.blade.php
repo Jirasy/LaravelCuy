@@ -96,6 +96,13 @@
 
                         <h2 class="text-xl font-bold text-gray-900 mt-2">{{ $ekskul->nama_ekstrakurikuler }}</h2>
                         <p class="text-sm text-gray-600 mt-1">Pembina: <strong>{{ $ekskul->pembina_tampil }}</strong></p>
+                        @if($ekskul->kategoris->isNotEmpty())
+                            <div class="flex flex-wrap gap-1 mt-2">
+                                @foreach($ekskul->kategoris->sortBy('urutan') as $kat)
+                                    <span class="inline-block px-2 py-0.5 text-xs rounded-full bg-sky-100 text-sky-800">{{ $kat->nama }}</span>
+                                @endforeach
+                            </div>
+                        @endif
                         <div class="text-sm text-gray-600">
                             <p class="font-semibold">Jadwal:</p>
                             @forelse($ekskul->jadwal as $j)

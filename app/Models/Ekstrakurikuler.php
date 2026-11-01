@@ -80,6 +80,12 @@ class Ekstrakurikuler extends Model
         return $this->belongsTo(JenisEkskul::class, 'jenis_ekskul_id');
     }
 
+    // Kategori/label (boleh lebih dari satu), mis. Silat = Bela Diri + Seni & Olahraga. Beda dengan tipe di atas.
+    public function kategoris()
+    {
+        return $this->belongsToMany(KategoriEkskul::class, 'ekstrakurikuler_kategori', 'ekstrakurikuler_id', 'kategori_ekskul_id');
+    }
+
     // Ekskul yang pendaftarannya lewat seleksi bertahap: semua ekskul bertipe Ekskul Seleksi atau Organisasi.
     // Satu-satunya tempat aturan ini ditulis: kode lain cukup memanggil memakaiCasis() / alurCasis().
     // (Nama "Casis" dipertahankan dari versi OSIS-saja; sekarang berlaku untuk semua tipe berseleksi.)

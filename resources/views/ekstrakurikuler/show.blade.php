@@ -18,6 +18,13 @@
                 </span>
                 <h1 class="text-3xl font-bold text-gray-800 mt-2">{{ $ekskul->nama_ekstrakurikuler }}</h1>
                 <p class="text-gray-600 text-sm">Pembina: <strong>{{ $ekskul->pembina_tampil }}</strong></p>
+                @if($ekskul->kategoris->isNotEmpty())
+                    <div class="flex flex-wrap gap-1 mt-2">
+                        @foreach($ekskul->kategoris->sortBy('urutan') as $kat)
+                            <span class="inline-block px-2 py-0.5 text-xs rounded-full bg-sky-100 text-sky-800">{{ $kat->nama }}</span>
+                        @endforeach
+                    </div>
+                @endif
             </div>
             <a href="{{ route('ekstrakurikuler.index') }}" class="text-gray-600 hover:underline text-sm">← Katalog</a>
         </div>

@@ -25,6 +25,7 @@ use App\Http\Controllers\EmployeController;
 use App\Http\Controllers\HealthController;
 use App\Http\Controllers\ImportSiswaController;
 use App\Http\Controllers\JenisEkskulController;
+use App\Http\Controllers\KategoriEkskulController;
 use App\Http\Controllers\KomunitasController;
 use App\Http\Controllers\JihyController;
 use App\Http\Controllers\KeanggotaanController;
@@ -335,6 +336,12 @@ Route::middleware(['auth', EnsureUserIsActive::class, PaksaGantiPassword::class]
         Route::post('/jenis-ekskul', [JenisEkskulController::class, 'store'])->name('jenis-ekskul.store');
         Route::patch('/jenis-ekskul/{jenis}', [JenisEkskulController::class, 'update'])->name('jenis-ekskul.update');
         Route::delete('/jenis-ekskul/{jenis}', [JenisEkskulController::class, 'destroy'])->name('jenis-ekskul.destroy');
+
+        // Kategori/label ekskul (boleh lebih dari satu per ekskul)
+        Route::get('/kategori-ekskul', [KategoriEkskulController::class, 'index'])->name('kategori-ekskul.index');
+        Route::post('/kategori-ekskul', [KategoriEkskulController::class, 'store'])->name('kategori-ekskul.store');
+        Route::patch('/kategori-ekskul/{kategori}', [KategoriEkskulController::class, 'update'])->name('kategori-ekskul.update');
+        Route::delete('/kategori-ekskul/{kategori}', [KategoriEkskulController::class, 'destroy'])->name('kategori-ekskul.destroy');
 
         // Password sementara akun pembina yang dibuat otomatis (terenkripsi, berbatas waktu)
         Route::get('/kredensial', [KredensialController::class, 'index'])->name('kredensial.index');

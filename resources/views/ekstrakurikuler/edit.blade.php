@@ -40,6 +40,8 @@
     @include('ekstrakurikuler._jenis')
     @endif
 
+    @include('ekstrakurikuler._kategori')
+
     @php
         $awalJadwal = $ekstrakurikuler->haris->mapWithKeys(fn ($x) => [
             $x->hari => ['jam_mulai' => substr($x->jam_mulai, 0, 5), 'jam_selesai' => substr($x->jam_selesai, 0, 5)],

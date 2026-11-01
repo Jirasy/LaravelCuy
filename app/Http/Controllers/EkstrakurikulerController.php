@@ -11,6 +11,7 @@ use App\Models\EkskulPrPengumpulan;
 use App\Models\Ekstrakurikuler;
 use App\Support\KelasSiswa;
 use App\Models\JenisEkskul;
+use App\Models\KategoriEkskul;
 use App\Models\PendaftaranEkskul;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -28,7 +29,7 @@ class EkstrakurikulerController extends Controller
         $jenisFilter = JenisEkskul::withCount('ekskuls')->has('ekskuls')->urut()->get();
         $jenisAktif  = $jenisFilter->firstWhere('kode', $request->query('jenis'));
 
-        $ekskuls = Ekstrakurikuler::with(['haris', 'pembinaAktif', 'jenisEkskul', 'induk:id,nama_ekstrakurikuler'])
+        $ekskuls = Ekstrakurikuler::with(['haris', 'pembinaAktif', 'jenisEkskul', 'kategoris', 'induk:id,nama_ekstrakurikuler'])
             ->withCount(['pendaftaran as anggota_count' => fn ($q) => $q->where('status', 'diterima')->where('status_anggota', 'aktif')])
             ->when($jenisAktif, fn ($q) => $q->where('jenis_ekskul_id', $jenisAktif->id))
             ->latest()
@@ -49,7 +50,7 @@ class EkstrakurikulerController extends Controller
     {
         $user = Auth::user();
 
-        $ekskul = Ekstrakurikuler::with(['haris', 'pembinaAktif'])
+        $ekskul = Ekstrakurikuler::with(['haris', 'pembinaAktif', 'kategoris'])
             ->withCount(['pendaftaran as anggota_count' => fn ($q) => $q->where('status', 'diterima')->where('status_anggota', 'aktif')])
             ->findOrFail($id);
 
@@ -298,6 +299,7 @@ class EkstrakurikulerController extends Controller
                     ->tugaskan($ekskul, $data['pembina'], $data['email_pembina'], Auth::user());
             }
             $ekskul->syncJadwal($this->susunJadwal($data));
+            $this->sinkronKategori($ekskul, $data);
         });
 
         $balik = redirect()->route('ekstrakurikuler.index')
@@ -345,6 +347,7 @@ class EkstrakurikulerController extends Controller
                 $this->kolomEkskul($data)
             );
             $ekskul->syncJadwal($this->susunJadwal($data));
+            $this->sinkronKategori($ekskul, $data);
         });
 
         return redirect()->route('ekstrakurikuler.index')
@@ -385,6 +388,25 @@ class EkstrakurikulerController extends Controller
         }
 
         return $hasil;
+    }
+
+    // Kategori boleh lebih dari satu dan boleh diatur admin maupun pembina pengelola (hak kelola sudah dijaga Gate).
+    // Form selalu mengirim penanda kategori_form; tanpa penanda (permintaan lain) kategori dibiarkan apa adanya.
+    // Kategori nonaktif hanya boleh dipertahankan kalau memang sudah melekat di ekskul ini.
+    private function sinkronKategori(Ekstrakurikuler $ekskul, array $data): void
+    {
+        if (empty($data['kategori_form'])) {
+            return;
+        }
+
+        $dipilih   = collect($data['kategori_ids'] ?? [])->map(fn ($id) => (int) $id)->unique()->values();
+        $terpasang = $ekskul->kategoris()->pluck('kategori_ekskuls.id');
+
+        $boleh = KategoriEkskul::whereIn('id', $dipilih)
+            ->where(fn ($q) => $q->where('aktif', true)->orWhereIn('id', $terpasang))
+            ->pluck('id');
+
+        $ekskul->kategoris()->sync($boleh->all());
     }
 
     // Kolom yang disimpan. Tipe ekskul (Ekskul Biasa, Ekskul Seleksi, Organisasi) hanya boleh diubah admin.
@@ -441,6 +463,9 @@ class EkstrakurikulerController extends Controller
             'hari' => 'required|array|min:1',
             'hari.*' => ['required', Rule::in($valid)],
             'deskripsi' => 'nullable|string',
+            'kategori_form' => ['nullable', 'boolean'],
+            'kategori_ids' => ['nullable', 'array'],
+            'kategori_ids.*' => ['integer', Rule::exists('kategori_ekskuls', 'id')],
             'status' => ($statusWajib ? 'required' : 'nullable').'|in:aktif,nonaktif',
             'jenis_ekskul_id' => ['nullable', 'integer', function ($atribut, $nilai, $gagal) use ($request) {
                 $jenis = JenisEkskul::find($nilai);
@@ -507,6 +532,7 @@ class EkstrakurikulerController extends Controller
     private function messages(): array
     {
         return [
+            'kategori_ids.*.exists' => 'Ada kategori yang tidak dikenal.',
             'hari.required' => 'Pilih minimal satu hari pelaksanaan.',
             'hari.min' => 'Pilih minimal satu hari pelaksanaan.',
             'jadwal.*.jam_mulai.required' => 'Jam mulai wajib diisi untuk setiap hari yang dipilih.',

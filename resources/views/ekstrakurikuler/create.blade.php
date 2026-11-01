@@ -48,6 +48,8 @@
     @include('ekstrakurikuler._jenis')
 @endif
 
+            @include('ekstrakurikuler._kategori')
+
             @include('ekstrakurikuler._jadwal', ['awal' => []])
 
             <div>

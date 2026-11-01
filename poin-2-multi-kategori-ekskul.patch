@@ -1,0 +1,849 @@
+diff --git a/app/Http/Controllers/EkstrakurikulerController.php b/app/Http/Controllers/EkstrakurikulerController.php
+index 871a7c3..b4840fd 100644
+--- a/app/Http/Controllers/EkstrakurikulerController.php
++++ b/app/Http/Controllers/EkstrakurikulerController.php
+@@ -11,6 +11,7 @@
+ use App\Models\Ekstrakurikuler;
+ use App\Support\KelasSiswa;
+ use App\Models\JenisEkskul;
++use App\Models\KategoriEkskul;
+ use App\Models\PendaftaranEkskul;
+ use App\Models\User;
+ use Illuminate\Http\Request;
+@@ -28,7 +29,7 @@ public function index(Request $request)
+         $jenisFilter = JenisEkskul::withCount('ekskuls')->has('ekskuls')->urut()->get();
+         $jenisAktif  = $jenisFilter->firstWhere('kode', $request->query('jenis'));
+ 
+-        $ekskuls = Ekstrakurikuler::with(['haris', 'pembinaAktif', 'jenisEkskul', 'induk:id,nama_ekstrakurikuler'])
++        $ekskuls = Ekstrakurikuler::with(['haris', 'pembinaAktif', 'jenisEkskul', 'kategoris', 'induk:id,nama_ekstrakurikuler'])
+             ->withCount(['pendaftaran as anggota_count' => fn ($q) => $q->where('status', 'diterima')->where('status_anggota', 'aktif')])
+             ->when($jenisAktif, fn ($q) => $q->where('jenis_ekskul_id', $jenisAktif->id))
+             ->latest()
+@@ -49,7 +50,7 @@ public function show(Request $request, $id)
+     {
+         $user = Auth::user();
+ 
+-        $ekskul = Ekstrakurikuler::with(['haris', 'pembinaAktif'])
++        $ekskul = Ekstrakurikuler::with(['haris', 'pembinaAktif', 'kategoris'])
+             ->withCount(['pendaftaran as anggota_count' => fn ($q) => $q->where('status', 'diterima')->where('status_anggota', 'aktif')])
+             ->findOrFail($id);
+ 
+@@ -298,6 +299,7 @@ public function store(Request $request)
+                     ->tugaskan($ekskul, $data['pembina'], $data['email_pembina'], Auth::user());
+             }
+             $ekskul->syncJadwal($this->susunJadwal($data));
++            $this->sinkronKategori($ekskul, $data);
+         });
+ 
+         $balik = redirect()->route('ekstrakurikuler.index')
+@@ -345,6 +347,7 @@ public function update(Request $request, $id)
+                 $this->kolomEkskul($data)
+             );
+             $ekskul->syncJadwal($this->susunJadwal($data));
++            $this->sinkronKategori($ekskul, $data);
+         });
+ 
+         return redirect()->route('ekstrakurikuler.index')
+@@ -387,6 +390,25 @@ private function persenHadir(array $ids): array
+         return $hasil;
+     }
+ 
++    // Kategori boleh lebih dari satu dan boleh diatur admin maupun pembina pengelola (hak kelola sudah dijaga Gate).
++    // Form selalu mengirim penanda kategori_form; tanpa penanda (permintaan lain) kategori dibiarkan apa adanya.
++    // Kategori nonaktif hanya boleh dipertahankan kalau memang sudah melekat di ekskul ini.
++    private function sinkronKategori(Ekstrakurikuler $ekskul, array $data): void
++    {
++        if (empty($data['kategori_form'])) {
++            return;
++        }
++
++        $dipilih   = collect($data['kategori_ids'] ?? [])->map(fn ($id) => (int) $id)->unique()->values();
++        $terpasang = $ekskul->kategoris()->pluck('kategori_ekskuls.id');
++
++        $boleh = KategoriEkskul::whereIn('id', $dipilih)
++            ->where(fn ($q) => $q->where('aktif', true)->orWhereIn('id', $terpasang))
++            ->pluck('id');
++
++        $ekskul->kategoris()->sync($boleh->all());
++    }
++
+     // Kolom yang disimpan. Tipe ekskul (Ekskul Biasa, Ekskul Seleksi, Organisasi) hanya boleh diubah admin.
+     private function kolomEkskul(array $data): array
+     {
+@@ -441,6 +463,9 @@ private function rules(Request $request, bool $statusWajib): array
+             'hari' => 'required|array|min:1',
+             'hari.*' => ['required', Rule::in($valid)],
+             'deskripsi' => 'nullable|string',
++            'kategori_form' => ['nullable', 'boolean'],
++            'kategori_ids' => ['nullable', 'array'],
++            'kategori_ids.*' => ['integer', Rule::exists('kategori_ekskuls', 'id')],
+             'status' => ($statusWajib ? 'required' : 'nullable').'|in:aktif,nonaktif',
+             'jenis_ekskul_id' => ['nullable', 'integer', function ($atribut, $nilai, $gagal) use ($request) {
+                 $jenis = JenisEkskul::find($nilai);
+@@ -507,6 +532,7 @@ private function rules(Request $request, bool $statusWajib): array
+     private function messages(): array
+     {
+         return [
++            'kategori_ids.*.exists' => 'Ada kategori yang tidak dikenal.',
+             'hari.required' => 'Pilih minimal satu hari pelaksanaan.',
+             'hari.min' => 'Pilih minimal satu hari pelaksanaan.',
+             'jadwal.*.jam_mulai.required' => 'Jam mulai wajib diisi untuk setiap hari yang dipilih.',
+diff --git a/app/Http/Controllers/KategoriEkskulController.php b/app/Http/Controllers/KategoriEkskulController.php
+new file mode 100644
+index 0000000..f1e514f
+--- /dev/null
++++ b/app/Http/Controllers/KategoriEkskulController.php
+@@ -0,0 +1,95 @@
++<?php
++
++namespace App\Http\Controllers;
++
++use App\Models\KategoriEkskul;
++use Illuminate\Http\Request;
++use Illuminate\Support\Str;
++use Illuminate\Validation\Rule;
++
++// Mengatur kategori/label ekskul (Bela Diri, Seni & Olahraga, dst). Hanya admin (dijaga di routes/web.php).
++class KategoriEkskulController extends Controller
++{
++    public function index()
++    {
++        $daftar = KategoriEkskul::withCount('ekskuls')->urut()->get();
++
++        return view('kategori-ekskul.index', compact('daftar'));
++    }
++
++    private function aturan(?KategoriEkskul $kategori = null): array
++    {
++        return [
++            'nama'   => ['required', 'string', 'max:60', Rule::unique('kategori_ekskuls', 'nama')->ignore($kategori?->id)],
++            'urutan' => ['nullable', 'integer', 'min:0', 'max:99'],
++            'aktif'  => ['nullable', 'boolean'],
++        ];
++    }
++
++    private function pesan(): array
++    {
++        return [
++            'nama.required'  => 'Isi nama kategori.',
++            'nama.max'       => 'Nama kategori maksimal 60 karakter.',
++            'nama.unique'    => 'Kategori dengan nama itu sudah ada.',
++            'urutan.integer' => 'Urutan harus berupa angka.',
++            'urutan.min'     => 'Urutan minimal 0.',
++            'urutan.max'     => 'Urutan maksimal 99.',
++        ];
++    }
++
++    // Slug unik dari nama (dipakai di URL filter katalog, tidak berubah walau nama diganti)
++    private function buatSlug(string $nama): string
++    {
++        $dasar = Str::limit(Str::slug($nama) ?: 'kategori', 60, '');
++        $slug  = $dasar;
++        $i     = 2;
++
++        while (KategoriEkskul::where('slug', $slug)->exists()) {
++            $slug = $dasar . '-' . $i++;
++        }
++
++        return $slug;
++    }
++
++    public function store(Request $request)
++    {
++        $data = $request->validate($this->aturan(), $this->pesan());
++
++        KategoriEkskul::create([
++            'nama'   => $data['nama'],
++            'slug'   => $this->buatSlug($data['nama']),
++            'urutan' => $data['urutan'] ?? 50,
++            'aktif'  => true,
++        ]);
++
++        return back()->with('success', "Kategori {$data['nama']} ditambahkan.");
++    }
++
++    public function update(Request $request, KategoriEkskul $kategori)
++    {
++        $data = $request->validate($this->aturan($kategori), $this->pesan());
++
++        $kategori->update([
++            'nama'   => $data['nama'],
++            'urutan' => $data['urutan'] ?? $kategori->urutan,
++            'aktif'  => $request->boolean('aktif'),
++        ]);
++
++        return back()->with('success', "Kategori {$kategori->nama} diperbarui.");
++    }
++
++    public function destroy(KategoriEkskul $kategori)
++    {
++        $dipakai = $kategori->ekskuls()->count();
++
++        if ($dipakai > 0) {
++            return back()->with('error', "Kategori {$kategori->nama} masih dipakai {$dipakai} ekskul. Cukup nonaktifkan kategorinya, atau lepaskan dulu dari ekskulnya.");
++        }
++
++        $nama = $kategori->nama;
++        $kategori->delete();
++
++        return back()->with('success', "Kategori {$nama} dihapus.");
++    }
++}
+diff --git a/app/Models/Ekstrakurikuler.php b/app/Models/Ekstrakurikuler.php
+index f759d02..17ec58c 100644
+--- a/app/Models/Ekstrakurikuler.php
++++ b/app/Models/Ekstrakurikuler.php
+@@ -80,6 +80,12 @@ public function jenisEkskul()
+         return $this->belongsTo(JenisEkskul::class, 'jenis_ekskul_id');
+     }
+ 
++    // Kategori/label (boleh lebih dari satu), mis. Silat = Bela Diri + Seni & Olahraga. Beda dengan tipe di atas.
++    public function kategoris()
++    {
++        return $this->belongsToMany(KategoriEkskul::class, 'ekstrakurikuler_kategori', 'ekstrakurikuler_id', 'kategori_ekskul_id');
++    }
++
+     // Ekskul yang pendaftarannya lewat seleksi bertahap: semua ekskul bertipe Ekskul Seleksi atau Organisasi.
+     // Satu-satunya tempat aturan ini ditulis: kode lain cukup memanggil memakaiCasis() / alurCasis().
+     // (Nama "Casis" dipertahankan dari versi OSIS-saja; sekarang berlaku untuk semua tipe berseleksi.)
+diff --git a/app/Models/KategoriEkskul.php b/app/Models/KategoriEkskul.php
+new file mode 100644
+index 0000000..a44b52b
+--- /dev/null
++++ b/app/Models/KategoriEkskul.php
+@@ -0,0 +1,37 @@
++<?php
++
++namespace App\Models;
++
++use Illuminate\Database\Eloquent\Model;
++
++// Kategori/label ekskul yang diatur admin; satu ekskul boleh memiliki banyak kategori (pivot ekstrakurikuler_kategori).
++// Tidak ada hubungannya dengan perilaku sistem: itu tugas tipe ekskul (JenisEkskul).
++class KategoriEkskul extends Model
++{
++    protected $table = 'kategori_ekskuls';
++
++    protected $fillable = ['nama', 'slug', 'urutan', 'aktif'];
++
++    protected function casts(): array
++    {
++        return [
++            'aktif'  => 'boolean',
++            'urutan' => 'integer',
++        ];
++    }
++
++    public function ekskuls()
++    {
++        return $this->belongsToMany(Ekstrakurikuler::class, 'ekstrakurikuler_kategori', 'kategori_ekskul_id', 'ekstrakurikuler_id');
++    }
++
++    public function scopeUrut($query)
++    {
++        return $query->orderBy('urutan')->orderBy('nama');
++    }
++
++    public function scopeAktif($query)
++    {
++        return $query->where('aktif', true);
++    }
++}
+diff --git a/database/migrations/2026_11_04_090000_create_kategori_ekskuls_table.php b/database/migrations/2026_11_04_090000_create_kategori_ekskuls_table.php
+new file mode 100644
+index 0000000..5912f4c
+--- /dev/null
++++ b/database/migrations/2026_11_04_090000_create_kategori_ekskuls_table.php
+@@ -0,0 +1,51 @@
++<?php
++
++use Illuminate\Database\Migrations\Migration;
++use Illuminate\Database\Schema\Blueprint;
++use Illuminate\Support\Facades\DB;
++use Illuminate\Support\Facades\Schema;
++
++return new class extends Migration
++{
++    public function up(): void
++    {
++        // Kategori/label ekskul (mis. "Bela Diri", "Seni & Olahraga"). BEDA dengan tipe ekskul (jenis_ekskuls):
++        // tipe menentukan cara masuk dan hanya satu per ekskul; kategori hanya label, satu ekskul boleh punya banyak.
++        Schema::create('kategori_ekskuls', function (Blueprint $table) {
++            $table->id();
++            $table->string('nama', 60)->unique();
++            $table->string('slug', 70)->unique();            // pengenal tetap untuk URL filter katalog; tidak berubah walau nama diganti
++            $table->unsignedSmallInteger('urutan')->default(50);
++            $table->boolean('aktif')->default(true);         // nonaktif = tidak bisa dipilih lagi, label lama tetap melekat
++            $table->timestamps();
++        });
++
++        Schema::create('ekstrakurikuler_kategori', function (Blueprint $table) {
++            $table->foreignId('ekstrakurikuler_id')->constrained('ekstrakurikulers')->cascadeOnDelete();
++            $table->foreignId('kategori_ekskul_id')->constrained('kategori_ekskuls')->cascadeOnDelete();
++            $table->primary(['ekstrakurikuler_id', 'kategori_ekskul_id']);
++        });
++
++        // Kategori awal; admin bebas mengubah/menambah dari halaman Kategori Ekskul
++        $sekarang = now();
++        $awal = [
++            ['nama' => 'Bela Diri',            'slug' => 'bela-diri',        'urutan' => 1],
++            ['nama' => 'Seni & Olahraga',      'slug' => 'seni-olahraga',    'urutan' => 2],
++            ['nama' => 'Akademik & Sains',     'slug' => 'akademik-sains',   'urutan' => 3],
++            ['nama' => 'Kepemimpinan',         'slug' => 'kepemimpinan',     'urutan' => 4],
++            ['nama' => 'Sosial & Kemanusiaan', 'slug' => 'sosial-kemanusiaan', 'urutan' => 5],
++            ['nama' => 'Teknologi',            'slug' => 'teknologi',        'urutan' => 6],
++        ];
++
++        DB::table('kategori_ekskuls')->insert(array_map(
++            fn ($baris) => $baris + ['aktif' => true, 'created_at' => $sekarang, 'updated_at' => $sekarang],
++            $awal
++        ));
++    }
++
++    public function down(): void
++    {
++        Schema::dropIfExists('ekstrakurikuler_kategori');
++        Schema::dropIfExists('kategori_ekskuls');
++    }
++};
+diff --git a/resources/views/ekstrakurikuler/_kategori.blade.php b/resources/views/ekstrakurikuler/_kategori.blade.php
+new file mode 100644
+index 0000000..a7278b1
+--- /dev/null
++++ b/resources/views/ekstrakurikuler/_kategori.blade.php
+@@ -0,0 +1,39 @@
++{{-- Pilihan kategori ekskul (boleh lebih dari satu). Dipakai create & edit untuk admin dan pembina pengelola.
++     Kategori nonaktif hanya tampil kalau sedang melekat di ekskul ini. Query langsung (bukan lazy load relasi). --}}
++@php
++    $ekskulIni  = $ekstrakurikuler ?? null;
++    $terpasang  = $ekskulIni?->exists ? $ekskulIni->kategoris()->pluck('kategori_ekskuls.id')->map(fn ($i) => (int) $i)->all() : [];
++    // Setelah gagal validasi, pilihan lama dari form dipertahankan (termasuk "tidak ada yang dipilih")
++    $dipilih    = collect(old('kategori_form') ? (array) old('kategori_ids', []) : $terpasang)->map(fn ($i) => (int) $i)->all();
++    $daftarKategori = \App\Models\KategoriEkskul::urut()
++        ->where(fn ($q) => $q->where('aktif', true)->orWhereIn('id', $terpasang))
++        ->get();
++@endphp
++<div>
++    <label class="block text-sm font-semibold text-gray-700">Kategori ekskul <span class="font-normal text-gray-500">(boleh lebih dari satu)</span></label>
++    <input type="hidden" name="kategori_form" value="1">
++
++    @if($daftarKategori->isEmpty())
++        <p class="text-xs text-gray-500 mt-1">
++            Belum ada kategori.
++            @if(auth()->user()->isAdmin())
++                <a href="{{ route('kategori-ekskul.index') }}" class="underline">Tambah kategori</a>
++            @endif
++        </p>
++    @else
++        <div class="flex flex-wrap gap-2 mt-2">
++            @foreach($daftarKategori as $k)
++                <label class="cursor-pointer">
++                    <input type="checkbox" name="kategori_ids[]" value="{{ $k->id }}" class="peer sr-only" {{ in_array($k->id, $dipilih, true) ? 'checked' : '' }}>
++                    <span class="inline-block px-3 py-1 rounded-full text-xs font-semibold border border-gray-300 bg-white text-gray-700 peer-checked:bg-indigo-600 peer-checked:text-white peer-checked:border-indigo-600 peer-focus-visible:ring peer-focus-visible:ring-indigo-200">{{ $k->nama }}{{ $k->aktif ? '' : ' (nonaktif)' }}</span>
++                </label>
++            @endforeach
++        </div>
++        <p class="text-xs text-gray-500 mt-1">
++            Label topik untuk memudahkan siswa mencari, mis. Silat bisa masuk Bela Diri dan Seni &amp; Olahraga.
++            @if(auth()->user()->isAdmin())
++                <a href="{{ route('kategori-ekskul.index') }}" class="underline">Kelola kategori</a>
++            @endif
++        </p>
++    @endif
++</div>
+diff --git a/resources/views/ekstrakurikuler/create.blade.php b/resources/views/ekstrakurikuler/create.blade.php
+index 8851d3d..22c9b9a 100644
+--- a/resources/views/ekstrakurikuler/create.blade.php
++++ b/resources/views/ekstrakurikuler/create.blade.php
+@@ -48,6 +48,8 @@
+     @include('ekstrakurikuler._jenis')
+ @endif
+ 
++            @include('ekstrakurikuler._kategori')
++
+             @include('ekstrakurikuler._jadwal', ['awal' => []])
+ 
+             <div>
+diff --git a/resources/views/ekstrakurikuler/edit.blade.php b/resources/views/ekstrakurikuler/edit.blade.php
+index 5c37f3c..6efd4b1 100644
+--- a/resources/views/ekstrakurikuler/edit.blade.php
++++ b/resources/views/ekstrakurikuler/edit.blade.php
+@@ -40,6 +40,8 @@
+     @include('ekstrakurikuler._jenis')
+     @endif
+ 
++    @include('ekstrakurikuler._kategori')
++
+     @php
+         $awalJadwal = $ekstrakurikuler->haris->mapWithKeys(fn ($x) => [
+             $x->hari => ['jam_mulai' => substr($x->jam_mulai, 0, 5), 'jam_selesai' => substr($x->jam_selesai, 0, 5)],
+diff --git a/resources/views/ekstrakurikuler/index.blade.php b/resources/views/ekstrakurikuler/index.blade.php
+index 23e7dc7..c3fa3b3 100644
+--- a/resources/views/ekstrakurikuler/index.blade.php
++++ b/resources/views/ekstrakurikuler/index.blade.php
+@@ -96,6 +96,13 @@
+ 
+                         <h2 class="text-xl font-bold text-gray-900 mt-2">{{ $ekskul->nama_ekstrakurikuler }}</h2>
+                         <p class="text-sm text-gray-600 mt-1">Pembina: <strong>{{ $ekskul->pembina_tampil }}</strong></p>
++                        @if($ekskul->kategoris->isNotEmpty())
++                            <div class="flex flex-wrap gap-1 mt-2">
++                                @foreach($ekskul->kategoris->sortBy('urutan') as $kat)
++                                    <span class="inline-block px-2 py-0.5 text-xs rounded-full bg-sky-100 text-sky-800">{{ $kat->nama }}</span>
++                                @endforeach
++                            </div>
++                        @endif
+                         <div class="text-sm text-gray-600">
+                             <p class="font-semibold">Jadwal:</p>
+                             @forelse($ekskul->jadwal as $j)
+diff --git a/resources/views/ekstrakurikuler/show.blade.php b/resources/views/ekstrakurikuler/show.blade.php
+index 541e34f..a51b671 100644
+--- a/resources/views/ekstrakurikuler/show.blade.php
++++ b/resources/views/ekstrakurikuler/show.blade.php
+@@ -18,6 +18,13 @@
+                 </span>
+                 <h1 class="text-3xl font-bold text-gray-800 mt-2">{{ $ekskul->nama_ekstrakurikuler }}</h1>
+                 <p class="text-gray-600 text-sm">Pembina: <strong>{{ $ekskul->pembina_tampil }}</strong></p>
++                @if($ekskul->kategoris->isNotEmpty())
++                    <div class="flex flex-wrap gap-1 mt-2">
++                        @foreach($ekskul->kategoris->sortBy('urutan') as $kat)
++                            <span class="inline-block px-2 py-0.5 text-xs rounded-full bg-sky-100 text-sky-800">{{ $kat->nama }}</span>
++                        @endforeach
++                    </div>
++                @endif
+             </div>
+             <a href="{{ route('ekstrakurikuler.index') }}" class="text-gray-600 hover:underline text-sm">← Katalog</a>
+         </div>
+diff --git a/resources/views/kategori-ekskul/index.blade.php b/resources/views/kategori-ekskul/index.blade.php
+new file mode 100644
+index 0000000..77aa468
+--- /dev/null
++++ b/resources/views/kategori-ekskul/index.blade.php
+@@ -0,0 +1,84 @@
++<!DOCTYPE html>
++<html lang="id">
++<head>
++    <meta charset="UTF-8">
++    <meta name="viewport" content="width=device-width, initial-scale=1.0">
++    <title>Kategori Ekskul</title>
++    @include('partials.head')
++</head>
++<body class="app-bg p-6">
++    <div class="max-w-4xl mx-auto">
++        @include('partials.navbar')
++
++        <div class="mb-6" data-aos="fade-down">
++            <h1 class="text-3xl font-bold text-gray-800">Kategori Ekskul</h1>
++            <p class="text-gray-600 text-sm">
++                Kategori adalah label topik (mis. <strong>Bela Diri</strong>, <strong>Seni &amp; Olahraga</strong>). Satu ekskul boleh punya
++                lebih dari satu kategori, dan siswa bisa menyaring katalog berdasarkan kategori. Kategori berbeda dengan
++                <a href="{{ route('jenis-ekskul.index') }}" class="underline">tipe ekskul</a>, yang menentukan cara masuk. Kategori yang
++                dinonaktifkan tidak bisa dipilih lagi, tetapi label lama di ekskul tetap tampil.
++            </p>
++        </div>
++
++        @if(session('success'))
++            <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-lg mb-4">{{ session('success') }}</div>
++        @endif
++        @if(session('error'))
++            <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg mb-4">{{ session('error') }}</div>
++        @endif
++        @if($errors->any())
++            <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg mb-4">
++                @foreach($errors->all() as $galat)<p>{{ $galat }}</p>@endforeach
++            </div>
++        @endif
++
++        <div class="space-y-3 mb-8">
++            @forelse($daftar as $k)
++                <div class="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
++                    <form action="{{ route('kategori-ekskul.update', $k) }}" method="POST" class="flex flex-wrap items-end gap-3">
++                        @csrf
++                        @method('PATCH')
++                        <div class="flex-1 min-w-[10rem]">
++                            <label class="block text-xs font-semibold text-gray-600">Nama</label>
++                            <input type="text" name="nama" value="{{ $k->nama }}" maxlength="60" required class="w-full border p-2 rounded-lg text-sm">
++                            <p class="text-xs text-gray-500 mt-1">{{ $k->ekskuls_count }} ekskul</p>
++                        </div>
++                        <div>
++                            <label class="block text-xs font-semibold text-gray-600">Urutan</label>
++                            <input type="number" name="urutan" value="{{ $k->urutan }}" min="0" max="99" class="w-20 border p-2 rounded-lg text-sm">
++                        </div>
++                        <label class="flex items-center gap-1 text-sm text-gray-700">
++                            <input type="checkbox" name="aktif" value="1" {{ $k->aktif ? 'checked' : '' }}> Aktif
++                        </label>
++                        <x-tombol jenis="sukses" type="submit">Simpan</x-tombol>
++                    </form>
++
++                    <form action="{{ route('kategori-ekskul.destroy', $k) }}" method="POST" class="mt-2" onsubmit="return confirm({{ json_encode('Hapus kategori '.$k->nama.'?') }})">
++                        @csrf
++                        @method('DELETE')
++                        <x-tombol jenis="hapus" type="submit">Hapus kategori</x-tombol>
++                    </form>
++                </div>
++            @empty
++                <p class="text-sm text-gray-500">Belum ada kategori. Tambahkan lewat form di bawah.</p>
++            @endforelse
++        </div>
++
++        <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
++            <h2 class="font-bold text-gray-800 mb-3">Tambah kategori baru</h2>
++            <form action="{{ route('kategori-ekskul.store') }}" method="POST" class="flex flex-wrap items-end gap-3">
++                @csrf
++                <div class="flex-1 min-w-[10rem]">
++                    <label class="block text-xs font-semibold text-gray-600">Nama kategori</label>
++                    <input type="text" name="nama" value="{{ old('nama') }}" maxlength="60" required placeholder="Contoh: Seni Pertunjukan" class="w-full border p-2 rounded-lg text-sm">
++                </div>
++                <div>
++                    <label class="block text-xs font-semibold text-gray-600">Urutan</label>
++                    <input type="number" name="urutan" value="{{ old('urutan', 50) }}" min="0" max="99" class="w-20 border p-2 rounded-lg text-sm">
++                </div>
++                <x-tombol jenis="sukses" type="submit">Tambah</x-tombol>
++            </form>
++        </div>
++    </div>
++</body>
++</html>
+diff --git a/resources/views/partials/navbar.blade.php b/resources/views/partials/navbar.blade.php
+index 9c87c26..ea0cc53 100644
+--- a/resources/views/partials/navbar.blade.php
++++ b/resources/views/partials/navbar.blade.php
+@@ -50,6 +50,7 @@
+                 @if($me->isAdmin())
+                     <a href="{{ route('kredensial.index') }}" class="text-gray-700 hover:underline {{ request()->routeIs('kredensial.*') ? $aktif : '' }}">Kredensial</a>
+                     <a href="{{ route('jenis-ekskul.index') }}" class="text-gray-700 hover:underline {{ request()->routeIs('jenis-ekskul.*') ? $aktif : '' }}">Tipe Ekskul</a>
++                    <a href="{{ route('kategori-ekskul.index') }}" class="text-gray-700 hover:underline {{ request()->routeIs('kategori-ekskul.*') ? $aktif : '' }}">Kategori Ekskul</a>
+                 @endif
+                 @php $menungguKeputusan = \App\Models\EkskulPengunduranDiri::menungguUntuk($me)->count(); @endphp
+                 <a href="{{ route('pengunduran.index') }}" class="text-gray-700 hover:underline {{ request()->routeIs('pengunduran.*') ? $aktif : '' }}">
+diff --git a/routes/web.php b/routes/web.php
+index 04b76ea..d2c4786 100644
+--- a/routes/web.php
++++ b/routes/web.php
+@@ -25,6 +25,7 @@
+ use App\Http\Controllers\HealthController;
+ use App\Http\Controllers\ImportSiswaController;
+ use App\Http\Controllers\JenisEkskulController;
++use App\Http\Controllers\KategoriEkskulController;
+ use App\Http\Controllers\KomunitasController;
+ use App\Http\Controllers\JihyController;
+ use App\Http\Controllers\KeanggotaanController;
+@@ -336,6 +337,12 @@
+         Route::patch('/jenis-ekskul/{jenis}', [JenisEkskulController::class, 'update'])->name('jenis-ekskul.update');
+         Route::delete('/jenis-ekskul/{jenis}', [JenisEkskulController::class, 'destroy'])->name('jenis-ekskul.destroy');
+ 
++        // Kategori/label ekskul (boleh lebih dari satu per ekskul)
++        Route::get('/kategori-ekskul', [KategoriEkskulController::class, 'index'])->name('kategori-ekskul.index');
++        Route::post('/kategori-ekskul', [KategoriEkskulController::class, 'store'])->name('kategori-ekskul.store');
++        Route::patch('/kategori-ekskul/{kategori}', [KategoriEkskulController::class, 'update'])->name('kategori-ekskul.update');
++        Route::delete('/kategori-ekskul/{kategori}', [KategoriEkskulController::class, 'destroy'])->name('kategori-ekskul.destroy');
++
+         // Password sementara akun pembina yang dibuat otomatis (terenkripsi, berbatas waktu)
+         Route::get('/kredensial', [KredensialController::class, 'index'])->name('kredensial.index');
+         Route::post('/kredensial/{kredensial}/tampilkan', [KredensialController::class, 'tampilkan'])
+diff --git a/tests/Feature/KategoriEkskulTest.php b/tests/Feature/KategoriEkskulTest.php
+new file mode 100644
+index 0000000..e515b92
+--- /dev/null
++++ b/tests/Feature/KategoriEkskulTest.php
+@@ -0,0 +1,301 @@
++<?php
++
++use App\Models\Ekstrakurikuler;
++use App\Models\JenisEkskul;
++use App\Models\KategoriEkskul;
++use App\Models\User;
++use Illuminate\Foundation\Testing\RefreshDatabase;
++use Illuminate\Support\Facades\DB;
++use Illuminate\Support\Str;
++
++uses(RefreshDatabase::class);
++
++beforeEach(function () {
++    $this->withoutVite();
++});
++
++function akunKe(string $role = 'siswa'): User
++{
++    return User::factory()->create(['role' => $role, 'is_active' => true]);
++}
++
++function ekskulKe(string $nama): Ekstrakurikuler
++{
++    return Ekstrakurikuler::create([
++        'nama_ekstrakurikuler' => $nama,
++        'pembina' => 'Pak Uji',
++        'status' => 'aktif',
++        'jenis_ekskul_id' => (int) JenisEkskul::where('kode', 'ekskul')->value('id'),
++    ]);
++}
++
++function kategoriKe(string $nama, array $tambahan = []): KategoriEkskul
++{
++    return KategoriEkskul::create(array_merge([
++        'nama' => $nama,
++        'slug' => Str::slug($nama),
++        'urutan' => 20,
++        'aktif' => true,
++    ], $tambahan));
++}
++
++function idKategoriKe(string $slug): int
++{
++    return (int) KategoriEkskul::where('slug', $slug)->value('id');
++}
++
++function payloadKe(array $tambahan = []): array
++{
++    return array_merge([
++        'nama_ekstrakurikuler' => 'Ekskul Uji',
++        'pembina' => 'Pak Uji',
++        'status' => 'aktif',
++        'hari' => ['senin'],
++        'jadwal' => ['senin' => ['jam_mulai' => '15:00', 'jam_selesai' => '17:00']],
++    ], $tambahan);
++}
++
++function idKategoriEkskulKe(Ekstrakurikuler $ekskul): array
++{
++    return $ekskul->kategoris()->pluck('kategori_ekskuls.id')->map(fn ($id) => (int) $id)->sort()->values()->all();
++}
++
++// ---------------------------------------------------------------------------
++// Data dan relasi
++// ---------------------------------------------------------------------------
++
++test('kategori awal tersedia dengan slug yang unik', function () {
++    expect(KategoriEkskul::urut()->pluck('nama')->all())->toContain('Bela Diri', 'Seni & Olahraga')
++        ->and(KategoriEkskul::pluck('slug')->unique()->count())->toBe(KategoriEkskul::count());
++});
++
++test('satu ekskul punya banyak kategori dan satu kategori dipakai banyak ekskul', function () {
++    $silat = ekskulKe('Silat');
++    $taekwondo = ekskulKe('Taekwondo');
++    $bela = idKategoriKe('bela-diri');
++    $seni = idKategoriKe('seni-olahraga');
++
++    $silat->kategoris()->attach([$bela, $seni]);
++    $taekwondo->kategoris()->attach($bela);
++
++    expect(idKategoriEkskulKe($silat))->toEqualCanonicalizing([$bela, $seni])
++        ->and(KategoriEkskul::find($bela)->ekskuls()->count())->toBe(2);
++});
++
++test('menghapus ekskul melepas kategorinya, kategorinya sendiri tetap ada', function () {
++    $ekskul = ekskulKe('Silat');
++    $ekskul->kategoris()->attach(idKategoriKe('bela-diri'));
++
++    $ekskul->delete();
++
++    expect(DB::table('ekstrakurikuler_kategori')->count())->toBe(0)
++        ->and(KategoriEkskul::where('slug', 'bela-diri')->exists())->toBeTrue();
++});
++
++// ---------------------------------------------------------------------------
++// Form ekskul: simpan dan ubah kategori
++// ---------------------------------------------------------------------------
++
++test('admin membuat ekskul dengan lebih dari satu kategori', function () {
++    $bela = idKategoriKe('bela-diri');
++    $seni = idKategoriKe('seni-olahraga');
++
++    $this->actingAs(akunKe('admin'))
++        ->post(route('ekstrakurikuler.store'), payloadKe([
++            'nama_ekstrakurikuler' => 'Silat',
++            'kategori_form' => '1',
++            'kategori_ids' => [$bela, $seni],
++        ]))
++        ->assertSessionHasNoErrors();
++
++    $silat = Ekstrakurikuler::where('nama_ekstrakurikuler', 'Silat')->firstOrFail();
++
++    expect($silat->kategoris()->pluck('nama')->all())->toEqualCanonicalizing(['Bela Diri', 'Seni & Olahraga']);
++});
++
++test('ekskul boleh dibuat tanpa kategori', function () {
++    $this->actingAs(akunKe('admin'))
++        ->post(route('ekstrakurikuler.store'), payloadKe(['kategori_form' => '1']))
++        ->assertSessionHasNoErrors();
++
++    expect(Ekstrakurikuler::firstOrFail()->kategoris()->count())->toBe(0);
++});
++
++test('mengubah ekskul mengganti kategorinya; tanpa penanda form kategori dibiarkan', function () {
++    $admin = akunKe('admin');
++    $ekskul = ekskulKe('Taekwondo');
++    $ekskul->kategoris()->attach([idKategoriKe('bela-diri'), idKategoriKe('seni-olahraga')]);
++    $teknologi = idKategoriKe('teknologi');
++
++    // ganti ke satu kategori lain
++    $this->actingAs($admin)
++        ->put(route('ekstrakurikuler.update', $ekskul->id), payloadKe(['kategori_form' => '1', 'kategori_ids' => [$teknologi]]))
++        ->assertSessionHasNoErrors();
++    expect(idKategoriEkskulKe($ekskul))->toBe([$teknologi]);
++
++    // permintaan tanpa penanda form: kategori tidak berubah
++    $this->actingAs($admin)
++        ->put(route('ekstrakurikuler.update', $ekskul->id), payloadKe())
++        ->assertSessionHasNoErrors();
++    expect(idKategoriEkskulKe($ekskul))->toBe([$teknologi]);
++
++    // penanda ada tapi tidak ada yang dipilih: semua kategori dilepas
++    $this->actingAs($admin)
++        ->put(route('ekstrakurikuler.update', $ekskul->id), payloadKe(['kategori_form' => '1']))
++        ->assertSessionHasNoErrors();
++    expect(idKategoriEkskulKe($ekskul))->toBe([]);
++});
++
++test('kategori nonaktif tidak bisa dipilih baru, tetapi yang sudah melekat boleh dipertahankan', function () {
++    $admin = akunKe('admin');
++    $lama = kategoriKe('Kategori Lama', ['aktif' => false]);
++    $baru = kategoriKe('Kategori Baru');
++
++    $ekskulA = ekskulKe('Ekskul A');
++    $ekskulA->kategoris()->attach($lama->id);
++    $ekskulB = ekskulKe('Ekskul B');
++
++    // Ekskul B tidak bisa mengambil kategori nonaktif
++    $this->actingAs($admin)
++        ->put(route('ekstrakurikuler.update', $ekskulB->id), payloadKe(['kategori_form' => '1', 'kategori_ids' => [$lama->id]]))
++        ->assertSessionHasNoErrors();
++    expect(idKategoriEkskulKe($ekskulB))->toBe([]);
++
++    // Ekskul A mempertahankan yang lama dan boleh menambah yang baru
++    $this->actingAs($admin)
++        ->put(route('ekstrakurikuler.update', $ekskulA->id), payloadKe(['kategori_form' => '1', 'kategori_ids' => [$lama->id, $baru->id]]))
++        ->assertSessionHasNoErrors();
++    expect(idKategoriEkskulKe($ekskulA))->toEqualCanonicalizing([$lama->id, $baru->id]);
++
++    // Setelah dilepas, kategori nonaktif tidak bisa dipasang kembali
++    $this->actingAs($admin)
++        ->put(route('ekstrakurikuler.update', $ekskulA->id), payloadKe(['kategori_form' => '1', 'kategori_ids' => [$baru->id]]))
++        ->assertSessionHasNoErrors();
++    $this->actingAs($admin)
++        ->put(route('ekstrakurikuler.update', $ekskulA->id), payloadKe(['kategori_form' => '1', 'kategori_ids' => [$lama->id, $baru->id]]))
++        ->assertSessionHasNoErrors();
++    expect(idKategoriEkskulKe($ekskulA))->toBe([$baru->id]);
++});
++
++test('id kategori yang tidak dikenal ditolak dan ekskul tidak jadi dibuat', function () {
++    $this->actingAs(akunKe('admin'))
++        ->post(route('ekstrakurikuler.store'), payloadKe(['kategori_form' => '1', 'kategori_ids' => [99999]]))
++        ->assertSessionHasErrors('kategori_ids.0');
++
++    expect(Ekstrakurikuler::count())->toBe(0);
++});
++
++test('pembina pengelola boleh mengatur kategori ekskulnya, pembina lain tidak', function () {
++    $pembina = akunKe('pembina');
++    $ekskul = ekskulKe('Robotik');
++    $ekskul->pembinas()->attach($pembina->id, ['mulai' => now()->toDateString()]);
++    $teknologi = idKategoriKe('teknologi');
++
++    $this->actingAs($pembina)
++        ->put(route('ekstrakurikuler.update', $ekskul->id), payloadKe(['kategori_form' => '1', 'kategori_ids' => [$teknologi]]))
++        ->assertSessionHasNoErrors();
++    expect(idKategoriEkskulKe($ekskul))->toBe([$teknologi]);
++
++    $this->actingAs(akunKe('pembina'))
++        ->put(route('ekstrakurikuler.update', $ekskul->id), payloadKe(['kategori_form' => '1', 'kategori_ids' => []]))
++        ->assertForbidden();
++    expect(idKategoriEkskulKe($ekskul))->toBe([$teknologi]);
++});
++
++// ---------------------------------------------------------------------------
++// Tampilan
++// ---------------------------------------------------------------------------
++
++test('form tambah menawarkan kategori aktif; form edit menambah kategori nonaktif yang melekat', function () {
++    $admin = akunKe('admin');
++    $nonaktif = kategoriKe('Tidak Dipakai', ['aktif' => false]);
++    $ekskul = ekskulKe('Ekskul Lama');
++    $ekskul->kategoris()->attach($nonaktif->id);
++
++    $this->actingAs($admin)->get(route('ekstrakurikuler.create'))
++        ->assertOk()
++        ->assertSee('Bela Diri')
++        ->assertDontSee('Tidak Dipakai');
++
++    $this->actingAs($admin)->get(route('ekstrakurikuler.edit', $ekskul->id))
++        ->assertOk()
++        ->assertSee('Tidak Dipakai (nonaktif)');
++
++    // pembina yang membuat ekskul/komunitas juga memilih kategori
++    $this->actingAs(akunKe('pembina'))->get(route('ekstrakurikuler.create'))
++        ->assertOk()
++        ->assertSee('Bela Diri');
++});
++
++test('katalog dan halaman detail menampilkan semua kategori ekskul', function () {
++    $ekskul = ekskulKe('Silat Sekolah');
++    $ekskul->kategoris()->attach([idKategoriKe('bela-diri'), idKategoriKe('seni-olahraga')]);
++    $siswa = akunKe('siswa');
++
++    $this->actingAs($siswa)->get(route('ekstrakurikuler.index'))
++        ->assertOk()
++        ->assertSee('Bela Diri')
++        ->assertSee('Seni & Olahraga');
++
++    $this->actingAs($siswa)->get(route('ekstrakurikuler.show', $ekskul->id))
++        ->assertOk()
++        ->assertSee('Bela Diri')
++        ->assertSee('Seni & Olahraga');
++});
++
++// ---------------------------------------------------------------------------
++// Halaman Kategori Ekskul (khusus admin)
++// ---------------------------------------------------------------------------
++
++test('admin menambah kategori; slug dibuat otomatis dan tetap unik', function () {
++    $admin = akunKe('admin');
++
++    $this->actingAs($admin)->post(route('kategori-ekskul.store'), ['nama' => 'Seni Pertunjukan', 'urutan' => 7])
++        ->assertSessionHasNoErrors();
++    $this->actingAs($admin)->post(route('kategori-ekskul.store'), ['nama' => 'Seni Pertunjukan!'])
++        ->assertSessionHasNoErrors();
++
++    expect(KategoriEkskul::where('nama', 'Seni Pertunjukan')->value('slug'))->toBe('seni-pertunjukan')
++        ->and(KategoriEkskul::where('nama', 'Seni Pertunjukan!')->value('slug'))->toBe('seni-pertunjukan-2');
++});
++
++test('nama kategori kembar atau kosong ditolak', function () {
++    $admin = akunKe('admin');
++
++    $this->actingAs($admin)->post(route('kategori-ekskul.store'), ['nama' => 'Bela Diri'])->assertSessionHasErrors('nama');
++    $this->actingAs($admin)->post(route('kategori-ekskul.store'), ['nama' => ''])->assertSessionHasErrors('nama');
++});
++
++test('mengubah kategori tidak mengganti slug; centang aktif dilepas = nonaktif', function () {
++    $kategori = kategoriKe('Seni Lama');
++
++    $this->actingAs(akunKe('admin'))
++        ->patch(route('kategori-ekskul.update', $kategori), ['nama' => 'Seni Panggung', 'urutan' => 3])
++        ->assertSessionHasNoErrors();
++
++    $kategori->refresh();
++    expect($kategori->nama)->toBe('Seni Panggung')
++        ->and($kategori->slug)->toBe('seni-lama')
++        ->and($kategori->urutan)->toBe(3)
++        ->and($kategori->aktif)->toBeFalse();
++});
++
++test('kategori yang masih dipakai tidak bisa dihapus, yang tidak dipakai bisa', function () {
++    $admin = akunKe('admin');
++    $dipakai = kategoriKe('Dipakai');
++    $kosong = kategoriKe('Kosong');
++    ekskulKe('Ekskul X')->kategoris()->attach($dipakai->id);
++
++    $this->actingAs($admin)->delete(route('kategori-ekskul.destroy', $dipakai))->assertSessionHas('error');
++    expect(KategoriEkskul::whereKey($dipakai->id)->exists())->toBeTrue();
++
++    $this->actingAs($admin)->delete(route('kategori-ekskul.destroy', $kosong))->assertSessionHas('success');
++    expect(KategoriEkskul::whereKey($kosong->id)->exists())->toBeFalse();
++});
++
++test('halaman Kategori Ekskul hanya untuk admin', function () {
++    $this->actingAs(akunKe('admin'))->get(route('kategori-ekskul.index'))->assertOk()->assertSee('Bela Diri');
++    $this->actingAs(akunKe('pembina'))->get(route('kategori-ekskul.index'))->assertForbidden();
++    $this->actingAs(akunKe('siswa'))->get(route('kategori-ekskul.index'))->assertForbidden();
++    $this->actingAs(akunKe('pembina'))->post(route('kategori-ekskul.store'), ['nama' => 'Coba'])->assertForbidden();
++});

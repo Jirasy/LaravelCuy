@@ -50,6 +50,7 @@
                 @if($me->isAdmin())
                     <a href="{{ route('kredensial.index') }}" class="text-gray-700 hover:underline {{ request()->routeIs('kredensial.*') ? $aktif : '' }}">Kredensial</a>
                     <a href="{{ route('jenis-ekskul.index') }}" class="text-gray-700 hover:underline {{ request()->routeIs('jenis-ekskul.*') ? $aktif : '' }}">Tipe Ekskul</a>
+                    <a href="{{ route('kategori-ekskul.index') }}" class="text-gray-700 hover:underline {{ request()->routeIs('kategori-ekskul.*') ? $aktif : '' }}">Kategori Ekskul</a>
                 @endif
                 @php $menungguKeputusan = \App\Models\EkskulPengunduranDiri::menungguUntuk($me)->count(); @endphp
                 <a href="{{ route('pengunduran.index') }}" class="text-gray-700 hover:underline {{ request()->routeIs('pengunduran.*') ? $aktif : '' }}">
