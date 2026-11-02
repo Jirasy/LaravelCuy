@@ -8,6 +8,7 @@ use App\Models\PendaftaranEkskul;
 use App\Services\OsisService;
 use App\Support\Pemberitahuan;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 
 // Komunitas = ekskul yang baru lahir dan belum diresmikan. Dibuat pembina atau siswa; admin meresmikannya
@@ -34,10 +35,10 @@ class KomunitasController extends Controller
             'nama_ekstrakurikuler' => 'required|string|max:255',
             'nama_singkatan'       => Ekstrakurikuler::aturanSingkatan(),
             'deskripsi'            => 'nullable|string|max:2000',
-        ], [
+        ] + Ekstrakurikuler::aturanKategori() + Arr::except(Ekstrakurikuler::aturanKontak(), ['wa_pembina']), [
             'nama_ekstrakurikuler.required' => 'Isi nama komunitas.',
             'nama_singkatan.max'            => 'Singkatan maksimal 30 karakter.',
-        ]);
+        ] + Ekstrakurikuler::pesanKategori() + Ekstrakurikuler::pesanKontak());
 
         $tipe = JenisEkskul::where('kategori', 'komunitas')->first();
 
@@ -51,10 +52,16 @@ class KomunitasController extends Controller
                 'nama_singkatan'       => $data['nama_singkatan'] ?? null,
                 'pembina'              => $user->isPembina() ? $user->name : '-',
                 'deskripsi'            => $data['deskripsi'] ?? null,
+                'wa_grup_url'          => $data['wa_grup_url'] ?? null,
+                'telegram_url'         => $data['telegram_url'] ?? null,
+                'instagram_url'        => $data['instagram_url'] ?? null,
+                'tiktok_url'           => $data['tiktok_url'] ?? null,
                 'status'               => 'aktif',
                 'jenis_ekskul_id'      => $tipe->id,
                 'dibuat_oleh'          => $user->id,
             ]);
+
+            $ekskul->sinkronKategori($data);
 
             if ($user->isPembina()) {
                 // Pembina pembuat otomatis menjadi pembina komunitasnya

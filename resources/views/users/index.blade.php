@@ -136,7 +136,7 @@
                         <option value="pembina">Pembina</option>
                         <option value="admin">Admin</option>
                     </select>
-                    <button type="submit" name="aksi" value="ubah_role" class="rounded bg-gray-800 px-3 py-1.5 text-xs font-semibold text-white hover:bg-gray-900">Ubah role</button>
+                    <button type="submit" name="aksi" value="ubah_role" class="rounded bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700">Ubah role</button>
                 </span>
             @endif
 
@@ -206,7 +206,7 @@
                                             <option value="pembina" {{ $u->role === 'pembina' ? 'selected' : '' }}>Pembina</option>
                                             <option value="admin"   {{ $u->role === 'admin' ? 'selected' : '' }}>Admin</option>
                                         </select>
-                                        <button type="submit" class="bg-gray-800 text-white px-3 py-1 rounded text-xs hover:bg-gray-900">Simpan</button>
+                                        <button type="submit" class="bg-emerald-600 text-white px-3 py-1 rounded text-xs hover:bg-emerald-700">Simpan</button>
                                     </form>
                                 @endcannot
                             </td>

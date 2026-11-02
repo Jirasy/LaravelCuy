@@ -41,7 +41,7 @@
             </div>
 
             <p class="text-xs text-gray-500">Saat ditutup, tombol daftar di sisi siswa berubah menjadi "Pendaftaran Ditutup". Admin dan pembina tetap bisa mendaftarkan anggota secara manual.</p>
-            <button type="submit" class="bg-gray-800 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-gray-900">Simpan</button>
+            <button type="submit" class="bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-emerald-700">Simpan</button>
         </form>
     </details>
 </div>

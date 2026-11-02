@@ -84,7 +84,7 @@
                         </a>
                     @endif
 
-                    <a href="{{ route('ekstrakurikuler.show', $ekskul->id) }}" class="bg-white/70 text-gray-800 px-5 py-2 rounded-lg font-semibold hover:bg-white">Tentang {{ $ekskul->nama_singkatan }}</a>
+                    <a href="{{ route('ekstrakurikuler.show', $ekskul->id) }}" class="bg-white/70 text-gray-800 px-5 py-2 rounded-lg font-semibold hover:bg-white">Tentang {{ $ekskul->nama_tampil }}</a>
                 </div>
             </div>
         </div>

@@ -154,7 +154,7 @@ test('tautan pill mempertahankan saringan kelompok lain dan mematikan saringan y
     // pill kategori lain membawa status=buka
     $html->assertSee('kategori=teknologi&amp;status=buka', false);
     // pill Buka yang aktif mematikan status saja, kategori tetap
-    $html->assertSee('href="' . route('ekstrakurikuler.index', ['kategori' => 'bela-diri']) . '"', false);
+    $html->assertSee('href="'.route('ekstrakurikuler.index', ['kategori' => 'bela-diri']).'"', false);
     // ada tombol reset karena ada saringan aktif
     $html->assertSee('Reset filter');
 });

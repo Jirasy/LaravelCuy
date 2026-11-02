@@ -15,7 +15,7 @@ class KategoriEkskul extends Model
     protected function casts(): array
     {
         return [
-            'aktif'  => 'boolean',
+            'aktif' => 'boolean',
             'urutan' => 'integer',
         ];
     }

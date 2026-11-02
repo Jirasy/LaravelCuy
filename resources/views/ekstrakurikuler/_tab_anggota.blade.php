@@ -132,7 +132,7 @@
                                             <input type="number" name="tahun_mulai" value="{{ $a->tahun_mulai }}" placeholder="Mulai" class="border p-1 rounded text-xs">
                                             <input type="number" name="tahun_selesai" value="{{ $a->tahun_selesai }}" placeholder="Selesai" class="border p-1 rounded text-xs">
                                         </div>
-                                        <button type="submit" class="bg-gray-800 text-white px-3 py-1 rounded text-xs hover:bg-gray-900">Simpan</button>
+                                        <button type="submit" class="bg-emerald-600 text-white px-3 py-1 rounded text-xs hover:bg-emerald-700">Simpan</button>
                                     </form>
 
                                     {{-- Keluarkan dari ekskul (alasan wajib) --}}

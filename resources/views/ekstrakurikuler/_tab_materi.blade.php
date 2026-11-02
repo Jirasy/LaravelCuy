@@ -21,7 +21,7 @@
                 <form action="{{ route('materi.akses-semua', $ekskul->id) }}" method="POST">
                     @csrf
                     <input type="hidden" name="aksi" value="izinkan">
-                    <button type="submit" class="bg-green-600 text-white px-3 py-1.5 rounded text-xs font-semibold hover:bg-green-700">Izinkan semua anggota aktif</button>
+                    <button type="submit" class="bg-emerald-600 text-white px-3 py-1.5 rounded text-xs font-semibold hover:bg-emerald-700">Izinkan semua anggota aktif</button>
                 </form>
                 <form action="{{ route('materi.akses-semua', $ekskul->id) }}" method="POST" onsubmit="return confirm('Cabut akses materi dari semua anggota?')">
                     @csrf

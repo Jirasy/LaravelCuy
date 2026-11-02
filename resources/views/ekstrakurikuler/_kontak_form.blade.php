@@ -11,11 +11,13 @@
         <input type="url" name="wa_grup_url" value="{{ old('wa_grup_url', $ekskulIni?->wa_grup_url) }}" maxlength="500" placeholder="https://chat.whatsapp.com/..." class="w-full border p-2 rounded-lg mt-1 text-sm">
     </div>
 
+    @if(empty($tanpaPembina))
     <div>
         <label class="block text-xs font-semibold text-gray-600">Nomor WhatsApp Pembina (chat langsung)</label>
         <input type="text" name="wa_pembina" value="{{ old('wa_pembina', $ekskulIni?->wa_pembina_tampilan) }}" maxlength="25" placeholder="081234567890" class="w-full border p-2 rounded-lg mt-1 text-sm">
         <p class="text-xs text-gray-500 mt-1">Nomor ini sengaja kamu bagikan ke anggota. Nomor di profil pribadi pembina tidak ikut tampil.</p>
     </div>
+    @endif
 
     <div>
         <label class="block text-xs font-semibold text-gray-600">Link Telegram</label>

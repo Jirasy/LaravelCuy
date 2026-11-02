@@ -6,6 +6,7 @@ use App\Enums\Hari;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 
 class Ekstrakurikuler extends Model
 {
@@ -98,6 +99,59 @@ class Ekstrakurikuler extends Model
     {
         $nilai = is_string($nilai) ? trim($nilai) : $nilai;
         $this->attributes['nama_singkatan'] = $nilai === '' ? null : $nilai;
+    }
+
+    // Ukuran ekskul menurut jumlah anggota aktif, untuk saringan katalog: kunci => [nama, rentang, batas bawah, batas atas]
+    // Ubah angkanya di sini kalau batasnya perlu disesuaikan.
+    public const UKURAN_ANGGOTA = [
+        'kecil'  => ['Kecil',  '< 15',  0,  14],
+        'sedang' => ['Sedang', '15–29', 15, 29],
+        'besar'  => ['Besar',  '30+',   30, null],
+    ];
+
+    public static function ukuranAnggota(int $jumlah): string
+    {
+        foreach (self::UKURAN_ANGGOTA as $kunci => [$nama, $rentang, $bawah, $atas]) {
+            if ($jumlah >= $bawah && ($atas === null || $jumlah <= $atas)) {
+                return $kunci;
+            }
+        }
+
+        return 'kecil';
+    }
+
+    // ---- Kategori (dipakai form ekskul dan form komunitas) ----
+
+    public static function aturanKategori(): array
+    {
+        return [
+            'kategori_form' => ['nullable', 'boolean'],
+            'kategori_ids' => ['nullable', 'array'],
+            'kategori_ids.*' => ['integer', Rule::exists('kategori_ekskuls', 'id')],
+        ];
+    }
+
+    public static function pesanKategori(): array
+    {
+        return ['kategori_ids.*.exists' => 'Ada kategori yang tidak dikenal.'];
+    }
+
+    // Form selalu mengirim penanda kategori_form; tanpa penanda (permintaan lain) kategori dibiarkan apa adanya.
+    // Kategori nonaktif hanya boleh dipertahankan kalau memang sudah melekat di ekskul ini.
+    public function sinkronKategori(array $data): void
+    {
+        if (empty($data['kategori_form'])) {
+            return;
+        }
+
+        $dipilih = collect($data['kategori_ids'] ?? [])->map(fn ($id) => (int) $id)->unique()->values();
+        $terpasang = $this->kategoris()->pluck('kategori_ekskuls.id');
+
+        $boleh = KategoriEkskul::whereIn('id', $dipilih)
+            ->where(fn ($q) => $q->where('aktif', true)->orWhereIn('id', $terpasang))
+            ->pluck('id');
+
+        $this->kategoris()->sync($boleh->all());
     }
 
     // ---- Kontak & sosial media (khusus anggota aktif) ----
@@ -373,9 +427,26 @@ class Ekstrakurikuler extends Model
 
     // ---- Buka/tutup pendaftaran ----
 
+    // Hasil alasanPendaftaranTutup() yang sudah dihitung untuk daftar katalog. Diisi hanya lewat
+    // ingatStatusPendaftaran(); di tempat lain status selalu dihitung segar.
+    private ?array $statusPendaftaranDiingat = null;
+
+    // Hitung sekali lalu pakai ulang (saringan, hitungan pill, dan kartu katalog membaca status yang sama)
+    public function ingatStatusPendaftaran(): static
+    {
+        $this->statusPendaftaranDiingat = null;
+        $this->statusPendaftaranDiingat = [$this->alasanPendaftaranTutup()];
+
+        return $this;
+    }
+
     // null = pendaftaran terbuka; selain itu berisi alasan: nonaktif | ditutup | kuota
     public function alasanPendaftaranTutup(): ?string
     {
+        if ($this->statusPendaftaranDiingat !== null) {
+            return $this->statusPendaftaranDiingat[0];
+        }
+
         if ($this->status !== 'aktif') {
             return 'nonaktif';
         }

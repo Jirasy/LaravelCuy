@@ -28,7 +28,9 @@ class EkstrakurikulerController extends Controller
         $semua = Ekstrakurikuler::with(['haris', 'pembinaAktif', 'jenisEkskul', 'kategoris', 'induk:id,nama_ekstrakurikuler,nama_singkatan'])
             ->withCount(['pendaftaran as anggota_count' => fn ($q) => $q->where('status', 'diterima')->where('status_anggota', 'aktif')])
             ->latest()
-            ->get();
+            ->get()
+            // Status pendaftaran dihitung sekali di sini; saringan, hitungan pill, dan kartu memakai hasil yang sama
+            ->each->ingatStatusPendaftaran();
 
         // Pilihan saringan: hanya tipe/kategori yang punya ekskul yang ditawarkan
         $jenisFilter    = JenisEkskul::has('ekskuls')->urut()->get();
@@ -39,29 +41,34 @@ class EkstrakurikulerController extends Controller
         $jenisAktif    = $jenisFilter->firstWhere('kode', $param('jenis'));
         $kategoriAktif = $kategoriFilter->firstWhere('slug', $param('kategori'));
         $statusAktif   = in_array($param('status'), ['buka', 'tutup'], true) ? $param('status') : null;
+        $ukuranAktif   = array_key_exists((string) $param('anggota'), Ekstrakurikuler::UKURAN_ANGGOTA) ? $param('anggota') : null;
 
-        // Status pendaftaran dihitung sekali per ekskul (aturannya ada di model: nonaktif, ditutup, periode seleksi, kuota)
+        // Status pendaftaran per ekskul (aturannya ada di model: nonaktif, ditutup, periode seleksi, kuota)
         $terbuka = $semua->mapWithKeys(fn ($e) => [$e->id => $e->pendaftaran_terbuka]);
 
         $cocokJenis    = fn ($e) => ! $jenisAktif || (int) $e->jenis_ekskul_id === (int) $jenisAktif->id;
         $cocokKategori = fn ($e) => ! $kategoriAktif || $e->kategoris->contains('id', $kategoriAktif->id);
         $cocokStatus   = fn ($e) => ! $statusAktif || $terbuka[$e->id] === ($statusAktif === 'buka');
+        $cocokUkuran   = fn ($e) => ! $ukuranAktif || Ekstrakurikuler::ukuranAnggota((int) $e->anggota_count) === $ukuranAktif;
 
         // Tiap kelompok saringan dipilih satu; antar-kelompok digabung (AND)
-        $ekskuls = $semua->filter(fn ($e) => $cocokJenis($e) && $cocokKategori($e) && $cocokStatus($e))->values();
+        $ekskuls = $semua->filter(fn ($e) => $cocokJenis($e) && $cocokKategori($e) && $cocokStatus($e) && $cocokUkuran($e))->values();
 
         // Jumlah di tiap pill = hasil kalau pill itu dipilih, dengan saringan kelompok lain tetap berlaku
         $jumlah = [
             'jenis' => $jenisFilter->mapWithKeys(fn ($j) => [
-                $j->id => $semua->filter(fn ($e) => $cocokKategori($e) && $cocokStatus($e) && (int) $e->jenis_ekskul_id === (int) $j->id)->count(),
+                $j->id => $semua->filter(fn ($e) => $cocokKategori($e) && $cocokStatus($e) && $cocokUkuran($e) && (int) $e->jenis_ekskul_id === (int) $j->id)->count(),
             ]),
             'kategori' => $kategoriFilter->mapWithKeys(fn ($k) => [
-                $k->id => $semua->filter(fn ($e) => $cocokJenis($e) && $cocokStatus($e) && $e->kategoris->contains('id', $k->id))->count(),
+                $k->id => $semua->filter(fn ($e) => $cocokJenis($e) && $cocokStatus($e) && $cocokUkuran($e) && $e->kategoris->contains('id', $k->id))->count(),
             ]),
             'status' => [
-                'buka'  => $semua->filter(fn ($e) => $cocokJenis($e) && $cocokKategori($e) && $terbuka[$e->id])->count(),
-                'tutup' => $semua->filter(fn ($e) => $cocokJenis($e) && $cocokKategori($e) && ! $terbuka[$e->id])->count(),
+                'buka'  => $semua->filter(fn ($e) => $cocokJenis($e) && $cocokKategori($e) && $cocokUkuran($e) && $terbuka[$e->id])->count(),
+                'tutup' => $semua->filter(fn ($e) => $cocokJenis($e) && $cocokKategori($e) && $cocokUkuran($e) && ! $terbuka[$e->id])->count(),
             ],
+            'ukuran' => collect(Ekstrakurikuler::UKURAN_ANGGOTA)->map(
+                fn ($u, $kunci) => $semua->filter(fn ($e) => $cocokJenis($e) && $cocokKategori($e) && $cocokStatus($e) && Ekstrakurikuler::ukuranAnggota((int) $e->anggota_count) === $kunci)->count()
+            ),
         ];
 
         $totalEkskul = $semua->count();
@@ -75,7 +82,7 @@ class EkstrakurikulerController extends Controller
 
         return view('ekstrakurikuler.index', compact(
             'ekskuls', 'pendaftaranSaya', 'totalEkskul', 'jumlah',
-            'jenisFilter', 'jenisAktif', 'kategoriFilter', 'kategoriAktif', 'statusAktif'
+            'jenisFilter', 'jenisAktif', 'kategoriFilter', 'kategoriAktif', 'statusAktif', 'ukuranAktif'
         ));
     }
 
@@ -339,7 +346,7 @@ class EkstrakurikulerController extends Controller
                     ->tugaskan($ekskul, $data['pembina'], $data['email_pembina'], Auth::user());
             }
             $ekskul->syncJadwal($this->susunJadwal($data));
-            $this->sinkronKategori($ekskul, $data);
+            $ekskul->sinkronKategori($data);
         });
 
         $balik = redirect()->route('ekstrakurikuler.index')
@@ -387,7 +394,7 @@ class EkstrakurikulerController extends Controller
                 $this->kolomEkskul($data)
             );
             $ekskul->syncJadwal($this->susunJadwal($data));
-            $this->sinkronKategori($ekskul, $data);
+            $ekskul->sinkronKategori($data);
         });
 
         return redirect()->route('ekstrakurikuler.index')
@@ -428,25 +435,6 @@ class EkstrakurikulerController extends Controller
         }
 
         return $hasil;
-    }
-
-    // Kategori boleh lebih dari satu dan boleh diatur admin maupun pembina pengelola (hak kelola sudah dijaga Gate).
-    // Form selalu mengirim penanda kategori_form; tanpa penanda (permintaan lain) kategori dibiarkan apa adanya.
-    // Kategori nonaktif hanya boleh dipertahankan kalau memang sudah melekat di ekskul ini.
-    private function sinkronKategori(Ekstrakurikuler $ekskul, array $data): void
-    {
-        if (empty($data['kategori_form'])) {
-            return;
-        }
-
-        $dipilih   = collect($data['kategori_ids'] ?? [])->map(fn ($id) => (int) $id)->unique()->values();
-        $terpasang = $ekskul->kategoris()->pluck('kategori_ekskuls.id');
-
-        $boleh = KategoriEkskul::whereIn('id', $dipilih)
-            ->where(fn ($q) => $q->where('aktif', true)->orWhereIn('id', $terpasang))
-            ->pluck('id');
-
-        $ekskul->kategoris()->sync($boleh->all());
     }
 
     // Kolom yang disimpan. Tipe ekskul (Ekskul Biasa, Ekskul Seleksi, Organisasi) hanya boleh diubah admin.
@@ -504,9 +492,6 @@ class EkstrakurikulerController extends Controller
             'hari' => 'required|array|min:1',
             'hari.*' => ['required', Rule::in($valid)],
             'deskripsi' => 'nullable|string',
-            'kategori_form' => ['nullable', 'boolean'],
-            'kategori_ids' => ['nullable', 'array'],
-            'kategori_ids.*' => ['integer', Rule::exists('kategori_ekskuls', 'id')],
             'status' => ($statusWajib ? 'required' : 'nullable').'|in:aktif,nonaktif',
             'jenis_ekskul_id' => ['nullable', 'integer', function ($atribut, $nilai, $gagal) use ($request) {
                 $jenis = JenisEkskul::find($nilai);
@@ -555,7 +540,7 @@ class EkstrakurikulerController extends Controller
         ];
 
         // Kontak & sosmed khusus anggota aktif (opsional)
-        $rules = array_merge($rules, Ekstrakurikuler::aturanKontak());
+        $rules = array_merge($rules, Ekstrakurikuler::aturanKategori(), Ekstrakurikuler::aturanKontak());
 
         // Hanya saat membuat ekskul: admin boleh mengisi email untuk membuatkan akun pembina otomatis
         if (! $statusWajib) {
@@ -575,9 +560,8 @@ class EkstrakurikulerController extends Controller
 
     private function messages(): array
     {
-        return Ekstrakurikuler::pesanKontak() + [
+        return Ekstrakurikuler::pesanKategori() + Ekstrakurikuler::pesanKontak() + [
             'nama_singkatan.max' => 'Singkatan maksimal 30 karakter.',
-            'kategori_ids.*.exists' => 'Ada kategori yang tidak dikenal.',
             'hari.required' => 'Pilih minimal satu hari pelaksanaan.',
             'hari.min' => 'Pilih minimal satu hari pelaksanaan.',
             'jadwal.*.jam_mulai.required' => 'Jam mulai wajib diisi untuk setiap hari yang dipilih.',

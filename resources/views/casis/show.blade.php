@@ -142,7 +142,7 @@
                 <h2 class="font-bold text-gray-800">Hasil tahap {{ $tahapSekarang->urutan }}: {{ $tahapSekarang->nama }}</h2>
                 <textarea name="catatan" rows="3" maxlength="1000" placeholder="Catatan untuk pendaftar (wajib diisi kalau tidak meloloskan)" class="w-full border p-2 rounded-lg text-sm"></textarea>
                 <div class="flex flex-wrap gap-2">
-                    <button type="submit" name="keputusan" value="lolos" class="bg-green-600 text-white px-5 py-2 rounded-lg font-semibold hover:bg-green-700"
+                    <button type="submit" name="keputusan" value="lolos" class="bg-emerald-600 text-white px-5 py-2 rounded-lg font-semibold hover:bg-emerald-700"
                             onclick="return confirm({{ json_encode($adaBerikut ? 'Loloskan ke tahap berikutnya?' : 'Terima sebagai anggota '.$ekskul->nama_ekstrakurikuler.'? Ia langsung tercatat sebagai anggota ekskul.') }})">{{ $adaBerikut ? 'Loloskan ke tahap berikutnya' : 'Loloskan & terima sebagai anggota' }}</button>
                     <button type="submit" name="keputusan" value="tolak" class="bg-red-600 text-white px-5 py-2 rounded-lg font-semibold hover:bg-red-700">Tidak lolos (tolak)</button>
                 </div>

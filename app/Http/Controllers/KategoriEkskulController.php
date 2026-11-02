@@ -20,21 +20,21 @@ class KategoriEkskulController extends Controller
     private function aturan(?KategoriEkskul $kategori = null): array
     {
         return [
-            'nama'   => ['required', 'string', 'max:60', Rule::unique('kategori_ekskuls', 'nama')->ignore($kategori?->id)],
+            'nama' => ['required', 'string', 'max:60', Rule::unique('kategori_ekskuls', 'nama')->ignore($kategori?->id)],
             'urutan' => ['nullable', 'integer', 'min:0', 'max:99'],
-            'aktif'  => ['nullable', 'boolean'],
+            'aktif' => ['nullable', 'boolean'],
         ];
     }
 
     private function pesan(): array
     {
         return [
-            'nama.required'  => 'Isi nama kategori.',
-            'nama.max'       => 'Nama kategori maksimal 60 karakter.',
-            'nama.unique'    => 'Kategori dengan nama itu sudah ada.',
+            'nama.required' => 'Isi nama kategori.',
+            'nama.max' => 'Nama kategori maksimal 60 karakter.',
+            'nama.unique' => 'Kategori dengan nama itu sudah ada.',
             'urutan.integer' => 'Urutan harus berupa angka.',
-            'urutan.min'     => 'Urutan minimal 0.',
-            'urutan.max'     => 'Urutan maksimal 99.',
+            'urutan.min' => 'Urutan minimal 0.',
+            'urutan.max' => 'Urutan maksimal 99.',
         ];
     }
 
@@ -42,11 +42,11 @@ class KategoriEkskulController extends Controller
     private function buatSlug(string $nama): string
     {
         $dasar = Str::limit(Str::slug($nama) ?: 'kategori', 60, '');
-        $slug  = $dasar;
-        $i     = 2;
+        $slug = $dasar;
+        $i = 2;
 
         while (KategoriEkskul::where('slug', $slug)->exists()) {
-            $slug = $dasar . '-' . $i++;
+            $slug = $dasar.'-'.$i++;
         }
 
         return $slug;
@@ -57,10 +57,10 @@ class KategoriEkskulController extends Controller
         $data = $request->validate($this->aturan(), $this->pesan());
 
         KategoriEkskul::create([
-            'nama'   => $data['nama'],
-            'slug'   => $this->buatSlug($data['nama']),
+            'nama' => $data['nama'],
+            'slug' => $this->buatSlug($data['nama']),
             'urutan' => $data['urutan'] ?? 50,
-            'aktif'  => true,
+            'aktif' => true,
         ]);
 
         return back()->with('success', "Kategori {$data['nama']} ditambahkan.");
@@ -71,9 +71,9 @@ class KategoriEkskulController extends Controller
         $data = $request->validate($this->aturan($kategori), $this->pesan());
 
         $kategori->update([
-            'nama'   => $data['nama'],
+            'nama' => $data['nama'],
             'urutan' => $data['urutan'] ?? $kategori->urutan,
-            'aktif'  => $request->boolean('aktif'),
+            'aktif' => $request->boolean('aktif'),
         ]);
 
         return back()->with('success', "Kategori {$kategori->nama} diperbarui.");

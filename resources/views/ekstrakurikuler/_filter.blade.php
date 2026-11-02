@@ -1,4 +1,4 @@
-{{-- Saringan katalog berupa pill: tipe, kategori, status pendaftaran (Buka/Tutup).
+{{-- Saringan katalog berupa pill: tipe, kategori, status pendaftaran (Buka/Tutup), jumlah anggota.
      Tiap kelompok dipilih satu; antar-kelompok digabung. Mengeklik pill yang sedang aktif mematikan saringan kelompok itu.
      Jumlah di pill sudah memperhitungkan saringan kelompok lain. Disimpan di URL supaya bisa dibagikan. --}}
 @if($totalEkskul > 0)
@@ -7,6 +7,7 @@
             'jenis'    => $jenisAktif?->kode,
             'kategori' => $kategoriAktif?->slug,
             'status'   => $statusAktif,
+            'anggota'  => $ukuranAktif,
         ]);
         // Tautan pill: ganti satu kelompok saja, saringan kelompok lain dipertahankan; $nilai null = matikan kelompok itu
         $tautan    = fn (string $kunci, ?string $nilai) => route('ekstrakurikuler.index', array_filter(array_merge($parameter, [$kunci => $nilai])));
@@ -44,7 +45,17 @@
             <a href="{{ $tautan('status', $statusAktif === 'buka' ? null : 'buka') }}" class="{{ $pillDasar }} {{ $statusAktif === 'buka' ? 'bg-emerald-600 text-white border-emerald-600' : $pillBiasa }}" @if($statusAktif === 'buka') aria-current="true" @endif>Buka ({{ $jumlah['status']['buka'] }})</a>
             <a href="{{ $tautan('status', $statusAktif === 'tutup' ? null : 'tutup') }}" class="{{ $pillDasar }} {{ $statusAktif === 'tutup' ? 'bg-gray-700 text-white border-gray-700' : $pillBiasa }}" @if($statusAktif === 'tutup') aria-current="true" @endif>Tutup ({{ $jumlah['status']['tutup'] }})</a>
 
-            @if($jenisAktif || $kategoriAktif || $statusAktif)
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2">
+            <span class="text-xs font-semibold text-gray-500 w-20">Anggota</span>
+            <a href="{{ $tautan('anggota', null) }}" class="{{ $pillDasar }} {{ $ukuranAktif ? $pillBiasa : $pillAktif }}">Semua</a>
+            @foreach(\App\Models\Ekstrakurikuler::UKURAN_ANGGOTA as $kunci => $ukuran)
+                @php $aktif = $ukuranAktif === $kunci; @endphp
+                <a href="{{ $tautan('anggota', $aktif ? null : $kunci) }}" class="{{ $pillDasar }} {{ $aktif ? $pillAktif : $pillBiasa }}" @if($aktif) aria-current="true" @endif>{{ $ukuran[0] }} · {{ $ukuran[1] }} ({{ $jumlah['ukuran'][$kunci] ?? 0 }})</a>
+            @endforeach
+
+            @if($jenisAktif || $kategoriAktif || $statusAktif || $ukuranAktif)
                 <a href="{{ route('ekstrakurikuler.index') }}" class="text-xs underline text-gray-600 ml-1">Reset filter</a>
             @endif
         </div>

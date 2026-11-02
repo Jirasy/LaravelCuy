@@ -129,21 +129,21 @@
                     <div class="mt-6 pt-4 border-t border-gray-100 space-y-2">
                         @if($pengguna->isStaff())
                             {{-- Admin & pembina bukan siswa: tidak mendaftar ekskul, hanya mengelola --}}
-                            <a href="{{ route('ekstrakurikuler.show', $ekskul->id) }}" class="block w-full text-center border border-indigo-600 text-indigo-700 py-2 rounded-lg font-semibold hover:bg-indigo-50 transition">
+                            <a href="{{ route('ekstrakurikuler.show', $ekskul->id) }}" class="block w-full text-center border border-slate-600 text-slate-700 py-2 rounded-lg font-semibold hover:bg-slate-50 transition">
                                 Lihat Detail
                             </a>
                             <p class="text-xs text-center text-gray-500">{{ $ekskul->pendaftaran_terbuka ? 'Pendaftaran dibuka' : $ekskul->label_pendaftaran }}</p>
                         @elseif($statusKartu)
                             <p class="text-sm text-center font-semibold border rounded-lg py-2 px-3 {{ $statusKartu[1] }}">{{ $statusKartu[0] }}</p>
-                            <a href="{{ route('ekstrakurikuler.show', $ekskul->id) }}" class="block w-full text-center bg-sky-600 text-white py-2 rounded-lg font-semibold hover:bg-sky-700 transition">
+                            <a href="{{ route('ekstrakurikuler.show', $ekskul->id) }}" class="block w-full text-center bg-slate-600 text-white py-2 rounded-lg font-semibold hover:bg-slate-700 transition">
                                 Lihat Informasi
                             </a>
                         @else
-                            <a href="{{ route('ekstrakurikuler.show', $ekskul->id) }}" class="block w-full text-center border border-indigo-600 text-indigo-700 py-2 rounded-lg font-semibold hover:bg-indigo-50 transition">
+                            <a href="{{ route('ekstrakurikuler.show', $ekskul->id) }}" class="block w-full text-center border border-slate-600 text-slate-700 py-2 rounded-lg font-semibold hover:bg-slate-50 transition">
                                 Lihat Detail
                             </a>
                             @if($ekskul->pendaftaran_terbuka)
-                                <a href="{{ $urlDaftar }}" class="block w-full text-center bg-indigo-600 text-white py-2 rounded-lg font-semibold hover:bg-indigo-700 transition">
+                                <a href="{{ $urlDaftar }}" class="block w-full text-center bg-emerald-600 text-white py-2 rounded-lg font-semibold hover:bg-emerald-700 transition">
                                     {{ $ps ? 'Daftar Lagi' : 'Daftar Sekarang' }}
                                 </a>
                             @else
@@ -170,7 +170,7 @@
                 </div>
             @empty
                 <div class="col-span-3 bg-white p-8 text-center rounded-xl border border-gray-200 text-gray-500">
-                    @if($jenisAktif || $kategoriAktif || $statusAktif)
+                    @if($jenisAktif || $kategoriAktif || $statusAktif || $ukuranAktif)
                         Tidak ada ekskul yang cocok dengan saringan ini. <a href="{{ route('ekstrakurikuler.index') }}" class="underline">Reset filter</a>
                     @else
                         Belum ada data ekstrakurikuler. Klik tombol <strong>+ Tambah Ekskul</strong> untuk menambah data.

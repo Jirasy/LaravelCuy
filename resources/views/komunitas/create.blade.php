@@ -39,6 +39,11 @@
                 <label class="block text-sm font-semibold text-gray-700">Deskripsi <span class="font-normal text-gray-400">(opsional)</span></label>
                 <textarea name="deskripsi" rows="4" maxlength="2000" class="w-full border p-2 rounded-lg mt-1">{{ old('deskripsi') }}</textarea>
             </div>
+
+            @include('ekstrakurikuler._kategori')
+
+            @include('ekstrakurikuler._kontak_form', ['tanpaPembina' => true])
+
             <p class="text-xs text-gray-500">
                 @if(auth()->user()->isPembina())
                     Kamu otomatis menjadi pembina komunitas ini. Jadwal bisa diatur lewat Edit Ekskul setelah komunitas dibuat.

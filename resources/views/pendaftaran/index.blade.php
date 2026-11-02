@@ -73,7 +73,7 @@
                                         <option value="ditolak"  {{ $p->status === 'ditolak' ? 'selected' : '' }}>Tidak Disetujui</option>
                                     </select>
                                     <textarea name="alasan" rows="2" oninput="tandaiBerubah(this.form)" placeholder="Alasan / catatan" class="border p-1 rounded text-xs w-full">{{ $p->alasan }}</textarea>
-                                    <button type="submit" class="btn-simpan bg-gray-800 text-white px-3 py-1 rounded text-xs hover:bg-gray-900">Simpan</button>
+                                    <button type="submit" class="btn-simpan bg-emerald-600 text-white px-3 py-1 rounded text-xs hover:bg-emerald-700">Simpan</button>
                                 </form>
                                 @else
                                 @include('partials.status-badge', ['status' => $p->status, 'label' => $p->status_label])
@@ -100,8 +100,8 @@
         function tandaiBerubah(form) {
             const b = form.querySelector('.btn-simpan');
             b.textContent = 'Simpan perubahan (belum disimpan!)';
-            b.classList.remove('bg-gray-800', 'hover:bg-gray-900');
-            b.classList.add('bg-amber-500', 'hover:bg-amber-600');
+            b.classList.remove('bg-emerald-600', 'hover:bg-emerald-700');
+            b.classList.add('bg-orange-500', 'hover:bg-orange-600');
         }
         function warnaStatus(el) {
             Object.values(WARNA).forEach(k => el.classList.remove(...k));

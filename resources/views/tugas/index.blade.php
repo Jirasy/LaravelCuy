@@ -65,13 +65,13 @@
                             <form action="{{ route('tugas.status', $p->id) }}" method="POST">
                                 @csrf @method('PATCH')
                                 <input type="hidden" name="status" value="dikerjakan">
-                                <button type="submit" class="bg-blue-600 text-white px-3 py-1 rounded text-xs font-semibold hover:bg-blue-700">Mulai dikerjakan</button>
+                                <button type="submit" class="bg-indigo-600 text-white px-3 py-1 rounded text-xs font-semibold hover:bg-indigo-700">Mulai dikerjakan</button>
                             </form>
                         @endif
                         <form action="{{ route('tugas.status', $p->id) }}" method="POST">
                             @csrf @method('PATCH')
                             <input type="hidden" name="status" value="selesai">
-                            <button type="submit" class="bg-green-600 text-white px-3 py-1 rounded text-xs font-semibold hover:bg-green-700">Tandai selesai</button>
+                            <button type="submit" class="bg-emerald-600 text-white px-3 py-1 rounded text-xs font-semibold hover:bg-emerald-700">Tandai selesai</button>
                         </form>
                     </div>
                 </div>
