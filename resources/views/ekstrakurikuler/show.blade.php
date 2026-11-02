@@ -120,6 +120,8 @@
 
                     @include('ekstrakurikuler._keluar')
 
+                    @include('ekstrakurikuler._kontak')
+
                     @include('ekstrakurikuler._tautan')
 
                     @include('ekstrakurikuler._osis')

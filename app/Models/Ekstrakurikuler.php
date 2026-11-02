@@ -16,6 +16,11 @@ class Ekstrakurikuler extends Model
     protected $fillable = [
         'nama_ekstrakurikuler',
         'nama_singkatan',
+        'wa_grup_url',
+        'wa_pembina',
+        'telegram_url',
+        'instagram_url',
+        'tiktok_url',
         'pembina',
         'deskripsi',
         'status',
@@ -93,6 +98,103 @@ class Ekstrakurikuler extends Model
     {
         $nilai = is_string($nilai) ? trim($nilai) : $nilai;
         $this->attributes['nama_singkatan'] = $nilai === '' ? null : $nilai;
+    }
+
+    // ---- Kontak & sosial media (khusus anggota aktif) ----
+
+    // kolom => [ikon, nama, domain yang diizinkan]. Alamat harus https dan benar-benar milik platformnya.
+    public const KONTAK_URL = [
+        'wa_grup_url'   => ['💬', 'Grup WhatsApp', ['whatsapp.com']],
+        'telegram_url'  => ['✈️', 'Telegram',      ['t.me', 'telegram.me']],
+        'instagram_url' => ['📸', 'Instagram',     ['instagram.com']],
+        'tiktok_url'    => ['🎵', 'TikTok',        ['tiktok.com']],
+    ];
+
+    // Nomor WhatsApp pembina disimpan seperti users.no_hp: 62812xxxx (tanpa +, spasi, atau 0 di depan)
+    public function setWaPembinaAttribute($nilai): void
+    {
+        $digit = ltrim(preg_replace('/[\s\-\.\(\)]/', '', (string) $nilai), '+');
+
+        if ($digit !== '' && str_starts_with($digit, '0')) {
+            $digit = '62' . substr($digit, 1);
+        }
+
+        $this->attributes['wa_pembina'] = $digit === '' ? null : $digit;
+    }
+
+    // Nomor untuk dibaca manusia / diisi ulang di form, contoh: 081234567890
+    public function getWaPembinaTampilanAttribute(): ?string
+    {
+        if (! $this->wa_pembina) {
+            return null;
+        }
+
+        return str_starts_with($this->wa_pembina, '62') ? '0' . substr($this->wa_pembina, 2) : '+' . $this->wa_pembina;
+    }
+
+    // Aturan validasi kolom kontak (dipakai form ekskul)
+    public static function aturanKontak(): array
+    {
+        $aturan = [];
+
+        foreach (self::KONTAK_URL as $kolom => [$ikon, $nama, $domain]) {
+            $aturan[$kolom] = ['nullable', 'string', 'max:500', 'url', 'starts_with:https://', function ($atribut, $nilai, $gagal) use ($domain, $nama) {
+                $host = strtolower((string) parse_url((string) $nilai, PHP_URL_HOST));
+
+                foreach ($domain as $d) {
+                    if ($host === $d || str_ends_with($host, '.' . $d)) {
+                        return;
+                    }
+                }
+
+                $gagal("Alamat tidak cocok dengan platform {$nama}.");
+            }];
+        }
+
+        $aturan['wa_pembina'] = ['nullable', 'string', 'max:25', function ($atribut, $nilai, $gagal) {
+            // Sama dengan aturan nomor HP di profil pengguna: nomor seluler Indonesia
+            if (! preg_match('/^(\+?62|0)8[0-9]{7,12}$/', preg_replace('/[\s\-\.\(\)]/', '', (string) $nilai))) {
+                $gagal('Nomor WhatsApp pembina tidak valid. Contoh: 081234567890 atau +6281234567890.');
+            }
+        }];
+
+        return $aturan;
+    }
+
+    public static function pesanKontak(): array
+    {
+        $pesan = [];
+
+        foreach (self::KONTAK_URL as $kolom => [$ikon, $nama]) {
+            $pesan["{$kolom}.url"]         = "Alamat {$nama} tidak valid.";
+            $pesan["{$kolom}.starts_with"] = "Tautan {$nama} harus diawali https://";
+            $pesan["{$kolom}.max"]         = "Alamat {$nama} maksimal 500 karakter.";
+        }
+
+        return $pesan;
+    }
+
+    // Daftar kontak yang terisi, urut: Grup WhatsApp, chat pembina, Telegram, Instagram, TikTok.
+    // PENTING: hanya dipanggil controller untuk anggota aktif/pengelola; jangan dipakai di tampilan umum.
+    public function daftarKontak(): array
+    {
+        $daftar = [];
+
+        if ($this->wa_grup_url) {
+            $daftar[] = ['ikon' => self::KONTAK_URL['wa_grup_url'][0], 'nama' => 'Grup WhatsApp', 'url' => $this->wa_grup_url, 'keterangan' => null];
+        }
+
+        if ($this->wa_pembina) {
+            $daftar[] = ['ikon' => '📞', 'nama' => 'Chat Pembina', 'url' => 'https://wa.me/' . $this->wa_pembina, 'keterangan' => $this->wa_pembina_tampilan];
+        }
+
+        foreach (['telegram_url', 'instagram_url', 'tiktok_url'] as $kolom) {
+            if ($this->{$kolom}) {
+                $daftar[] = ['ikon' => self::KONTAK_URL[$kolom][0], 'nama' => self::KONTAK_URL[$kolom][1], 'url' => $this->{$kolom}, 'keterangan' => null];
+            }
+        }
+
+        return $daftar;
     }
 
     // Aturan validasi singkatan: opsional, maks 30 karakter, unik tanpa membedakan huruf besar/kecil.

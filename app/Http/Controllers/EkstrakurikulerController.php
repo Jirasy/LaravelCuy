@@ -272,8 +272,14 @@ class EkstrakurikulerController extends Controller
         // Tab Informasi: tautan ekskul, dan (khusus pengelola) daftar anggota untuk pemberian task
         $tautans = collect();
         $anggotaTugas = collect();
+        $kontak = [];
         if ($tab === 'info') {
             $tautans = $ekskul->tautans;
+
+            // Kontak & sosmed: hanya admin/pembina ekskul ini dan anggota aktif. Untuk yang lain tidak dikirim sama sekali ke tampilan.
+            if ($bolehLihat) {
+                $kontak = $ekskul->daftarKontak();
+            }
 
             if ($staff) {
                 $anggotaTugas = PendaftaranEkskul::anggotaAktif()
@@ -300,7 +306,7 @@ class EkstrakurikulerController extends Controller
         return view('ekstrakurikuler.show', compact(
             'ekskul', 'tab', 'staff', 'bolehLihat', 'pendaftaranSaya',
             'pengumumans', 'anggota', 'filterAnggota', 'prestasis', 'events', 'anggotaOpsi', 'jabatans',
-            'pengajuanTerakhir', 'sayaPembina', 'tautans', 'anggotaTugas',
+            'pengajuanTerakhir', 'sayaPembina', 'tautans', 'kontak', 'anggotaTugas',
             'pertemuans', 'kehadiranSaya', 'anggotaNilai', 'persenHadir', 'daftarPeriode', 'nilaiSaya',
             'bolehMateri', 'materis', 'prs', 'anggotaAkses', 'pengumpulanSaya',
             'fotos', 'fotoMenunggu', 'fotoSaya', 'eventOpsi', 'kategoriDipilih', 'bisaUnggah'
@@ -446,7 +452,7 @@ class EkstrakurikulerController extends Controller
     // Kolom yang disimpan. Tipe ekskul (Ekskul Biasa, Ekskul Seleksi, Organisasi) hanya boleh diubah admin.
     private function kolomEkskul(array $data): array
     {
-        $kolom = Arr::only($data, ['nama_ekstrakurikuler', 'nama_singkatan', 'pembina', 'deskripsi', 'status']);
+        $kolom = Arr::only($data, ['nama_ekstrakurikuler', 'nama_singkatan', 'pembina', 'deskripsi', 'status', 'wa_grup_url', 'wa_pembina', 'telegram_url', 'instagram_url', 'tiktok_url']);
 
         if (Auth::user()->isAdmin() && ! empty($data['jenis_ekskul_id'])) {
             $kolom['jenis_ekskul_id'] = (int) $data['jenis_ekskul_id'];
@@ -548,6 +554,9 @@ class EkstrakurikulerController extends Controller
             }],
         ];
 
+        // Kontak & sosmed khusus anggota aktif (opsional)
+        $rules = array_merge($rules, Ekstrakurikuler::aturanKontak());
+
         // Hanya saat membuat ekskul: admin boleh mengisi email untuk membuatkan akun pembina otomatis
         if (! $statusWajib) {
             $rules['email_pembina'] = ['nullable', 'email', 'max:255'];
@@ -566,7 +575,7 @@ class EkstrakurikulerController extends Controller
 
     private function messages(): array
     {
-        return [
+        return Ekstrakurikuler::pesanKontak() + [
             'nama_singkatan.max' => 'Singkatan maksimal 30 karakter.',
             'kategori_ids.*.exists' => 'Ada kategori yang tidak dikenal.',
             'hari.required' => 'Pilih minimal satu hari pelaksanaan.',

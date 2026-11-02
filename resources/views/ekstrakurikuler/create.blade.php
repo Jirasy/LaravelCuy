@@ -56,6 +56,8 @@
 
             @include('ekstrakurikuler._kategori')
 
+            @include('ekstrakurikuler._kontak_form')
+
             @include('ekstrakurikuler._jadwal', ['awal' => []])
 
             <div>

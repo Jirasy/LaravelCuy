@@ -1,0 +1,628 @@
+diff --git a/app/Http/Controllers/EkstrakurikulerController.php b/app/Http/Controllers/EkstrakurikulerController.php
+index 4cc712e..c570db6 100644
+--- a/app/Http/Controllers/EkstrakurikulerController.php
++++ b/app/Http/Controllers/EkstrakurikulerController.php
+@@ -272,9 +272,15 @@ public function show(Request $request, $id)
+         // Tab Informasi: tautan ekskul, dan (khusus pengelola) daftar anggota untuk pemberian task
+         $tautans = collect();
+         $anggotaTugas = collect();
++        $kontak = [];
+         if ($tab === 'info') {
+             $tautans = $ekskul->tautans;
+ 
++            // Kontak & sosmed: hanya admin/pembina ekskul ini dan anggota aktif. Untuk yang lain tidak dikirim sama sekali ke tampilan.
++            if ($bolehLihat) {
++                $kontak = $ekskul->daftarKontak();
++            }
++
+             if ($staff) {
+                 $anggotaTugas = PendaftaranEkskul::anggotaAktif()
+                     ->where('ekstrakurikuler_id', $ekskul->id)
+@@ -300,7 +306,7 @@ public function show(Request $request, $id)
+         return view('ekstrakurikuler.show', compact(
+             'ekskul', 'tab', 'staff', 'bolehLihat', 'pendaftaranSaya',
+             'pengumumans', 'anggota', 'filterAnggota', 'prestasis', 'events', 'anggotaOpsi', 'jabatans',
+-            'pengajuanTerakhir', 'sayaPembina', 'tautans', 'anggotaTugas',
++            'pengajuanTerakhir', 'sayaPembina', 'tautans', 'kontak', 'anggotaTugas',
+             'pertemuans', 'kehadiranSaya', 'anggotaNilai', 'persenHadir', 'daftarPeriode', 'nilaiSaya',
+             'bolehMateri', 'materis', 'prs', 'anggotaAkses', 'pengumpulanSaya',
+             'fotos', 'fotoMenunggu', 'fotoSaya', 'eventOpsi', 'kategoriDipilih', 'bisaUnggah'
+@@ -446,7 +452,7 @@ private function sinkronKategori(Ekstrakurikuler $ekskul, array $data): void
+     // Kolom yang disimpan. Tipe ekskul (Ekskul Biasa, Ekskul Seleksi, Organisasi) hanya boleh diubah admin.
+     private function kolomEkskul(array $data): array
+     {
+-        $kolom = Arr::only($data, ['nama_ekstrakurikuler', 'nama_singkatan', 'pembina', 'deskripsi', 'status']);
++        $kolom = Arr::only($data, ['nama_ekstrakurikuler', 'nama_singkatan', 'pembina', 'deskripsi', 'status', 'wa_grup_url', 'wa_pembina', 'telegram_url', 'instagram_url', 'tiktok_url']);
+ 
+         if (Auth::user()->isAdmin() && ! empty($data['jenis_ekskul_id'])) {
+             $kolom['jenis_ekskul_id'] = (int) $data['jenis_ekskul_id'];
+@@ -548,6 +554,9 @@ private function rules(Request $request, bool $statusWajib): array
+             }],
+         ];
+ 
++        // Kontak & sosmed khusus anggota aktif (opsional)
++        $rules = array_merge($rules, Ekstrakurikuler::aturanKontak());
++
+         // Hanya saat membuat ekskul: admin boleh mengisi email untuk membuatkan akun pembina otomatis
+         if (! $statusWajib) {
+             $rules['email_pembina'] = ['nullable', 'email', 'max:255'];
+@@ -566,7 +575,7 @@ private function rules(Request $request, bool $statusWajib): array
+ 
+     private function messages(): array
+     {
+-        return [
++        return Ekstrakurikuler::pesanKontak() + [
+             'nama_singkatan.max' => 'Singkatan maksimal 30 karakter.',
+             'kategori_ids.*.exists' => 'Ada kategori yang tidak dikenal.',
+             'hari.required' => 'Pilih minimal satu hari pelaksanaan.',
+diff --git a/app/Models/Ekstrakurikuler.php b/app/Models/Ekstrakurikuler.php
+index ee57810..367c794 100644
+--- a/app/Models/Ekstrakurikuler.php
++++ b/app/Models/Ekstrakurikuler.php
+@@ -16,6 +16,11 @@ class Ekstrakurikuler extends Model
+     protected $fillable = [
+         'nama_ekstrakurikuler',
+         'nama_singkatan',
++        'wa_grup_url',
++        'wa_pembina',
++        'telegram_url',
++        'instagram_url',
++        'tiktok_url',
+         'pembina',
+         'deskripsi',
+         'status',
+@@ -95,6 +100,103 @@ public function setNamaSingkatanAttribute($nilai): void
+         $this->attributes['nama_singkatan'] = $nilai === '' ? null : $nilai;
+     }
+ 
++    // ---- Kontak & sosial media (khusus anggota aktif) ----
++
++    // kolom => [ikon, nama, domain yang diizinkan]. Alamat harus https dan benar-benar milik platformnya.
++    public const KONTAK_URL = [
++        'wa_grup_url'   => ['💬', 'Grup WhatsApp', ['whatsapp.com']],
++        'telegram_url'  => ['✈️', 'Telegram',      ['t.me', 'telegram.me']],
++        'instagram_url' => ['📸', 'Instagram',     ['instagram.com']],
++        'tiktok_url'    => ['🎵', 'TikTok',        ['tiktok.com']],
++    ];
++
++    // Nomor WhatsApp pembina disimpan seperti users.no_hp: 62812xxxx (tanpa +, spasi, atau 0 di depan)
++    public function setWaPembinaAttribute($nilai): void
++    {
++        $digit = ltrim(preg_replace('/[\s\-\.\(\)]/', '', (string) $nilai), '+');
++
++        if ($digit !== '' && str_starts_with($digit, '0')) {
++            $digit = '62' . substr($digit, 1);
++        }
++
++        $this->attributes['wa_pembina'] = $digit === '' ? null : $digit;
++    }
++
++    // Nomor untuk dibaca manusia / diisi ulang di form, contoh: 081234567890
++    public function getWaPembinaTampilanAttribute(): ?string
++    {
++        if (! $this->wa_pembina) {
++            return null;
++        }
++
++        return str_starts_with($this->wa_pembina, '62') ? '0' . substr($this->wa_pembina, 2) : '+' . $this->wa_pembina;
++    }
++
++    // Aturan validasi kolom kontak (dipakai form ekskul)
++    public static function aturanKontak(): array
++    {
++        $aturan = [];
++
++        foreach (self::KONTAK_URL as $kolom => [$ikon, $nama, $domain]) {
++            $aturan[$kolom] = ['nullable', 'string', 'max:500', 'url', 'starts_with:https://', function ($atribut, $nilai, $gagal) use ($domain, $nama) {
++                $host = strtolower((string) parse_url((string) $nilai, PHP_URL_HOST));
++
++                foreach ($domain as $d) {
++                    if ($host === $d || str_ends_with($host, '.' . $d)) {
++                        return;
++                    }
++                }
++
++                $gagal("Alamat tidak cocok dengan platform {$nama}.");
++            }];
++        }
++
++        $aturan['wa_pembina'] = ['nullable', 'string', 'max:25', function ($atribut, $nilai, $gagal) {
++            // Sama dengan aturan nomor HP di profil pengguna: nomor seluler Indonesia
++            if (! preg_match('/^(\+?62|0)8[0-9]{7,12}$/', preg_replace('/[\s\-\.\(\)]/', '', (string) $nilai))) {
++                $gagal('Nomor WhatsApp pembina tidak valid. Contoh: 081234567890 atau +6281234567890.');
++            }
++        }];
++
++        return $aturan;
++    }
++
++    public static function pesanKontak(): array
++    {
++        $pesan = [];
++
++        foreach (self::KONTAK_URL as $kolom => [$ikon, $nama]) {
++            $pesan["{$kolom}.url"]         = "Alamat {$nama} tidak valid.";
++            $pesan["{$kolom}.starts_with"] = "Tautan {$nama} harus diawali https://";
++            $pesan["{$kolom}.max"]         = "Alamat {$nama} maksimal 500 karakter.";
++        }
++
++        return $pesan;
++    }
++
++    // Daftar kontak yang terisi, urut: Grup WhatsApp, chat pembina, Telegram, Instagram, TikTok.
++    // PENTING: hanya dipanggil controller untuk anggota aktif/pengelola; jangan dipakai di tampilan umum.
++    public function daftarKontak(): array
++    {
++        $daftar = [];
++
++        if ($this->wa_grup_url) {
++            $daftar[] = ['ikon' => self::KONTAK_URL['wa_grup_url'][0], 'nama' => 'Grup WhatsApp', 'url' => $this->wa_grup_url, 'keterangan' => null];
++        }
++
++        if ($this->wa_pembina) {
++            $daftar[] = ['ikon' => '📞', 'nama' => 'Chat Pembina', 'url' => 'https://wa.me/' . $this->wa_pembina, 'keterangan' => $this->wa_pembina_tampilan];
++        }
++
++        foreach (['telegram_url', 'instagram_url', 'tiktok_url'] as $kolom) {
++            if ($this->{$kolom}) {
++                $daftar[] = ['ikon' => self::KONTAK_URL[$kolom][0], 'nama' => self::KONTAK_URL[$kolom][1], 'url' => $this->{$kolom}, 'keterangan' => null];
++            }
++        }
++
++        return $daftar;
++    }
++
+     // Aturan validasi singkatan: opsional, maks 30 karakter, unik tanpa membedakan huruf besar/kecil.
+     // Dipakai form ekskul dan form komunitas supaya aturannya satu.
+     public static function aturanSingkatan(?int $abaikanId = null): array
+diff --git a/database/migrations/2026_11_06_090000_add_kontak_sosmed_to_ekstrakurikulers_table.php b/database/migrations/2026_11_06_090000_add_kontak_sosmed_to_ekstrakurikulers_table.php
+new file mode 100644
+index 0000000..17b6517
+--- /dev/null
++++ b/database/migrations/2026_11_06_090000_add_kontak_sosmed_to_ekstrakurikulers_table.php
+@@ -0,0 +1,28 @@
++<?php
++
++use Illuminate\Database\Migrations\Migration;
++use Illuminate\Database\Schema\Blueprint;
++use Illuminate\Support\Facades\Schema;
++
++return new class extends Migration
++{
++    public function up(): void
++    {
++        // Kontak & sosial media ekskul yang HANYA tampil untuk anggota aktif (dan admin/pembina ekskul itu).
++        // Terpisah dari ekskul_tautans, yang tampil untuk semua pengguna.
++        Schema::table('ekstrakurikulers', function (Blueprint $table) {
++            $table->string('wa_grup_url', 500)->nullable()->after('deskripsi');
++            $table->string('wa_pembina', 20)->nullable()->after('wa_grup_url');     // format 62812xxxx, sama seperti users.no_hp
++            $table->string('telegram_url', 500)->nullable()->after('wa_pembina');
++            $table->string('instagram_url', 500)->nullable()->after('telegram_url');
++            $table->string('tiktok_url', 500)->nullable()->after('instagram_url');
++        });
++    }
++
++    public function down(): void
++    {
++        Schema::table('ekstrakurikulers', function (Blueprint $table) {
++            $table->dropColumn(['wa_grup_url', 'wa_pembina', 'telegram_url', 'instagram_url', 'tiktok_url']);
++        });
++    }
++};
+diff --git a/resources/views/ekstrakurikuler/_kontak.blade.php b/resources/views/ekstrakurikuler/_kontak.blade.php
+new file mode 100644
+index 0000000..b961784
+--- /dev/null
++++ b/resources/views/ekstrakurikuler/_kontak.blade.php
+@@ -0,0 +1,22 @@
++{{-- Kontak & sosmed ekskul, khusus anggota aktif + admin/pembina ekskul ini.
++     Variabel: $kontak (controller hanya mengisinya untuk yang berhak, kosong untuk non-anggota), $staff, $ekskul --}}
++@if(count($kontak) > 0 || $staff)
++    <div class="mt-4 pt-4 border-t border-gray-200" id="kontak-anggota">
++        <p class="text-xs font-semibold text-gray-500 uppercase mb-2">Kontak &amp; Sosial Media <span class="normal-case font-normal">(khusus anggota aktif)</span></p>
++
++        @if(count($kontak) > 0)
++            <div class="flex flex-wrap gap-2">
++                @foreach($kontak as $k)
++                    <a href="{{ $k['url'] }}" target="_blank" rel="noopener noreferrer"
++                       class="px-3 py-1 text-sm rounded-full bg-emerald-100 text-emerald-800 hover:bg-emerald-200">{{ $k['ikon'] }} {{ $k['nama'] }}@if($k['keterangan']) <span class="text-xs">({{ $k['keterangan'] }})</span>@endif</a>
++                @endforeach
++            </div>
++        @else
++            <p class="text-sm text-gray-400">Belum diisi. Atur lewat <a href="{{ route('ekstrakurikuler.edit', $ekskul->id) }}" class="underline">Edit Ekskul</a>.</p>
++        @endif
++
++        @if($staff)
++            <p class="text-xs text-gray-500 mt-2">Hanya terlihat oleh anggota aktif, admin, dan pembina ekskul ini.</p>
++        @endif
++    </div>
++@endif
+diff --git a/resources/views/ekstrakurikuler/_kontak_form.blade.php b/resources/views/ekstrakurikuler/_kontak_form.blade.php
+new file mode 100644
+index 0000000..09c0d0b
+--- /dev/null
++++ b/resources/views/ekstrakurikuler/_kontak_form.blade.php
+@@ -0,0 +1,36 @@
++{{-- Input kontak & sosmed ekskul (opsional). Dipakai create & edit; hanya terlihat oleh anggota aktif, admin, dan pembina. --}}
++@php $ekskulIni = $ekstrakurikuler ?? null; @endphp
++<div class="rounded-lg border border-gray-200 p-4 space-y-3">
++    <div>
++        <p class="text-sm font-semibold text-gray-700">Kontak &amp; Sosial Media <span class="font-normal text-gray-500">(opsional)</span></p>
++        <p class="text-xs text-gray-500">Hanya terlihat oleh anggota aktif ekskul ini, admin, dan pembina. Siswa yang belum menjadi anggota tidak melihatnya.</p>
++    </div>
++
++    <div>
++        <label class="block text-xs font-semibold text-gray-600">Link Grup WhatsApp</label>
++        <input type="url" name="wa_grup_url" value="{{ old('wa_grup_url', $ekskulIni?->wa_grup_url) }}" maxlength="500" placeholder="https://chat.whatsapp.com/..." class="w-full border p-2 rounded-lg mt-1 text-sm">
++    </div>
++
++    <div>
++        <label class="block text-xs font-semibold text-gray-600">Nomor WhatsApp Pembina (chat langsung)</label>
++        <input type="text" name="wa_pembina" value="{{ old('wa_pembina', $ekskulIni?->wa_pembina_tampilan) }}" maxlength="25" placeholder="081234567890" class="w-full border p-2 rounded-lg mt-1 text-sm">
++        <p class="text-xs text-gray-500 mt-1">Nomor ini sengaja kamu bagikan ke anggota. Nomor di profil pribadi pembina tidak ikut tampil.</p>
++    </div>
++
++    <div>
++        <label class="block text-xs font-semibold text-gray-600">Link Telegram</label>
++        <input type="url" name="telegram_url" value="{{ old('telegram_url', $ekskulIni?->telegram_url) }}" maxlength="500" placeholder="https://t.me/..." class="w-full border p-2 rounded-lg mt-1 text-sm">
++    </div>
++
++    <div>
++        <label class="block text-xs font-semibold text-gray-600">Instagram</label>
++        <input type="url" name="instagram_url" value="{{ old('instagram_url', $ekskulIni?->instagram_url) }}" maxlength="500" placeholder="https://instagram.com/..." class="w-full border p-2 rounded-lg mt-1 text-sm">
++    </div>
++
++    <div>
++        <label class="block text-xs font-semibold text-gray-600">TikTok</label>
++        <input type="url" name="tiktok_url" value="{{ old('tiktok_url', $ekskulIni?->tiktok_url) }}" maxlength="500" placeholder="https://tiktok.com/@..." class="w-full border p-2 rounded-lg mt-1 text-sm">
++    </div>
++
++    <p class="text-xs text-gray-500">Alamat harus diawali https:// dan sesuai platformnya. Kosongkan kolom yang tidak dipakai.</p>
++</div>
+diff --git a/resources/views/ekstrakurikuler/create.blade.php b/resources/views/ekstrakurikuler/create.blade.php
+index 95d4f76..7e39271 100644
+--- a/resources/views/ekstrakurikuler/create.blade.php
++++ b/resources/views/ekstrakurikuler/create.blade.php
+@@ -56,6 +56,8 @@
+ 
+             @include('ekstrakurikuler._kategori')
+ 
++            @include('ekstrakurikuler._kontak_form')
++
+             @include('ekstrakurikuler._jadwal', ['awal' => []])
+ 
+             <div>
+diff --git a/resources/views/ekstrakurikuler/edit.blade.php b/resources/views/ekstrakurikuler/edit.blade.php
+index 29ca8a9..81f68a9 100644
+--- a/resources/views/ekstrakurikuler/edit.blade.php
++++ b/resources/views/ekstrakurikuler/edit.blade.php
+@@ -48,6 +48,8 @@
+ 
+     @include('ekstrakurikuler._kategori')
+ 
++    @include('ekstrakurikuler._kontak_form')
++
+     @php
+         $awalJadwal = $ekstrakurikuler->haris->mapWithKeys(fn ($x) => [
+             $x->hari => ['jam_mulai' => substr($x->jam_mulai, 0, 5), 'jam_selesai' => substr($x->jam_selesai, 0, 5)],
+diff --git a/resources/views/ekstrakurikuler/show.blade.php b/resources/views/ekstrakurikuler/show.blade.php
+index a438b30..6baf4be 100644
+--- a/resources/views/ekstrakurikuler/show.blade.php
++++ b/resources/views/ekstrakurikuler/show.blade.php
+@@ -120,6 +120,8 @@ class="inline-block bg-emerald-600 text-white px-5 py-2 rounded-lg font-semibold
+ 
+                     @include('ekstrakurikuler._keluar')
+ 
++                    @include('ekstrakurikuler._kontak')
++
+                     @include('ekstrakurikuler._tautan')
+ 
+                     @include('ekstrakurikuler._osis')
+diff --git a/tests/Feature/KontakSosmedEkskulTest.php b/tests/Feature/KontakSosmedEkskulTest.php
+new file mode 100644
+index 0000000..a631a6c
+--- /dev/null
++++ b/tests/Feature/KontakSosmedEkskulTest.php
+@@ -0,0 +1,302 @@
++<?php
++
++use App\Models\EkskulTautan;
++use App\Models\Ekstrakurikuler;
++use App\Models\JenisEkskul;
++use App\Models\PendaftaranEkskul;
++use App\Models\User;
++use Illuminate\Foundation\Testing\RefreshDatabase;
++
++uses(RefreshDatabase::class);
++
++beforeEach(function () {
++    $this->withoutVite();
++});
++
++function akunKs(string $role = 'siswa'): User
++{
++    return User::factory()->create(['role' => $role, 'is_active' => true]);
++}
++
++// Ekskul dengan seluruh kontak terisi
++function ekskulKs(string $nama = 'Palang Merah Remaja', array $tambahan = []): Ekstrakurikuler
++{
++    return Ekstrakurikuler::create(array_merge([
++        'nama_ekstrakurikuler' => $nama,
++        'pembina' => 'Pak Uji',
++        'status' => 'aktif',
++        'jenis_ekskul_id' => (int) JenisEkskul::where('kode', 'ekskul')->value('id'),
++        'wa_grup_url' => 'https://chat.whatsapp.com/GrupRahasia123',
++        'wa_pembina' => '081234567890',
++        'telegram_url' => 'https://t.me/pmr_rahasia',
++        'instagram_url' => 'https://instagram.com/pmr_rahasia',
++        'tiktok_url' => 'https://tiktok.com/@pmr_rahasia',
++    ], $tambahan));
++}
++
++function daftarKs(User $akun, Ekstrakurikuler $ekskul, string $status = 'diterima', string $statusAnggota = 'aktif'): PendaftaranEkskul
++{
++    return PendaftaranEkskul::create([
++        'user_id' => $akun->id,
++        'ekstrakurikuler_id' => $ekskul->id,
++        'nama_pendaftar' => $akun->name,
++        'peran' => 'siswa',
++        'status' => $status,
++        'status_anggota' => $statusAnggota,
++    ]);
++}
++
++function payloadKs(array $tambahan = []): array
++{
++    return array_merge([
++        'nama_ekstrakurikuler' => 'Palang Merah Remaja',
++        'pembina' => 'Pak Uji',
++        'status' => 'aktif',
++        'hari' => ['senin'],
++        'jadwal' => ['senin' => ['jam_mulai' => '15:00', 'jam_selesai' => '17:00']],
++    ], $tambahan);
++}
++
++// Penanda yang hanya boleh muncul untuk yang berhak
++const KONTAK_RAHASIA_KS = ['GrupRahasia123', 'wa.me/6281234567890', '081234567890', 't.me/pmr_rahasia', 'instagram.com/pmr_rahasia', 'tiktok.com/@pmr_rahasia'];
++
++// ---------------------------------------------------------------------------
++// Yang berhak melihat
++// ---------------------------------------------------------------------------
++
++test('anggota aktif melihat semua kontak dan sosmed ekskulnya, dalam urutan yang benar', function () {
++    $ekskul = ekskulKs();
++    $siswa = akunKs();
++    daftarKs($siswa, $ekskul);
++
++    $this->actingAs($siswa)->get(route('ekstrakurikuler.show', $ekskul->id))
++        ->assertOk()
++        ->assertSee('Kontak & Sosial Media')
++        ->assertSee('https://chat.whatsapp.com/GrupRahasia123', false)
++        ->assertSee('https://wa.me/6281234567890', false)
++        ->assertSee('(081234567890)', false)
++        ->assertSee('https://t.me/pmr_rahasia', false)
++        ->assertSee('https://instagram.com/pmr_rahasia', false)
++        ->assertSee('https://tiktok.com/@pmr_rahasia', false)
++        ->assertSeeInOrder(['Grup WhatsApp', 'Chat Pembina', 'Telegram', 'Instagram', 'TikTok']);
++});
++
++test('admin dan pembina ekskul itu melihat kontak, pembina ekskul lain tidak', function () {
++    $ekskul = ekskulKs();
++    $pembina = akunKs('pembina');
++    $ekskul->pembinas()->attach($pembina->id, ['mulai' => now()->toDateString()]);
++
++    $this->actingAs(akunKs('admin'))->get(route('ekstrakurikuler.show', $ekskul->id))
++        ->assertOk()->assertSee('https://chat.whatsapp.com/GrupRahasia123', false);
++
++    $this->actingAs($pembina)->get(route('ekstrakurikuler.show', $ekskul->id))
++        ->assertOk()->assertSee('https://chat.whatsapp.com/GrupRahasia123', false);
++
++    $pembinaLain = akunKs('pembina');
++    $response = $this->actingAs($pembinaLain)->get(route('ekstrakurikuler.show', $ekskul->id))->assertOk();
++    foreach (KONTAK_RAHASIA_KS as $rahasia) {
++        $response->assertDontSee($rahasia, false);
++    }
++});
++
++// ---------------------------------------------------------------------------
++// Yang tidak boleh melihat: tidak ada satu pun data kontak di HTML-nya
++// ---------------------------------------------------------------------------
++
++test('siswa non-anggota tidak melihat kontak maupun judul bloknya', function () {
++    $ekskul = ekskulKs();
++
++    $response = $this->actingAs(akunKs())->get(route('ekstrakurikuler.show', $ekskul->id))->assertOk();
++
++    $response->assertDontSee('Kontak & Sosial Media');
++    foreach (KONTAK_RAHASIA_KS as $rahasia) {
++        $response->assertDontSee($rahasia, false);
++    }
++});
++
++test('pendaftar yang masih menunggu atau ditolak tidak melihat kontak', function () {
++    $ekskul = ekskulKs();
++    $menunggu = akunKs();
++    $ditolak = akunKs();
++    daftarKs($menunggu, $ekskul, 'pending');
++    daftarKs($ditolak, $ekskul, 'ditolak');
++
++    foreach ([$menunggu, $ditolak] as $akun) {
++        $response = $this->actingAs($akun)->get(route('ekstrakurikuler.show', $ekskul->id))->assertOk();
++        foreach (KONTAK_RAHASIA_KS as $rahasia) {
++            $response->assertDontSee($rahasia, false);
++        }
++    }
++});
++
++test('mantan anggota (keluar, dikeluarkan, selesai) tidak melihat kontak lagi', function () {
++    $ekskul = ekskulKs();
++
++    foreach (['keluar', 'dikeluarkan', 'selesai'] as $statusAnggota) {
++        $akun = akunKs();
++        daftarKs($akun, $ekskul, 'diterima', $statusAnggota);
++
++        $response = $this->actingAs($akun)->get(route('ekstrakurikuler.show', $ekskul->id))->assertOk();
++        foreach (KONTAK_RAHASIA_KS as $rahasia) {
++            $response->assertDontSee($rahasia, false);
++        }
++    }
++});
++
++test('anggota aktif ekskul lain tidak melihat kontak ekskul ini', function () {
++    $ekskul = ekskulKs();
++    $lain = ekskulKs('Pramuka Penggalang', [
++        'wa_grup_url' => null, 'wa_pembina' => null, 'telegram_url' => null, 'instagram_url' => null, 'tiktok_url' => null,
++    ]);
++    $siswa = akunKs();
++    daftarKs($siswa, $lain);
++
++    $response = $this->actingAs($siswa)->get(route('ekstrakurikuler.show', $ekskul->id))->assertOk();
++    foreach (KONTAK_RAHASIA_KS as $rahasia) {
++        $response->assertDontSee($rahasia, false);
++    }
++});
++
++test('tautan publik ekskul tetap terlihat oleh siapa pun, tidak ikut disembunyikan', function () {
++    $ekskul = ekskulKs();
++    EkskulTautan::create([
++        'ekstrakurikuler_id' => $ekskul->id,
++        'platform' => 'youtube',
++        'label' => 'Kanal Resmi PMR',
++        'url' => 'https://youtube.com/@pmr',
++    ]);
++
++    $this->actingAs(akunKs())->get(route('ekstrakurikuler.show', $ekskul->id))
++        ->assertOk()
++        ->assertSee('Kanal Resmi PMR')
++        ->assertDontSee('GrupRahasia123', false);
++});
++
++// ---------------------------------------------------------------------------
++// Blok kosong
++// ---------------------------------------------------------------------------
++
++test('kontak belum diisi: anggota tidak melihat blok, pengelola melihat petunjuk', function () {
++    $ekskul = ekskulKs('Futsal', [
++        'wa_grup_url' => null, 'wa_pembina' => null, 'telegram_url' => null, 'instagram_url' => null, 'tiktok_url' => null,
++    ]);
++    $anggota = akunKs();
++    daftarKs($anggota, $ekskul);
++
++    $this->actingAs($anggota)->get(route('ekstrakurikuler.show', $ekskul->id))
++        ->assertOk()->assertDontSee('Kontak & Sosial Media');
++
++    $this->actingAs(akunKs('admin'))->get(route('ekstrakurikuler.show', $ekskul->id))
++        ->assertOk()->assertSee('Kontak & Sosial Media')->assertSee('Belum diisi');
++});
++
++// ---------------------------------------------------------------------------
++// Form: simpan, ubah, validasi
++// ---------------------------------------------------------------------------
++
++test('admin menyimpan kontak saat membuat ekskul; nomor pembina disimpan dalam format 62', function () {
++    $this->actingAs(akunKs('admin'))
++        ->post(route('ekstrakurikuler.store'), payloadKs([
++            'wa_grup_url' => 'https://chat.whatsapp.com/abc',
++            'wa_pembina' => '0812-3456-7890',
++            'telegram_url' => 'https://t.me/pmr',
++            'instagram_url' => 'https://www.instagram.com/pmr',
++            'tiktok_url' => 'https://www.tiktok.com/@pmr',
++        ]))
++        ->assertSessionHasNoErrors();
++
++    $ekskul = Ekstrakurikuler::firstOrFail();
++
++    expect($ekskul->wa_grup_url)->toBe('https://chat.whatsapp.com/abc')
++        ->and($ekskul->wa_pembina)->toBe('6281234567890')
++        ->and($ekskul->wa_pembina_tampilan)->toBe('081234567890')
++        ->and($ekskul->telegram_url)->toBe('https://t.me/pmr')
++        ->and($ekskul->instagram_url)->toBe('https://www.instagram.com/pmr')
++        ->and($ekskul->tiktok_url)->toBe('https://www.tiktok.com/@pmr');
++});
++
++test('pembina pengelola mengisi dan mengosongkan kontak lewat edit', function () {
++    $pembina = akunKs('pembina');
++    $ekskul = ekskulKs();
++    $ekskul->pembinas()->attach($pembina->id, ['mulai' => now()->toDateString()]);
++
++    $this->actingAs($pembina)
++        ->put(route('ekstrakurikuler.update', $ekskul->id), payloadKs([
++            'wa_grup_url' => '',
++            'wa_pembina' => '+62 898 7654 3210',
++            'telegram_url' => '',
++            'instagram_url' => 'https://instagram.com/baru',
++            'tiktok_url' => '',
++        ]))
++        ->assertSessionHasNoErrors();
++
++    $ekskul->refresh();
++
++    expect($ekskul->wa_grup_url)->toBeNull()
++        ->and($ekskul->wa_pembina)->toBe('6289876543210')
++        ->and($ekskul->telegram_url)->toBeNull()
++        ->and($ekskul->instagram_url)->toBe('https://instagram.com/baru')
++        ->and($ekskul->tiktok_url)->toBeNull();
++});
++
++test('alamat yang bukan milik platformnya atau tidak https ditolak, termasuk domain tiruan', function () {
++    $admin = akunKs('admin');
++
++    $salah = [
++        ['wa_grup_url', 'https://example.com/grup'],
++        ['wa_grup_url', 'http://chat.whatsapp.com/abc'],
++        ['telegram_url', 'https://instagram.com/pmr'],
++        ['instagram_url', 'https://tiktok.com/@pmr'],
++        ['instagram_url', 'https://instagram.com.evil.example/pmr'],
++        ['tiktok_url', 'https://notiktok.com/@pmr'],
++        ['tiktok_url', 'bukan-alamat'],
++    ];
++
++    foreach ($salah as [$kolom, $nilai]) {
++        $this->actingAs($admin)
++            ->post(route('ekstrakurikuler.store'), payloadKs([$kolom => $nilai]))
++            ->assertSessionHasErrors($kolom);
++    }
++
++    expect(Ekstrakurikuler::count())->toBe(0);
++});
++
++test('nomor WhatsApp pembina yang tidak valid ditolak', function () {
++    $admin = akunKs('admin');
++
++    foreach (['12345', 'abc', '0812abc34567', '021234567', '+1 415 555 2671'] as $nomor) {
++        $this->actingAs($admin)
++            ->post(route('ekstrakurikuler.store'), payloadKs(['wa_pembina' => $nomor]))
++            ->assertSessionHasErrors('wa_pembina');
++    }
++
++    expect(Ekstrakurikuler::count())->toBe(0);
++});
++
++test('form tambah dan edit punya input kontak; edit menampilkan nomor dalam format 08', function () {
++    $admin = akunKs('admin');
++    $ekskul = ekskulKs();
++
++    $this->actingAs($admin)->get(route('ekstrakurikuler.create'))
++        ->assertOk()
++        ->assertSee('Kontak & Sosial Media')
++        ->assertSee('Link Grup WhatsApp')
++        ->assertSee('Nomor WhatsApp Pembina')
++        ->assertSee('Link Telegram')
++        ->assertSee('name="instagram_url"', false)
++        ->assertSee('name="tiktok_url"', false);
++
++    $this->actingAs($admin)->get(route('ekstrakurikuler.edit', $ekskul->id))
++        ->assertOk()
++        ->assertSee('value="081234567890"', false)
++        ->assertSee('value="https://t.me/pmr_rahasia"', false);
++});
++
++test('katalog tidak pernah memuat kontak, bahkan untuk admin', function () {
++    ekskulKs();
++
++    $response = $this->actingAs(akunKs('admin'))->get(route('ekstrakurikuler.index'))->assertOk();
++    foreach (KONTAK_RAHASIA_KS as $rahasia) {
++        $response->assertDontSee($rahasia, false);
++    }
++});
