@@ -25,15 +25,46 @@ class EkstrakurikulerController extends Controller
 {
     public function index(Request $request)
     {
-        // Saringan jenis: hanya jenis yang punya ekskul yang ditawarkan
-        $jenisFilter = JenisEkskul::withCount('ekskuls')->has('ekskuls')->urut()->get();
-        $jenisAktif  = $jenisFilter->firstWhere('kode', $request->query('jenis'));
-
-        $ekskuls = Ekstrakurikuler::with(['haris', 'pembinaAktif', 'jenisEkskul', 'kategoris', 'induk:id,nama_ekstrakurikuler,nama_singkatan'])
+        $semua = Ekstrakurikuler::with(['haris', 'pembinaAktif', 'jenisEkskul', 'kategoris', 'induk:id,nama_ekstrakurikuler,nama_singkatan'])
             ->withCount(['pendaftaran as anggota_count' => fn ($q) => $q->where('status', 'diterima')->where('status_anggota', 'aktif')])
-            ->when($jenisAktif, fn ($q) => $q->where('jenis_ekskul_id', $jenisAktif->id))
             ->latest()
             ->get();
+
+        // Pilihan saringan: hanya tipe/kategori yang punya ekskul yang ditawarkan
+        $jenisFilter    = JenisEkskul::has('ekskuls')->urut()->get();
+        $kategoriFilter = KategoriEkskul::has('ekskuls')->urut()->get();
+
+        // Nilai saringan dari URL (?jenis=&kategori=&status=). Nilai tidak dikenal = tidak menyaring apa pun.
+        $param         = fn (string $kunci) => is_string($request->query($kunci)) ? $request->query($kunci) : null;
+        $jenisAktif    = $jenisFilter->firstWhere('kode', $param('jenis'));
+        $kategoriAktif = $kategoriFilter->firstWhere('slug', $param('kategori'));
+        $statusAktif   = in_array($param('status'), ['buka', 'tutup'], true) ? $param('status') : null;
+
+        // Status pendaftaran dihitung sekali per ekskul (aturannya ada di model: nonaktif, ditutup, periode seleksi, kuota)
+        $terbuka = $semua->mapWithKeys(fn ($e) => [$e->id => $e->pendaftaran_terbuka]);
+
+        $cocokJenis    = fn ($e) => ! $jenisAktif || (int) $e->jenis_ekskul_id === (int) $jenisAktif->id;
+        $cocokKategori = fn ($e) => ! $kategoriAktif || $e->kategoris->contains('id', $kategoriAktif->id);
+        $cocokStatus   = fn ($e) => ! $statusAktif || $terbuka[$e->id] === ($statusAktif === 'buka');
+
+        // Tiap kelompok saringan dipilih satu; antar-kelompok digabung (AND)
+        $ekskuls = $semua->filter(fn ($e) => $cocokJenis($e) && $cocokKategori($e) && $cocokStatus($e))->values();
+
+        // Jumlah di tiap pill = hasil kalau pill itu dipilih, dengan saringan kelompok lain tetap berlaku
+        $jumlah = [
+            'jenis' => $jenisFilter->mapWithKeys(fn ($j) => [
+                $j->id => $semua->filter(fn ($e) => $cocokKategori($e) && $cocokStatus($e) && (int) $e->jenis_ekskul_id === (int) $j->id)->count(),
+            ]),
+            'kategori' => $kategoriFilter->mapWithKeys(fn ($k) => [
+                $k->id => $semua->filter(fn ($e) => $cocokJenis($e) && $cocokStatus($e) && $e->kategoris->contains('id', $k->id))->count(),
+            ]),
+            'status' => [
+                'buka'  => $semua->filter(fn ($e) => $cocokJenis($e) && $cocokKategori($e) && $terbuka[$e->id])->count(),
+                'tutup' => $semua->filter(fn ($e) => $cocokJenis($e) && $cocokKategori($e) && ! $terbuka[$e->id])->count(),
+            ],
+        ];
+
+        $totalEkskul = $semua->count();
 
         // Pendaftaran terakhir milik user ini di tiap ekskul (kunci = id ekskul), supaya kartu bisa menampilkan
         // status (anggota aktif / menunggu / dst) dan bukan tombol "Daftar" untuk ekskul yang sudah diikuti.
@@ -42,7 +73,10 @@ class EkstrakurikulerController extends Controller
             ? collect()
             : PendaftaranEkskul::where('user_id', Auth::id())->relevanDulu()->get()->unique('ekstrakurikuler_id')->keyBy('ekstrakurikuler_id');
 
-        return view('ekstrakurikuler.index', compact('ekskuls', 'pendaftaranSaya', 'jenisFilter', 'jenisAktif'));
+        return view('ekstrakurikuler.index', compact(
+            'ekskuls', 'pendaftaranSaya', 'totalEkskul', 'jumlah',
+            'jenisFilter', 'jenisAktif', 'kategoriFilter', 'kategoriAktif', 'statusAktif'
+        ));
     }
 
     // Halaman detail satu ekskul: tab Informasi / Prestasi / Event / Pengumuman / Anggota

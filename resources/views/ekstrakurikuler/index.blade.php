@@ -63,14 +63,7 @@
 
         @include('ekstrakurikuler._kartu_osis')
 
-        @if($jenisFilter->count() > 1)
-            <div class="flex flex-wrap gap-2 mb-4">
-                <a href="{{ route('ekstrakurikuler.index') }}" class="px-3 py-1 rounded-full text-xs font-semibold border {{ $jenisAktif ? 'bg-white text-gray-700 border-gray-300' : 'bg-indigo-600 text-white border-indigo-600' }}">Semua</a>
-                @foreach($jenisFilter as $j)
-                    <a href="{{ route('ekstrakurikuler.index', ['jenis' => $j->kode]) }}" class="px-3 py-1 rounded-full text-xs font-semibold border {{ $jenisAktif && $jenisAktif->id === $j->id ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-700 border-gray-300' }}">{{ $j->nama }} ({{ $j->ekskuls_count }})</a>
-                @endforeach
-            </div>
-        @endif
+        @include('ekstrakurikuler._filter')
 
         <!-- Grid Kartu Ekstrakurikuler -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -177,7 +170,11 @@
                 </div>
             @empty
                 <div class="col-span-3 bg-white p-8 text-center rounded-xl border border-gray-200 text-gray-500">
-                    Belum ada data ekstrakurikuler. Klik tombol <strong>+ Tambah Ekskul</strong> untuk menambah data.
+                    @if($jenisAktif || $kategoriAktif || $statusAktif)
+                        Tidak ada ekskul yang cocok dengan saringan ini. <a href="{{ route('ekstrakurikuler.index') }}" class="underline">Reset filter</a>
+                    @else
+                        Belum ada data ekstrakurikuler. Klik tombol <strong>+ Tambah Ekskul</strong> untuk menambah data.
+                    @endif
                 </div>
             @endforelse
         </div>
