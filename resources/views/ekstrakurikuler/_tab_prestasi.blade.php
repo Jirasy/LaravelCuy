@@ -16,7 +16,7 @@
             <div class="flex justify-between items-start gap-4">
                 <div>
                     <div class="flex flex-wrap items-center gap-2 mb-1">
-                        <span class="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-amber-100 text-amber-800">🏆 {{ $p->peringkat }}</span>
+                        <span class="inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-semibold rounded-full bg-amber-100 text-amber-800"><x-ikon nama="piala" :ukuran="13" /> {{ $p->peringkat }}</span>
                         <span class="px-2.5 py-0.5 text-xs rounded-full bg-indigo-100 text-indigo-800">{{ $p->tingkat_label }}</span>
                         <span class="text-xs text-gray-500">{{ $p->tahun }}</span>
                     </div>

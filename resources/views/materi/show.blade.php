@@ -19,7 +19,7 @@
                     &middot; {{ $pengumpulans->count() }} terkumpul
                 </p>
             </div>
-            <a href="{{ route('ekstrakurikuler.show', ['id' => $ekskul->id, 'tab' => 'materi']) }}" class="text-gray-600 hover:underline text-sm">← Kembali</a>
+            <a href="{{ route('ekstrakurikuler.show', ['id' => $ekskul->id, 'tab' => 'materi']) }}" class="inline-flex items-center gap-1 text-gray-600 hover:underline text-sm"><x-ikon nama="panah-kiri" :ukuran="14" /> Kembali</a>
         </div>
 
         @if(session('success'))
@@ -62,7 +62,7 @@
                             <div class="mt-2 bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 text-sm text-gray-800 whitespace-pre-line">{{ $p->jawaban }}</div>
                         @endif
                         @if($p->berkas)
-                            <p class="text-sm mt-2">📎 <a href="{{ route('pr.berkas', $p->id) }}" class="text-indigo-600 hover:underline">{{ $p->nama_berkas }}</a></p>
+                            <p class="text-sm mt-2"><x-ikon nama="klip" :ukuran="14" /> <a href="{{ route('pr.berkas', $p->id) }}" class="text-indigo-600 hover:underline">{{ $p->nama_berkas }}</a></p>
                         @endif
 
                         <form action="{{ route('pr.nilai', $p->id) }}" method="POST" class="mt-3 grid grid-cols-1 sm:grid-cols-4 gap-2 items-start">

@@ -41,7 +41,7 @@ class EkskulPembinaController extends Controller
             'Penugasan pembina',
             "Kamu ditugaskan sebagai pembina {$ekstrakurikuler->nama_ekstrakurikuler}.",
             route('ekstrakurikuler.show', $ekstrakurikuler->id, false),
-            '🛡️',
+            'perisai',
             $request->user()->id
         );
 

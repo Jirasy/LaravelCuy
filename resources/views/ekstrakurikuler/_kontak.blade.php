@@ -8,7 +8,7 @@
             <div class="flex flex-wrap gap-2">
                 @foreach($kontak as $k)
                     <a href="{{ $k['url'] }}" target="_blank" rel="noopener noreferrer"
-                       class="px-3 py-1 text-sm rounded-full bg-emerald-100 text-emerald-800 hover:bg-emerald-200">{{ $k['ikon'] }} {{ $k['nama'] }}@if($k['keterangan']) <span class="text-xs">({{ $k['keterangan'] }})</span>@endif</a>
+                       class="px-3 py-1 text-sm rounded-full bg-emerald-100 text-emerald-800 hover:bg-emerald-200"><x-ikon :nama="$k['ikon']" :ukuran="14" /> {{ $k['nama'] }}@if($k['keterangan']) <span class="text-xs">({{ $k['keterangan'] }})</span>@endif</a>
                 @endforeach
             </div>
         @else

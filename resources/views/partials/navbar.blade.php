@@ -90,7 +90,7 @@
     </div>
 
     @unless($utama)
-        <button type="button" class="nav-handle" aria-label="Tampilkan menu" onclick="this.closest('.nav-wrap').classList.toggle('open')">⌄</button>
+        <button type="button" class="nav-handle" aria-label="Tampilkan menu" onclick="this.closest('.nav-wrap').classList.toggle('open')"><x-ikon nama="chevron-bawah" :ukuran="14" :tebal="2.5" /></button>
     @endunless
 </div>
 

@@ -79,7 +79,7 @@ class KomunitasController extends Controller
             'Komunitas baru menunggu peresmian',
             "{$user->name} membuat komunitas {$ekskul->nama_ekstrakurikuler}. Buka halamannya untuk meresmikannya jadi ekskul.",
             route('ekstrakurikuler.show', $ekskul->id, false),
-            '🌱',
+            'tunas',
             $user->id
         );
 
@@ -121,7 +121,7 @@ class KomunitasController extends Controller
             'Komunitas diresmikan',
             "{$ekskul->nama_ekstrakurikuler} sekarang resmi menjadi ekskul ({$tipe->nama}).",
             route('ekstrakurikuler.show', $ekskul->id, false),
-            '🎉',
+            'pesta',
             $request->user()->id
         );
 

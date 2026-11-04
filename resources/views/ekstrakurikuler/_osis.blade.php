@@ -10,7 +10,7 @@
             ->exists();
     @endphp
     <div class="mt-4 pt-4 border-t border-gray-200">
-        <p class="text-xs font-semibold text-gray-500 uppercase mb-2">🗳️ Rekrutmen lewat seleksi</p>
+        <p class="text-xs font-semibold text-gray-500 uppercase mb-2"><x-ikon nama="kotak-suara" :ukuran="13" /> Rekrutmen lewat seleksi</p>
 
         @if($periodeBuka)
             <p class="text-sm text-gray-800 mb-3">

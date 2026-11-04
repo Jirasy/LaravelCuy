@@ -13,7 +13,7 @@
         <div class="bg-white p-8 rounded-xl shadow-sm border border-gray-200">
             <div class="flex justify-between items-center mb-2">
                 <h1 class="text-2xl font-bold text-gray-800">Import Data Siswa</h1>
-                <a href="{{ route('users.index') }}" class="text-gray-600 hover:underline text-sm">← Kelola User</a>
+                <a href="{{ route('users.index') }}" class="inline-flex items-center gap-1 text-gray-600 hover:underline text-sm"><x-ikon nama="panah-kiri" :ukuran="14" /> Kelola User</a>
             </div>
             <p class="text-sm text-gray-600 mb-5">
                 Unggah daftar nama siswa. Sistem membuatkan akun role <b>siswa</b> dengan password acak untuk tiap nama,

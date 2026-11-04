@@ -161,7 +161,7 @@ class PendaftaranEkskulController extends Controller
             'Pendaftaran baru',
             "{$user->name} mendaftar ke {$ekskul->nama_ekstrakurikuler}.",
             route('pendaftaran.index', [], false),
-            '📥',
+            'unduh',
             $user->id
         );
 
@@ -190,7 +190,7 @@ class PendaftaranEkskulController extends Controller
             'Jadwal ekskulmu bentrok',
             $this->bentrok->ringkas($bentrok->first()).($bentrok->count() > 1 ? ' (dan '.($bentrok->count() - 1).' bentrok lain)' : '').'. Pilih ekskul yang kamu hadiri atau atur pembagian waktunya.',
             route('profil.show', [], false).'#bentrok-jadwal',
-            '⚠️',
+            'peringatan',
             $pelakuId
         );
     }
@@ -227,7 +227,7 @@ class PendaftaranEkskulController extends Controller
                 'Pendaftaranmu ke '.$pendaftaran->ekstrakurikuler->nama_ekstrakurikuler.($setuju ? ' disetujui. Selamat bergabung!' : ' tidak disetujui.')
                     .(! $setuju && $data['alasan'] ? ' Catatan: '.$data['alasan'] : ''),
                 route('ekstrakurikuler.show', $pendaftaran->ekstrakurikuler_id, false),
-                $setuju ? '🎉' : '❌',
+                $setuju ? 'pesta' : 'silang-lingkar',
                 $request->user()->id
             );
 

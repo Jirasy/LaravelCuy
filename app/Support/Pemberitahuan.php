@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Notification;
 class Pemberitahuan
 {
     // Kirim ke satu atau banyak user. $kecuali = id user yang tidak perlu diberi tahu (biasanya pelaku).
-    public static function kirim(iterable $penerima, string $judul, string $pesan, ?string $url = null, string $ikon = '🔔', ?int $kecuali = null): void
+    public static function kirim(iterable $penerima, string $judul, string $pesan, ?string $url = null, string $ikon = 'lonceng', ?int $kecuali = null): void
     {
         $users = collect($penerima)
             ->filter()

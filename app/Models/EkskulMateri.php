@@ -15,10 +15,10 @@ class EkskulMateri extends Model
 
     // jenis => [ikon, nama]
     public const JENIS = [
-        'video'   => ['🎬', 'Video'],
-        'foto'    => ['🖼️', 'Foto'],
-        'dokumen' => ['📄', 'Dokumen'],
-        'link'    => ['🔗', 'Tautan'],
+        'video'   => ['video', 'Video'],
+        'foto'    => ['gambar', 'Foto'],
+        'dokumen' => ['dokumen', 'Dokumen'],
+        'link'    => ['tautan', 'Tautan'],
     ];
 
     public function ekstrakurikuler()

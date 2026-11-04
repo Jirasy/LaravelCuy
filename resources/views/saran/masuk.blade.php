@@ -46,7 +46,7 @@
                     <div class="flex flex-wrap justify-between items-start gap-2">
                         <div>
                             <p class="font-semibold text-gray-900">
-                                {{ $s->jenis === 'kritik' ? '📣 Kritik' : '💡 Saran' }}
+                                <x-ikon :nama="$s->jenis === 'kritik' ? 'megafon' : 'lampu'" :ukuran="13" /> {{ $s->jenis === 'kritik' ? 'Kritik' : 'Saran' }}
                                 <span class="font-normal text-gray-500">dari</span> {{ $s->nama_pengirim }}
                             </p>
                             <p class="text-xs text-gray-500 mt-0.5">

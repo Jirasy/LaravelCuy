@@ -99,7 +99,7 @@
                                     <form action="{{ route('periode.senior.destroy', [$periode->id, $s->id]) }}" method="POST" class="inline" onsubmit="return confirm('Cabut {{ e($s->name) }} dari penilai?')">
                                         @csrf
                                         @method('DELETE')
-                                        <button type="submit" class="text-xs text-red-600" title="Cabut">✕</button>
+                                        <button type="submit" class="text-xs text-red-600" title="Cabut" aria-label="Cabut"><x-ikon nama="silang" :ukuran="14" /></button>
                                     </form>
                                 </span>
                             @empty
@@ -205,8 +205,8 @@
                                         @else
                                             <div class="flex flex-wrap gap-1">
                                                 @foreach(\App\Models\CasisReview::TIPE as $kodeTipe => $labelTipe)
-                                                    <span class="px-2 py-0.5 text-xs rounded-full {{ in_array($kodeTipe, $sudahTipe, true) ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-500' }}"
-                                                          title="{{ $labelTipe }}">{{ in_array($kodeTipe, $sudahTipe, true) ? '✓' : '•' }} {{ ucfirst($kodeTipe) }}</span>
+                                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full {{ in_array($kodeTipe, $sudahTipe, true) ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-500' }}"
+                                                          title="{{ $labelTipe }}"><x-ikon :nama="in_array($kodeTipe, $sudahTipe, true) ? 'centang' : 'titik'" :ukuran="12" /> {{ ucfirst($kodeTipe) }}</span>
                                                 @endforeach
                                             </div>
                                         @endif

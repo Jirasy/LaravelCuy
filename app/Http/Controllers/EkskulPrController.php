@@ -49,7 +49,7 @@ class EkskulPrController extends Controller
             'Task baru',
             "{$pr->judul} di {$ekstrakurikuler->nama_ekstrakurikuler}{$tenggat}",
             route('ekstrakurikuler.show', ['id' => $ekstrakurikuler->id, 'tab' => 'materi'], false),
-            '📝',
+            'catatan',
             Auth::id()
         );
 
@@ -114,7 +114,7 @@ class EkskulPrController extends Controller
                 'Task dinilai',
                 "{$pr->judul}: nilai {$data['nilai']} dari {$pr->nilai_maks}.",
                 route('ekstrakurikuler.show', ['id' => $ekskul->id, 'tab' => 'materi'], false),
-                '📊',
+                'grafik',
                 Auth::id()
             );
         }
@@ -177,7 +177,7 @@ class EkskulPrController extends Controller
             'Task dikumpulkan',
             "{$user->name} mengumpulkan Task: {$pr->judul}.",
             route('pr.show', $pr->id, false),
-            '📥',
+            'unduh',
             $user->id
         );
 

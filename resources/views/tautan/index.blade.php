@@ -34,7 +34,7 @@
             @forelse($tautans as $t)
                 <div class="bg-white px-4 py-3 rounded-xl border border-gray-200 flex items-center justify-between gap-3" data-aos="fade-up">
                     <div class="min-w-0">
-                        <p class="font-semibold text-gray-800">{{ $t->ikon }} {{ $t->label }}</p>
+                        <p class="font-semibold text-gray-800"><x-ikon :nama="$t->ikon" :ukuran="16" /> {{ $t->label }}</p>
                         <p class="text-xs text-gray-500 truncate">{{ $t->url }}</p>
                     </div>
                     <form action="{{ route('tautan.destroy', $t->id) }}" method="POST" onsubmit="return confirm('Hapus tautan ini?')">

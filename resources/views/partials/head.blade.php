@@ -43,19 +43,28 @@
 <script>tailwind.config = { darkMode: 'class' }</script>
 <link rel="stylesheet" href="https://unpkg.com/aos@2.3.1/dist/aos.css">
 <script src="https://unpkg.com/aos@2.3.1/dist/aos.js" defer></script>
+@php
+    $ikonWaktu = [
+        'pagi'  => \App\Support\Ikon::svg('matahari', 30),
+        'siang' => \App\Support\Ikon::svg('matahari', 30),
+        'sore'  => \App\Support\Ikon::svg('senja', 30),
+        'malam' => \App\Support\Ikon::svg('bulan', 30),
+    ];
+@endphp
 <script>
+    var ikonWaktu = @json($ikonWaktu);
     document.addEventListener('DOMContentLoaded', function () {
         if (window.AOS) AOS.init({ duration: 700, once: true, easing: 'ease-out-cubic' });
 
-        // Sapaan sesuai jam di perangkat pengguna (bukan jam server)
-        var h = new Date().getHours();
-        var w = h < 4  ? ['malam', 'Jangan lupa cek pengumuman ekskul sebelum istirahat 🌙']
-              : h < 11 ? ['pagi',  'Siap untuk jadwal ekskul hari ini?']
-              : h < 15 ? ['siang', 'Siap untuk jadwal ekskul hari ini?']
-              : h < 18 ? ['sore',  'Sudah siap latihan sore ini?']
-              :          ['malam', 'Jangan lupa cek pengumuman ekskul sebelum istirahat 🌙'];
+        // Sapaan sesuai jam di perangkat pengguna (bukan jam server). Batas waktunya sama dengan tema (partials/tema-waktu).
+        var waktu = window.TemaWaktu ? TemaWaktu.sekarang() : 'siang';
+        var sub = { pagi: 'Siap untuk jadwal ekskul hari ini?', siang: 'Siap untuk jadwal ekskul hari ini?', sore: 'Sudah siap latihan sore ini?', malam: 'Jangan lupa cek pengumuman ekskul sebelum istirahat' };
         document.querySelectorAll('[data-sapaan]').forEach(function (el) {
-            el.textContent = 'Selamat ' + w[0] + ', ' + el.dataset.nama + '! 👋';
+            el.textContent = 'Selamat ' + waktu + ', ' + el.dataset.nama + '!';
+            var ikon = document.createElement('span'); // markup ikon dari server (statis), bukan input pengguna
+            ikon.className = 'ml-2 inline-block align-middle opacity-90';
+            ikon.innerHTML = ikonWaktu[waktu];
+            el.appendChild(ikon);
         });
         // Kilau cahaya pada semua tombol berwarna (jeda acak supaya tidak serempak)
         document.querySelectorAll('button.text-white, a.text-white, .btn-glass').forEach(function (el) {
@@ -64,7 +73,7 @@
         });
 
         document.querySelectorAll('[data-sapaan-sub]').forEach(function (el) {
-            el.textContent = w[1];
+            el.textContent = sub[waktu];
         });
     });
 </script>
@@ -249,7 +258,6 @@ html.dark .sparkle { color: #e0e7ff; }
         50%      { transform: translateY(-16px) rotate(3deg); }
     }
     .float-slow { animation: floaty 6s ease-in-out infinite; }
-    .float-emoji { position: absolute; font-size: 2.4rem; opacity: .8; user-select: none; animation: floaty 7s ease-in-out infinite; }
     .blob { position: absolute; border-radius: 9999px; filter: blur(60px); opacity: .45; animation: floaty 12s ease-in-out infinite; }
     .blob-1 { width: 22rem; height: 22rem; background: #a5b4fc; top: -6rem; left: -6rem; }
     .blob-2 { width: 20rem; height: 20rem; background: #f0abfc; bottom: -7rem; right: -5rem; animation-delay: 3s; }

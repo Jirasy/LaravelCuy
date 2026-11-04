@@ -13,7 +13,7 @@
         <div class="bg-white p-8 rounded-xl shadow-sm border border-gray-200">
             <div class="flex justify-between items-center mb-6">
                 <h1 class="text-2xl font-bold text-gray-800">Edit Pengumuman</h1>
-                <a href="{{ route('ekstrakurikuler.show', ['id' => $pengumuman->ekstrakurikuler_id, 'tab' => 'pengumuman']) }}" class="text-gray-600 hover:underline text-sm">← Batal</a>
+                <a href="{{ route('ekstrakurikuler.show', ['id' => $pengumuman->ekstrakurikuler_id, 'tab' => 'pengumuman']) }}" class="inline-flex items-center gap-1 text-gray-600 hover:underline text-sm"><x-ikon nama="panah-kiri" :ukuran="14" /> Batal</a>
             </div>
 
             @if($errors->any())

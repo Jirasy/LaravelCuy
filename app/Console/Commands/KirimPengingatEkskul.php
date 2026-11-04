@@ -56,7 +56,7 @@ class KirimPengingatEkskul extends Command
                 'Pengingat latihan',
                 "{$ekskul->nama_ekstrakurikuler} akan dimulai {$kata} pukul {$jam} WIB.",
                 route('ekstrakurikuler.show', $ekskul->id, false),
-                '⏰'
+                'alarm'
             );
 
             PengingatTerkirim::create(['ekskul_hari_id' => $jadwal->id, 'tanggal' => $tanggal->toDateString()]);

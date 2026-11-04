@@ -1,0 +1,47 @@
+diff a/resources/views/partials/head.blade.php b/resources/views/partials/head.blade.php	(rejected hunks)
+@@ -1,26 +1,5 @@
+-{{-- Dipasang di <head> setiap halaman: tema gelap/terang, Tailwind, AOS, sapaan, animasi --}}
+-<script>
+-    // Terapkan tema tersimpan SEBELUM halaman tampil (supaya tidak kedip putih)
+-    (function () {
+-        var t = localStorage.getItem('theme');
+-        if (t === 'dark' || (!t && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+-            document.documentElement.classList.add('dark');
+-        }
+-    })();
+-    // Sinkronkan status saklar untuk pembaca layar (aria-checked = mode gelap aktif)
+-    function syncThemeSwitch() {
+-        var dark = document.documentElement.classList.contains('dark');
+-        document.querySelectorAll('[data-theme-switch]').forEach(function (el) {
+-            el.setAttribute('aria-checked', dark ? 'true' : 'false');
+-        });
+-    }
+-    function toggleTheme() {
+-        var dark = document.documentElement.classList.toggle('dark');
+-        syncThemeSwitch();
+-        localStorage.setItem('theme', dark ? 'dark' : 'light');
+-    }
+-    document.addEventListener('DOMContentLoaded', syncThemeSwitch);
+-</script>
++{{-- Dipasang di <head> setiap halaman: tema otomatis menurut jam lokal (gelap/terang), Tailwind, AOS, sapaan, animasi --}}
++@include('partials.tema-waktu')
+ @auth
+ <script>document.documentElement.dataset.palet = @json(auth()->user()->palet ?? 'aurora');</script>
+ @php
+@@ -122,7 +101,7 @@ function toggleTheme() {
+     50%  { transform: translate3d(3%, -4%, 0) scale(1.12) rotate(6deg); }
+     100% { transform: translate3d(-4%, 3%, 0) scale(1.05) rotate(-5deg); }
+ }
+-@keyframes auroraHue { from { filter: hue-rotate(-25deg); } to { filter: hue-rotate(45deg); } }
++@keyframes auroraHue { from { filter: hue-rotate(var(--hue-dari, -25deg)); } to { filter: hue-rotate(var(--hue-ke, 45deg)); } }
+ @keyframes twinkle { from { opacity: .25; } to { opacity: .85; } }
+ @keyframes gradientShift {
+     0%   { background-position: 0% 50%; }
+@@ -642,4 +621,5 @@ function toggleTheme() {
+     .pk-kustom { color: #fff; background: var(--pk-latar); box-shadow: 0 18px 40px -18px rgba(15, 23, 42, .7); }
+     .pk-kustom .pk-muted { opacity: .9; }
+ </style>
+-@endverbatim
+\ No newline at end of file
++@endverbatim
++@include('partials.tema-waktu-style')

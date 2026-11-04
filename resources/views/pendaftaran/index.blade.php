@@ -15,7 +15,7 @@
                 @unless(auth()->user()->isStaff())
                     <a href="{{ route('pendaftaran.create') }}" class="bg-emerald-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-emerald-700">+ Daftar Baru</a>
                 @endunless
-                <a href="{{ route('ekstrakurikuler.index') }}" class="text-gray-600 hover:underline text-sm">← Katalog</a>
+                <a href="{{ route('ekstrakurikuler.index') }}" class="inline-flex items-center gap-1 text-gray-600 hover:underline text-sm"><x-ikon nama="panah-kiri" :ukuran="14" /> Katalog</a>
             </div>
         </div>
 

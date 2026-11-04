@@ -19,7 +19,7 @@
 <body>
     @if($mode === 'cetak')
         <div class="toolbar">
-            <button type="button" onclick="window.print()">🖨️ Cetak</button>
+            <button type="button" onclick="window.print()"><x-ikon nama="cetak" :ukuran="16" /> Cetak</button>
             <a href="{{ route('laporan.unduh', [$ekskul->id, $jenis, 'pdf']) }}?{{ http_build_query($query) }}">Unduh PDF</a>
             <a href="{{ route('laporan.unduh', [$ekskul->id, $jenis, 'excel']) }}?{{ http_build_query($query) }}">Unduh Excel</a>
             <button type="button" onclick="window.close()">Tutup</button>

@@ -1,0 +1,29 @@
+diff --git a/tests/Feature/TampilanKustomTest.php b/tests/Feature/TampilanKustomTest.php
+index a294020..86ec8bc 100644
+--- a/tests/Feature/TampilanKustomTest.php
++++ b/tests/Feature/TampilanKustomTest.php
+@@ -4,6 +4,7 @@
+ use App\Support\TampilanKustom;
+ use Illuminate\Foundation\Testing\RefreshDatabase;
+ use Illuminate\Http\UploadedFile;
++use Illuminate\Support\Facades\DB;
+ use Illuminate\Support\Facades\Storage;
+ use Illuminate\Testing\TestResponse;
+ 
+@@ -16,6 +17,16 @@
+ 
+ function penggunaTampilan(string $role = 'siswa', array $atribut = []): User
+ {
++    // Kolom warna hanya selebar 7 karakter. SQLite tidak membatasi, jadi muatan berbahaya utuh tetap diuji di sana;
++    // MySQL (mode ketat) menolak nilai yang lebih panjang, jadi dipotong sebelum disimpan agar suite bisa jalan di keduanya.
++    if (DB::connection()->getDriverName() !== 'sqlite') {
++        foreach (['wallpaper_warna1', 'wallpaper_warna2', 'aksen_warna1', 'aksen_warna2'] as $kolom) {
++            if (isset($atribut[$kolom])) {
++                $atribut[$kolom] = mb_substr($atribut[$kolom], 0, 7);
++            }
++        }
++    }
++
+     return User::factory()->create(['role' => $role, 'is_active' => true] + $atribut);
+ }
+ 

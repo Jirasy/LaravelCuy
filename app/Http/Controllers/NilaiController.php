@@ -66,7 +66,7 @@ class NilaiController extends Controller
                 'Nilai ekskul baru',
                 "Nilai {$nilai->periode} di {$ekskul->nama_ekstrakurikuler}: rata-rata " . number_format($nilai->rata_rata, 1) . " (predikat {$nilai->predikat}).",
                 route('ekstrakurikuler.show', ['id' => $ekskul->id, 'tab' => 'nilai'], false),
-                '📊',
+                'grafik',
                 Auth::id()
             );
         }

@@ -15,7 +15,7 @@
                 <h1 class="text-3xl font-bold text-gray-800">Beri Nilai</h1>
                 <p class="text-gray-600 text-sm">{{ $pendaftaran->nama_pendaftar }} &middot; {{ $ekskul->nama_ekstrakurikuler }}</p>
             </div>
-            <a href="{{ route('ekstrakurikuler.show', ['id' => $ekskul->id, 'tab' => 'nilai']) }}" class="text-gray-600 hover:underline text-sm">← Kembali</a>
+            <a href="{{ route('ekstrakurikuler.show', ['id' => $ekskul->id, 'tab' => 'nilai']) }}" class="inline-flex items-center gap-1 text-gray-600 hover:underline text-sm"><x-ikon nama="panah-kiri" :ukuran="14" /> Kembali</a>
         </div>
 
         @if(session('success'))

@@ -69,7 +69,7 @@
 
         <div class="flex justify-between items-center mb-6">
             <h1 class="text-3xl font-bold text-gray-800">Pengaturan</h1>
-            <a href="{{ route('profil.show') }}" class="text-gray-600 hover:underline text-sm">← Profilku</a>
+            <a href="{{ route('profil.show') }}" class="inline-flex items-center gap-1 text-gray-600 hover:underline text-sm"><x-ikon nama="panah-kiri" :ukuran="14" /> Profilku</a>
         </div>
 
         @if(session('success'))
@@ -278,7 +278,7 @@
                 </div>
 
                 <div class="hero-glass rounded-2xl px-5 py-4 mb-3" id="sapaan-preview">
-                    <p class="text-lg font-bold">Halo, {{ $user->sapaan }}! 👋</p>
+                    <p class="text-lg font-bold">Halo, {{ $user->sapaan }}!</p>
                     <p class="text-sm opacity-80">Siap untuk jadwal ekskul hari ini?</p>
                 </div>
                 @include('partials.kartu-profil', ['user' => $contoh, 'badges' => $contohBadge, 'bisaWa' => false, 'isSelf' => false, 'bisaRiwayat' => false, 'preview' => true])

@@ -19,7 +19,7 @@
             <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-[2px]"></div>
             @endif
             <div class="relative px-8 py-10 md:py-14">
-                <h1 class="text-3xl md:text-4xl font-bold" data-sapaan data-nama="{{ auth()->user()->sapaan }}">Halo, {{ auth()->user()->sapaan }}! 👋</h1>
+                <h1 class="text-3xl md:text-4xl font-bold" data-sapaan data-nama="{{ auth()->user()->sapaan }}">Halo, {{ auth()->user()->sapaan }}!</h1>
                 <p class="mt-2 {{ $heroFoto ? 'text-white/90' : 'opacity-80' }}" data-sapaan-sub>Siap untuk jadwal ekskul hari ini?</p>
             </div>
         </div>
@@ -37,7 +37,7 @@
                 </a>
                 @else
                 <a href="{{ route('komunitas.create') }}" class="bg-emerald-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-emerald-700">
-                    🌱 Buat Komunitas
+                    <x-ikon nama="tunas" :ukuran="16" /> Buat Komunitas
                 </a>
                 @endif
                 <a href="{{ route('pendaftaran.index') }}" class="bg-gray-700 text-white px-4 py-2 rounded-lg font-semibold hover:bg-gray-800">
@@ -76,12 +76,12 @@
                             {{ ucfirst($ekskul->status) }}
                         </span>
                         @if($ekskul->jenisEkskul && $ekskul->jenisEkskul->isKomunitas())
-                            <span class="inline-block px-2 py-0.5 ml-1 text-xs rounded-full bg-amber-100 text-amber-800">🌱 Komunitas &middot; belum resmi</span>
+                            <span class="inline-block px-2 py-0.5 ml-1 text-xs rounded-full bg-amber-100 text-amber-800"><x-ikon nama="tunas" :ukuran="12" /> Komunitas &middot; belum resmi</span>
                         @elseif($ekskul->jenisEkskul && $ekskul->jenisEkskul->kode !== 'ekskul')
-                            <span class="inline-block px-2 py-0.5 ml-1 text-xs rounded-full bg-purple-100 text-purple-800">{{ $ekskul->memakaiCasis() ? '🗳️ ' : '' }}{{ $ekskul->jenisEkskul->nama }}</span>
+                            <span class="inline-block px-2 py-0.5 ml-1 text-xs rounded-full bg-purple-100 text-purple-800">@if($ekskul->memakaiCasis())<x-ikon nama="kotak-suara" :ukuran="12" /> @endif{{ $ekskul->jenisEkskul->nama }}</span>
                         @endif
                         @if($ekskul->induk)
-                            <span class="inline-block px-2 py-0.5 ml-1 text-xs rounded-full bg-indigo-100 text-indigo-800">⬆️ Di bawah {{ $ekskul->induk->nama_tampil }}</span>
+                            <span class="inline-block px-2 py-0.5 ml-1 text-xs rounded-full bg-indigo-100 text-indigo-800"><x-ikon nama="panah-atas" :ukuran="12" /> Di bawah {{ $ekskul->induk->nama_tampil }}</span>
                         @endif
                         @if(auth()->user()->isAdmin() && $ekskul->pembinaAktif->isEmpty())
                             <span class="inline-block px-2 py-0.5 ml-1 text-xs rounded-full bg-red-100 text-red-700">Belum ada pembina</span>
@@ -118,9 +118,9 @@
                         $statusKartu = null;
                         if ($ps && $ps->status_anggota === 'aktif') {
                             $statusKartu = match ($ps->status) {
-                                'diterima' => ['✅ Kamu anggota aktif', 'bg-emerald-50 text-emerald-700 border-emerald-200'],
+                                'diterima' => ['Kamu anggota aktif', 'bg-emerald-50 text-emerald-700 border-emerald-200', 'centang-lingkar'],
                                 'ditolak'  => ['Pendaftaranmu tidak disetujui', 'bg-red-50 text-red-700 border-red-200'],
-                                default    => ['⏳ Pendaftaranmu menunggu persetujuan', 'bg-amber-50 text-amber-700 border-amber-200'],
+                                default    => ['Pendaftaranmu menunggu persetujuan', 'bg-amber-50 text-amber-700 border-amber-200', 'jam-pasir'],
                             };
                         } elseif ($ps && $ps->status_anggota === 'dikeluarkan') {
                             $statusKartu = ['Kamu dikeluarkan dari ekskul ini', 'bg-red-50 text-red-700 border-red-200'];
@@ -134,7 +134,7 @@
                             </a>
                             <p class="text-xs text-center text-gray-500">{{ $ekskul->pendaftaran_terbuka ? 'Pendaftaran dibuka' : $ekskul->label_pendaftaran }}</p>
                         @elseif($statusKartu)
-                            <p class="text-sm text-center font-semibold border rounded-lg py-2 px-3 {{ $statusKartu[1] }}">{{ $statusKartu[0] }}</p>
+                            <p class="text-sm text-center font-semibold border rounded-lg py-2 px-3 {{ $statusKartu[1] }}">@if(isset($statusKartu[2]))<x-ikon :nama="$statusKartu[2]" :ukuran="15" /> @endif{{ $statusKartu[0] }}</p>
                             <a href="{{ route('ekstrakurikuler.show', $ekskul->id) }}" class="block w-full text-center bg-slate-600 text-white py-2 rounded-lg font-semibold hover:bg-slate-700 transition">
                                 Lihat Informasi
                             </a>

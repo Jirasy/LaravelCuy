@@ -5,7 +5,7 @@
 <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
     <select name="platform" required class="border p-2 rounded-lg text-sm">
         @foreach(\App\Models\EkskulTautan::PLATFORM as $key => $p)
-            <option value="{{ $key }}">{{ $p[0] }} {{ $p[1] }}</option>
+            <option value="{{ $key }}">{{ $p[1] }}</option>
         @endforeach
     </select>
     <input type="text" name="label" maxlength="60" placeholder="Nama tampilan (opsional)" class="border p-2 rounded-lg text-sm sm:col-span-2">

@@ -10,7 +10,7 @@
     ];
 @endphp
 <div class="bg-amber-50 border border-amber-300 text-amber-900 p-5 rounded-xl shadow-sm mb-6 text-sm" id="bentrok-jadwal" role="alert" data-aos="fade-up">
-    <h2 class="text-base font-bold mb-1">⚠️ Ada {{ $bentrok->count() }} jadwal ekskul yang bentrok</h2>
+    <h2 class="text-base font-bold mb-1"><x-ikon nama="peringatan" :ukuran="18" /> Ada {{ $bentrok->count() }} jadwal ekskul yang bentrok</h2>
     <p class="mb-4">Jamnya tumpang tindih di hari yang sama. Pilih ekskul yang kamu hadiri atau atur pembagian waktunya, supaya pembina tahu rencanamu.</p>
 
     <div class="space-y-3">
@@ -24,7 +24,7 @@
                     <p class="font-semibold">
                         {{ $hariLabel }}:
                         {{ $b['a']['ekskul'] }} <span class="font-normal text-gray-500">({{ $b['a']['mulai'] }}–{{ $b['a']['selesai'] }})</span>
-                        <span class="text-amber-600">↔</span>
+                        <x-ikon nama="panah-kiri-kanan" :ukuran="14" class="text-amber-600" />
                         {{ $b['b']['ekskul'] }} <span class="font-normal text-gray-500">({{ $b['b']['mulai'] }}–{{ $b['b']['selesai'] }})</span>
                     </p>
                     @if($pilihan)

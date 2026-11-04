@@ -1,7 +1,7 @@
 {{-- Variabel: $ekskul, $staff, $bolehMateri, $materis, $prs, $anggotaAkses, $pengumpulanSaya, $pendaftaranSaya --}}
 @if(!$bolehMateri)
     <div class="bg-white p-8 rounded-xl shadow-sm border border-gray-200 text-center">
-        <p class="font-semibold text-gray-800 mb-1">🔒 Materi &amp; Task belum bisa kamu buka</p>
+        <p class="font-semibold text-gray-800 mb-1"><x-ikon nama="gembok" :ukuran="16" /> Materi &amp; Task belum bisa kamu buka</p>
         <p class="text-sm text-gray-600 mb-4">Akses materi diberikan oleh pembina atau admin. Kamu bisa meminta izin.</p>
         <form action="{{ route('materi.minta-akses', $ekskul->id) }}" method="POST">
             @csrf
@@ -13,7 +13,7 @@
         {{-- ===== Akses anggota ===== --}}
         <details class="bg-white p-5 rounded-xl shadow-sm border border-gray-200 mb-6">
             <summary class="cursor-pointer font-bold text-gray-800">
-                🔑 Akses anggota ke Materi &amp; Task
+                <x-ikon nama="kunci" :ukuran="16" /> Akses anggota ke Materi &amp; Task
                 <span class="text-sm font-normal text-gray-500">({{ $anggotaAkses->where('akses_materi', true)->count() }} dari {{ $anggotaAkses->count() }} anggota diizinkan)</span>
             </summary>
 
@@ -39,7 +39,7 @@
                             @csrf
                             @method('PATCH')
                             @if($a->akses_materi)
-                                <button type="submit" class="text-xs px-3 py-1 rounded-full bg-green-100 text-green-800 font-semibold hover:bg-green-200" title="Klik untuk mencabut">✓ Diizinkan</button>
+                                <button type="submit" class="inline-flex items-center gap-1 text-xs px-3 py-1 rounded-full bg-green-100 text-green-800 font-semibold hover:bg-green-200" title="Klik untuk mencabut"><x-ikon nama="centang" :ukuran="12" :tebal="3" /> Diizinkan</button>
                             @else
                                 <button type="submit" class="text-xs px-3 py-1 rounded-full bg-gray-100 text-gray-700 font-semibold hover:bg-gray-200" title="Klik untuk mengizinkan">Izinkan</button>
                             @endif
@@ -62,7 +62,7 @@
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <select name="jenis" id="jenis-materi" required class="border p-2 rounded-lg text-sm">
                     @foreach(\App\Models\EkskulMateri::JENIS as $kode => $j)
-                        <option value="{{ $kode }}">{{ $j[0] }} {{ $j[1] }}</option>
+                        <option value="{{ $kode }}">{{ $j[1] }}</option>
                     @endforeach
                 </select>
                 <div class="sm:col-span-2">
@@ -110,7 +110,7 @@
             <div class="bg-white p-5 rounded-xl shadow-sm border {{ !$staff && !$p && $lewat ? 'border-red-300' : 'border-gray-200' }}" data-aos="fade-up">
                 <div class="flex flex-wrap justify-between items-start gap-3">
                     <div class="min-w-0">
-                        <h3 class="font-bold text-gray-900">📝 {{ $pr->judul }}</h3>
+                        <h3 class="font-bold text-gray-900"><x-ikon nama="catatan" :ukuran="18" /> {{ $pr->judul }}</h3>
                         <p class="text-xs text-gray-500 mt-0.5">
                             Nilai maks {{ $pr->nilai_maks }}
                             @if($pr->tenggat) &middot; tenggat {{ $pr->tenggat->format('d-m-Y') }} @endif
@@ -182,7 +182,7 @@
             <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-200" data-aos="fade-up">
                 <div class="flex justify-between items-start gap-3">
                     <div class="min-w-0">
-                        <h3 class="font-bold text-gray-900">{{ \App\Models\EkskulMateri::JENIS[$m->jenis][0] }} {{ $m->judul }}</h3>
+                        <h3 class="font-bold text-gray-900"><x-ikon :nama="\App\Models\EkskulMateri::JENIS[$m->jenis][0]" :ukuran="18" /> {{ $m->judul }}</h3>
                         <p class="text-xs text-gray-500 mt-0.5">
                             {{ \App\Models\EkskulMateri::JENIS[$m->jenis][1] }} &middot; {{ $m->created_at->format('d-m-Y') }}
                             @if($m->pengunggah) &middot; {{ $m->pengunggah->name }} @endif
@@ -221,7 +221,7 @@
                         <iframe src="https://www.youtube-nocookie.com/embed/{{ $m->youtube_id }}" class="w-full aspect-video rounded-lg mt-3"
                                 allowfullscreen loading="lazy" referrerpolicy="strict-origin-when-cross-origin"></iframe>
                     @endif
-                    <a href="{{ $m->url }}" target="_blank" rel="noopener noreferrer" class="inline-block text-sm text-indigo-600 hover:underline mt-2 break-all">🔗 {{ $m->url }}</a>
+                    <a href="{{ $m->url }}" target="_blank" rel="noopener noreferrer" class="inline-block text-sm text-indigo-600 hover:underline mt-2 break-all"><x-ikon nama="tautan" :ukuran="14" /> {{ $m->url }}</a>
                 @endif
             </div>
         @empty

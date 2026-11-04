@@ -1,4 +1,13 @@
 {{-- Daftar syarat password yang berubah hijau saat terpenuhi. Pemakaian: @include('partials.password-hint') --}}
+<style>
+    /* Penanda tiap syarat dibuat dengan CSS: titik saat belum terpenuhi, centang saat terpenuhi */
+    .pw-hint > li { display: flex; align-items: center; gap: .45rem; }
+    .pw-hint > li::before { content: ''; flex: none; width: .4rem; height: .4rem; margin: 0 .15rem; border-radius: 9999px; background: currentColor; opacity: .55; }
+    .pw-hint > li.text-emerald-600::before {
+        width: .55rem; height: .3rem; margin: 0 .075rem .15rem; border-radius: 0; background: none; opacity: 1;
+        border-left: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(-45deg);
+    }
+</style>
 <ul class="pw-hint text-xs space-y-0.5 mt-2" data-target="{{ $target ?? 'input[name=password]' }}">
     <li data-cek="len">Minimal 10 karakter</li>
     <li data-cek="up">Huruf besar (A-Z)</li>
@@ -24,7 +33,6 @@
                 li.classList.toggle('text-emerald-600', ok);
                 li.classList.toggle('font-semibold', ok);
                 li.classList.toggle('text-gray-500', !ok);
-                li.textContent = (ok ? '✓ ' : '• ') + li.textContent.replace(/^[✓•] /, '');
             });
         }
         input.addEventListener('input', periksa);

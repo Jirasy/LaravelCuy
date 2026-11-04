@@ -18,7 +18,7 @@
                 <h1 class="text-3xl font-bold text-gray-800">{{ $casis->user->name ?? 'Pengguna dihapus' }}</h1>
                 <p class="text-gray-600 text-sm">{{ $casis->user->kelas ?? '-' }} &middot; {{ $ekskul->label_calon }} {{ $ekskul->nama_ekstrakurikuler }} periode {{ $periode->nama }} &middot; {{ \App\Models\CasisPendaftaran::STATUS[$casis->status] }}</p>
             </div>
-            <a href="{{ route('casis.index', [$ekskul->id, 'periode' => $periode->id]) }}" class="text-gray-600 hover:underline text-sm">← Kembali</a>
+            <a href="{{ route('casis.index', [$ekskul->id, 'periode' => $periode->id]) }}" class="inline-flex items-center gap-1 text-gray-600 hover:underline text-sm"><x-ikon nama="panah-kiri" :ukuran="14" /> Kembali</a>
         </div>
 
         @if(session('success'))
@@ -50,7 +50,7 @@
                 <p class="text-xs font-semibold text-gray-500 uppercase mt-4 mb-2">Unsur penilai yang wajib menilai di tahap ini</p>
                 <div class="flex flex-wrap gap-2">
                     @foreach($syarat as $kodeTipe => $sudah)
-                        <span class="px-3 py-1 text-sm rounded-full {{ $sudah ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600' }}">{{ $sudah ? '✓' : '•' }} {{ \App\Models\CasisReview::TIPE[$kodeTipe] }}</span>
+                        <span class="inline-flex items-center gap-1 px-3 py-1 text-sm rounded-full {{ $sudah ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600' }}"><x-ikon :nama="$sudah ? 'centang' : 'titik'" :ukuran="13" /> {{ \App\Models\CasisReview::TIPE[$kodeTipe] }}</span>
                     @endforeach
                 </div>
                 <p class="text-xs text-gray-500 mt-2">Hasil tahap baru bisa diputuskan setelah semua unsur di atas menilai.</p>

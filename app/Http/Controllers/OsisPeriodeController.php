@@ -81,7 +81,7 @@ class OsisPeriodeController extends Controller
                 "Seleksi {$ekskul->nama_ekstrakurikuler} dimulai",
                 "Seleksi {$ekskul->label_calon} {$periode->nama} dimulai: {$jumlah} pendaftar menunggu penilaian.",
                 route('casis.index', [$ekskul->id, 'periode' => $periode->id], false),
-                '🗳️',
+                'kotak-suara',
                 $request->user()->id
             );
         }
@@ -130,7 +130,7 @@ class OsisPeriodeController extends Controller
             'Ditunjuk sebagai penilai seleksi',
             "Kamu ditunjuk sebagai senior penilai seleksi {$periode->ekstrakurikuler->nama_ekstrakurikuler} periode {$periode->nama}.",
             route('casis.index', [$periode->ekstrakurikuler_id, 'periode' => $periode->id], false),
-            '🗳️',
+            'kotak-suara',
             $request->user()->id
         );
 
@@ -193,7 +193,7 @@ class OsisPeriodeController extends Controller
             $judul,
             $pesan,
             route('casis.create', [$periode->ekstrakurikuler_id], false),
-            '📅',
+            'kalender',
             $pelakuId
         );
     }

@@ -18,11 +18,11 @@
                     <p class="opacity-80 text-sm mt-1">Atur role, aktifkan atau nonaktifkan akun, dan edit data pengguna.</p>
                 </div>
                 <div class="flex flex-wrap items-center gap-3">
-                    <a href="{{ route('users.create') }}" class="bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-emerald-700">➕ Tambah siswa</a>
+                    <a href="{{ route('users.create') }}" class="bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-emerald-700 inline-flex items-center gap-1.5"><x-ikon nama="tambah" :ukuran="15" :tebal="2.5" /> Tambah siswa</a>
                     @if(auth()->user()->isAdmin())
-                        <a href="{{ route('users.create', ['tab' => 'pembina']) }}" class="bg-sky-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-sky-700">➕ Tambah pembina</a>
+                        <a href="{{ route('users.create', ['tab' => 'pembina']) }}" class="bg-sky-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-sky-700 inline-flex items-center gap-1.5"><x-ikon nama="tambah" :ukuran="15" :tebal="2.5" /> Tambah pembina</a>
                     @endif
-                    <a href="{{ route('import-siswa.create') }}" class="bg-white/90 text-indigo-700 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-white">📥 Import siswa</a>
+                    <a href="{{ route('import-siswa.create') }}" class="bg-white/90 text-indigo-700 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-white inline-flex items-center gap-1.5"><x-ikon nama="unduh" :ukuran="15" /> Import siswa</a>
                     <input type="search" id="cari-user" placeholder="Cari nama, email, kelas..." class="field-glass !w-64 !mt-0">
                 </div>
             </div>
@@ -95,16 +95,16 @@
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
             @php
                 $stat = [
-                    ['Total user',      $users->count(),                                          '👥'],
-                    ['Admin & Pembina', $users->whereIn('role', ['admin', 'pembina'])->count(),  '🛡️'],
-                    ['Siswa',           $users->where('role', 'siswa')->count(),                  '🎓'],
-                    ['Nonaktif',        $users->where('is_active', false)->count(),               '⏸️'],
+                    ['Total user',      $users->count(),                                          'pengguna'],
+                    ['Admin & Pembina', $users->whereIn('role', ['admin', 'pembina'])->count(),  'perisai'],
+                    ['Siswa',           $users->where('role', 'siswa')->count(),                  'topi'],
+                    ['Nonaktif',        $users->where('is_active', false)->count(),               'jeda'],
                 ];
             @endphp
             @foreach($stat as $i => $s)
                 <div data-aos="fade-up" data-aos-delay="{{ $i * 80 }}">
                     <div class="card-hover h-full bg-white rounded-xl border border-gray-200 shadow-sm p-4 flex items-center gap-3">
-                        <span class="text-2xl">{{ $s[2] }}</span>
+                        <span class="inline-grid place-items-center w-10 h-10 rounded-xl bg-indigo-100 text-indigo-600"><x-ikon :nama="$s[2]" :ukuran="22" /></span>
                         <div>
                             <p class="text-2xl font-bold text-gray-800 leading-none">{{ $s[1] }}</p>
                             <p class="text-xs text-gray-500 mt-1">{{ $s[0] }}</p>
@@ -181,12 +181,12 @@
                                     <div>
                                         <p class="font-semibold text-gray-800">{{ $u->name }}@if($saya) <span class="text-xs text-gray-400">(kamu)</span>@endif</p>
                                         <p class="text-xs text-gray-500">{{ $u->email }}</p>
-                                        @if($u->status_sekolah)<span class="inline-block mt-1 px-2 py-0.5 text-xs rounded-full {{ $u->is_alumni ? 'bg-amber-100 text-amber-800' : 'bg-gray-100 text-gray-800' }}">🎓 {{ $u->status_sekolah }}</span>@endif
+                                        @if($u->status_sekolah)<span class="inline-block mt-1 px-2 py-0.5 text-xs rounded-full {{ $u->is_alumni ? 'bg-amber-100 text-amber-800' : 'bg-gray-100 text-gray-800' }}"><x-ikon nama="topi" :ukuran="12" /> {{ $u->status_sekolah }}</span>@endif
                                         @foreach($infoJalur as $info)
                                             @if(in_array($u->id, $info['pengurus'], true))
-                                                <span class="inline-block mt-1 mr-1 px-2 py-0.5 text-xs rounded-full bg-purple-100 text-purple-800">🏛️ {{ ucfirst($info['ekskul']->sebutan_anggota) }} {{ $info['ekskul']->nama_tampil }}</span>
+                                                <span class="inline-block mt-1 mr-1 px-2 py-0.5 text-xs rounded-full bg-purple-100 text-purple-800"><x-ikon nama="gedung" :ukuran="12" /> {{ ucfirst($info['ekskul']->sebutan_anggota) }} {{ $info['ekskul']->nama_tampil }}</span>
                                             @elseif(isset($info['casis'][$u->id]))
-                                                <span class="inline-block mt-1 mr-1 px-2 py-0.5 text-xs rounded-full bg-indigo-100 text-indigo-800">🗳️ {{ $info['ekskul']->label_calon }} {{ $info['ekskul']->nama_tampil }}: {{ \App\Models\CasisPendaftaran::STATUS[$info['casis'][$u->id]] }}</span>
+                                                <span class="inline-block mt-1 mr-1 px-2 py-0.5 text-xs rounded-full bg-indigo-100 text-indigo-800"><x-ikon nama="kotak-suara" :ukuran="12" /> {{ $info['ekskul']->label_calon }} {{ $info['ekskul']->nama_tampil }}: {{ \App\Models\CasisPendaftaran::STATUS[$info['casis'][$u->id]] }}</span>
                                             @endif
                                         @endforeach
                                     </div>

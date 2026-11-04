@@ -31,7 +31,7 @@ class MateriAksesController extends Controller
                 'Akses materi diberikan',
                 "Kamu sekarang bisa membuka Materi & Task {$ekskul->nama_ekstrakurikuler}.",
                 route('ekstrakurikuler.show', ['id' => $ekskul->id, 'tab' => 'materi'], false),
-                '🔓',
+                'gembok-terbuka',
                 $request->user()->id
             );
         }
@@ -58,7 +58,7 @@ class MateriAksesController extends Controller
                 'Akses materi diberikan',
                 "Kamu sekarang bisa membuka Materi & Task {$ekstrakurikuler->nama_ekstrakurikuler}.",
                 route('ekstrakurikuler.show', ['id' => $ekstrakurikuler->id, 'tab' => 'materi'], false),
-                '🔓',
+                'gembok-terbuka',
                 $request->user()->id
             );
         }
@@ -89,7 +89,7 @@ class MateriAksesController extends Controller
             'Permintaan akses materi',
             "{$user->name} meminta akses Materi & Task {$ekstrakurikuler->nama_ekstrakurikuler}.",
             route('ekstrakurikuler.show', ['id' => $ekstrakurikuler->id, 'tab' => 'materi'], false),
-            '🔑',
+            'kunci',
             $user->id
         );
 

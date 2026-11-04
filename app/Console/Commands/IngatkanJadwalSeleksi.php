@@ -79,7 +79,7 @@ class IngatkanJadwalSeleksi extends Command
             "Pengingat seleksi: {$tahap->nama}",
             "{$awal}: tahap {$tahap->urutan} seleksi {$label} {$ekskul->nama_ekstrakurikuler} {$periode->nama}.\n{$tahap->ringkasan}",
             route('casis.create', [$ekskul->id], false),
-            '⏰'
+            'alarm'
         );
 
         $penilai = app(OsisService::class)->pengelolaSeleksi($ekskul)->merge($periode->seniors()->where('users.is_active', true)->get())->unique('id');
@@ -89,7 +89,7 @@ class IngatkanJadwalSeleksi extends Command
             "Pengingat seleksi: {$tahap->nama}",
             "{$awal}: tahap {$tahap->urutan} seleksi {$label} {$ekskul->nama_ekstrakurikuler} {$periode->nama} untuk {$peserta->count()} pendaftar.\n{$tahap->ringkasan}",
             route('casis.index', [$ekskul->id, 'periode' => $periode->id], false),
-            '⏰'
+            'alarm'
         );
 
         // Pengingat 1 jam menggantikan yang 24 jam kalau yang terakhir ini belum sempat terkirim

@@ -21,7 +21,7 @@
         <div data-pt-panel="notif" class="max-h-80 overflow-y-auto">
             @forelse($nav['notifikasi'] as $n)
                 <a href="{{ route('notifikasi.buka', $n->id) }}" class="block px-4 py-3 border-b border-gray-100 hover:bg-gray-50">
-                    <p class="font-semibold text-gray-800">{{ $n->data['ikon'] ?? '🔔' }} {{ $n->data['judul'] ?? 'Pemberitahuan' }}</p>
+                    <p class="font-semibold text-gray-800"><x-ikon :nama="$n->data['ikon'] ?? 'lonceng'" :ukuran="14" /> {{ $n->data['judul'] ?? 'Pemberitahuan' }}</p>
                     <p class="text-xs text-gray-600 mt-0.5">{{ \Illuminate\Support\Str::limit($n->data['pesan'] ?? '', 90) }}</p>
                     <p class="text-[11px] text-gray-400 mt-0.5">{{ $n->created_at->format('d-m H:i') }}</p>
                 </a>
@@ -64,7 +64,7 @@
         {{-- Tautan --}}
         <div data-pt-panel="tautan" class="hidden max-h-80 overflow-y-auto p-3 space-y-2">
             @forelse($nav['tautan'] as $t)
-                <a href="{{ $t->url }}" target="_blank" rel="noopener noreferrer" class="block px-3 py-2 rounded-lg border border-gray-200 hover:bg-gray-50 font-semibold text-gray-800">{{ $t->ikon }} {{ $t->label }}</a>
+                <a href="{{ $t->url }}" target="_blank" rel="noopener noreferrer" class="block px-3 py-2 rounded-lg border border-gray-200 hover:bg-gray-50 font-semibold text-gray-800"><x-ikon :nama="$t->ikon" :ukuran="14" /> {{ $t->label }}</a>
             @empty
                 <p class="py-4 text-center text-gray-400">Belum ada tautan.</p>
             @endforelse

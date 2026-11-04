@@ -49,7 +49,7 @@ class RekapImportSiswa extends Notification
             'judul' => "Import siswa selesai: {$jumlah} akun dibuat",
             'pesan' => $pesan,
             'url' => route('import-siswa.hasil', $this->id, false),
-            'ikon' => '📥',
+            'ikon' => 'unduh',
             'berkas' => $this->namaBerkas,
             'id_siswa' => $this->idSiswa,
             'dilewati' => $this->dilewati,

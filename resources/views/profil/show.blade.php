@@ -86,7 +86,7 @@
                                 <p class="text-xs text-gray-500">
                                     {{ $j['peran'] }}
                                     @if($bentrokBaris)
-                                        <a href="#bentrok-jadwal" class="ml-1 font-semibold text-amber-600 hover:underline">⚠️ Bentrok</a>
+                                        <a href="#bentrok-jadwal" class="ml-1 font-semibold text-amber-600 hover:underline"><x-ikon nama="peringatan" :ukuran="14" /> Bentrok</a>
                                     @endif
                                 </p>
                             </div>

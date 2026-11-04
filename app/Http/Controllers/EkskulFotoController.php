@@ -103,7 +103,7 @@ class EkskulFotoController extends Controller
                     'Foto disetujui',
                     "Fotomu di galeri {$foto->ekstrakurikuler->nama_ekstrakurikuler} sudah tampil.",
                     route('ekstrakurikuler.show', ['id' => $foto->ekstrakurikuler_id, 'tab' => 'galeri'], false),
-                    '📷',
+                    'kamera',
                     $request->user()->id
                 );
             }
@@ -128,7 +128,7 @@ class EkskulFotoController extends Controller
                     'Foto disetujui',
                     "{$kelompok->count()} fotomu di galeri {$ekstrakurikuler->nama_ekstrakurikuler} sudah tampil.",
                     route('ekstrakurikuler.show', ['id' => $ekstrakurikuler->id, 'tab' => 'galeri'], false),
-                    '📷',
+                    'kamera',
                     $request->user()->id
                 );
             }
@@ -177,7 +177,7 @@ class EkskulFotoController extends Controller
                 ->get()
                 ->pluck('user');
 
-            Pemberitahuan::kirim($anggota, 'Foto baru di galeri', "{$jumlah} foto baru ditambahkan di {$ekskul->nama_ekstrakurikuler}.", $url, '📷', $aktor->id);
+            Pemberitahuan::kirim($anggota, 'Foto baru di galeri', "{$jumlah} foto baru ditambahkan di {$ekskul->nama_ekstrakurikuler}.", $url, 'kamera', $aktor->id);
 
             return;
         }
@@ -188,7 +188,7 @@ class EkskulFotoController extends Controller
             'Foto menunggu persetujuan',
             "{$aktor->name} mengunggah {$jumlah} foto ke galeri {$ekskul->nama_ekstrakurikuler}.",
             $url,
-            '🕒',
+            'jam',
             $aktor->id
         );
     }

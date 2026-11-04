@@ -3,7 +3,7 @@
 {{-- ===== Pengunjung (bukan anggota): ajakan bergabung ===== --}}
 @unless($bisaUnggah)
     <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 mb-6 flex flex-wrap items-center justify-between gap-3 text-sm">
-        <p class="text-gray-700">📸 Dokumentasi kegiatan {{ $ekskul->nama_ekstrakurikuler }}. Foto baru bisa diunggah oleh anggota ekskul ini.</p>
+        <p class="text-gray-700"><x-ikon nama="kamera" :ukuran="18" /> Dokumentasi kegiatan {{ $ekskul->nama_ekstrakurikuler }}. Foto baru bisa diunggah oleh anggota ekskul ini.</p>
         @if(!$pendaftaranSaya && $ekskul->pendaftaran_terbuka && !auth()->user()->isStaff())
             <a href="{{ $ekskul->memakaiCasis() ? route('casis.create', $ekskul->id) : route('pendaftaran.create', ['ekstrakurikuler_id' => $ekskul->id]) }}"
                class="bg-indigo-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-indigo-700 whitespace-nowrap">Tertarik? Daftar Sekarang</a>
@@ -16,7 +16,7 @@
 <form action="{{ route('galeri.store', $ekskul->id) }}" method="POST" enctype="multipart/form-data"
       class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 space-y-3 mb-6">
     @csrf
-    <h2 class="font-bold text-gray-800">📷 Unggah foto kegiatan</h2>
+    <h2 class="font-bold text-gray-800"><x-ikon nama="kamera" :ukuran="18" /> Unggah foto kegiatan</h2>
 
     <div>
         <input type="file" name="foto[]" multiple required accept="image/jpeg,image/png,image/webp" class="w-full text-xs">
@@ -100,7 +100,7 @@
                     <form action="{{ route('galeri.destroy', $f->id) }}" method="POST" class="absolute -top-1 -right-1" onsubmit="return confirm('Hapus foto ini?')">
                         @csrf
                         @method('DELETE')
-                        <button type="submit" class="w-5 h-5 text-[10px] leading-none rounded-full bg-red-600 text-white" title="Hapus">✕</button>
+                        <button type="submit" class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-red-600 text-white" title="Hapus" aria-label="Hapus"><x-ikon nama="silang" :ukuran="10" :tebal="3" /></button>
                     </form>
                 </div>
             @endforeach
@@ -138,7 +138,7 @@
                     <form action="{{ route('galeri.destroy', $f->id) }}" method="POST" class="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition" onsubmit="return confirm('Hapus foto ini dari galeri?')">
                         @csrf
                         @method('DELETE')
-                        <button type="submit" class="w-6 h-6 text-xs leading-none rounded-full bg-red-600 text-white" title="Hapus foto">✕</button>
+                        <button type="submit" class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-red-600 text-white" title="Hapus foto" aria-label="Hapus foto"><x-ikon nama="silang" :ukuran="12" :tebal="3" /></button>
                     </form>
                 @endif
             </div>

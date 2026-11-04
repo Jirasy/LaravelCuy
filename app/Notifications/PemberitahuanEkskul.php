@@ -11,7 +11,7 @@ class PemberitahuanEkskul extends Notification
         private string $judul,
         private string $pesan,
         private ?string $url = null,   // alamat RELATIF, mis. /ekstrakurikuler/3
-        private string $ikon = '🔔',
+        private string $ikon = 'lonceng',
     ) {
     }
 

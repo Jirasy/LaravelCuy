@@ -59,7 +59,7 @@ class EkskulSaranController extends Controller
             "{$label} baru",
             "{$label} dari {$dari}" . ($ekskul ? " untuk {$ekskul->nama_ekstrakurikuler}." : ' untuk sekolah.'),
             route('saran.masuk', [], false),
-            '💬',
+            'pesan',
             $user->id
         );
 
@@ -109,7 +109,7 @@ class EkskulSaranController extends Controller
                 'Kritik/saranmu dibalas',
                 'Ada balasan untuk ' . ($saran->jenis === 'kritik' ? 'kritik' : 'saran') . 'mu.',
                 route('saran.index', [], false),
-                '💬',
+                'pesan',
                 $request->user()->id
             );
         }

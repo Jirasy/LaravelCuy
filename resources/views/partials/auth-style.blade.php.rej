@@ -1,0 +1,55 @@
+diff a/resources/views/partials/auth-style.blade.php b/resources/views/partials/auth-style.blade.php	(rejected hunks)
+@@ -1,9 +1,9 @@
+ {{-- Gaya khusus halaman masuk/daftar: pemandangan, kartu kaca, isian, tombol. Dipasang setelah partials.head. --}}
+ @verbatim
+ <style>
+-    /* ============ PALET: siang (terang) & malam (gelap) ============ */
++    /* ============ PALET: siang (bawaan) | pagi & sore (html[data-waktu]) | malam (html.dark) ============ */
+     .auth-body {
+-        --sc-sky-top: #9ec5ff; --sc-sky-bottom: #e4f0ff; --sc-glow: #fff7da; --sc-sun: #fffbe8; --sc-moon: #eef2ff;
++        --sc-sky-top: #9ec5ff; --sc-sky-mid: #c8dfff; --sc-sky-bottom: #e4f0ff; --sc-glow: #fff7da; --sc-sun: #fffbe8; --sc-moon: #eef2ff;
+         --sc-cloud: rgba(255, 255, 255, .88); --sc-bird: #1e3a5f;
+         --sc-far: #9db9ea; --sc-snow: #f6f9ff; --sc-mid: #7a9fdc; --sc-near: #4f78b8; --sc-hill: #34598f;
+         --sc-tree-far: #1f4373; --sc-tree: #10294a; --sc-mist: #ffffff;
+@@ -15,7 +15,7 @@
+         --au-ok-bg: rgba(209, 250, 229, .85); --au-ok-border: #34d399; --au-ok-text: #065f46;
+     }
+     html.dark .auth-body {
+-        --sc-sky-top: #060818; --sc-sky-bottom: #2c1a5e; --sc-glow: #a5b4fc;
++        --sc-sky-top: #060818; --sc-sky-mid: #1d1342; --sc-sky-bottom: #2c1a5e; --sc-glow: #a5b4fc;
+         --sc-cloud: rgba(165, 180, 252, .08);
+         --sc-far: #2a2d6b; --sc-snow: #5f69c2; --sc-mid: #1d2060; --sc-near: #14174a; --sc-hill: #0d0f34;
+         --sc-tree-far: #0a0c2a; --sc-tree: #04051a; --sc-mist: #7c6bd6;
+@@ -27,6 +27,22 @@
+         --au-ok-bg: rgba(6, 78, 59, .5); --au-ok-border: #34d399; --au-ok-text: #a7f3d0;
+     }
+ 
++    /* Pagi: langit biru segar, ufuk keemasan, matahari rendah */
++    html[data-waktu="pagi"] .auth-body {
++        --sc-sky-top: #78bdf5; --sc-sky-mid: #cfe6fb; --sc-sky-bottom: #ffe9c7; --sc-glow: #ffefb8; --sc-sun: #fffbe6;
++        --sc-cloud: rgba(255, 255, 255, .92); --sc-bird: #2b4a6f;
++        --sc-far: #a8c3ea; --sc-snow: #fffaf0; --sc-mid: #86a6dc; --sc-near: #5c86c0; --sc-hill: #3b6399;
++        --sc-tree-far: #254b7a; --sc-tree: #12305a; --sc-mist: #fff3df;
++    }
++    /* Sore: senja, langit ungu -> merah muda -> oranye, matahari tenggelam di sela gunung */
++    html[data-waktu="sore"] .auth-body {
++        --sc-sky-top: #4f4fa3; --sc-sky-mid: #d9778f; --sc-sky-bottom: #ffb86b; --sc-glow: #ffc77a; --sc-sun: #ffe3a3;
++        --sc-cloud: rgba(255, 170, 130, .8); --sc-bird: #3b2150;
++        --sc-far: #a26aa6; --sc-snow: #ffd6bd; --sc-mid: #7d548f; --sc-near: #563e7d; --sc-hill: #3a2c66;
++        --sc-tree-far: #2a2158; --sc-tree: #17123e; --sc-mist: #ffb48a;
++        --au-card: rgba(255, 250, 245, .56); --au-shadow: rgba(76, 29, 90, .55);
++    }
++
+     .auth-body { margin: 0; min-height: 100vh; background: var(--sc-sky-bottom); color: var(--au-text); }
+ 
+     /* ============ PEMANDANGAN ============ */
+@@ -34,6 +50,9 @@
+     .auth-scene .sc-night { display: none; }
+     html.dark .auth-scene .sc-night { display: inline; }
+     html.dark .auth-scene .sc-day { display: none; }
++    .auth-scene .sc-matahari { transition: transform 1.2s cubic-bezier(.2, .8, .2, 1); }
++    html[data-waktu="pagi"] .auth-scene .sc-matahari { transform: translate(190px, 130px); }   /* terbit: rendah di sisi kanan */
++    html[data-waktu="sore"] .auth-scene .sc-matahari { transform: translate(180px, 180px); }   /* terbenam di balik gunung kanan */
+     .auth-scene .sc-belakang { fill: var(--sc-far); }
+     .auth-scene .sc-salju { fill: var(--sc-snow); opacity: .92; }
+     .auth-scene .sc-tengah { fill: var(--sc-mid); }

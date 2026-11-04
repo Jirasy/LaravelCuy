@@ -24,7 +24,7 @@
     @endif
 
     <button type="submit" formaction="{{ route('laporan.unduh', [$ekskul->id, $jenis, 'cetak']) }}" formtarget="_blank"
-            class="bg-gray-700 text-white px-3 py-1.5 rounded text-sm font-semibold hover:bg-gray-800">🖨️ Cetak</button>
+            class="inline-flex items-center gap-1.5 bg-gray-700 text-white px-3 py-1.5 rounded text-sm font-semibold hover:bg-gray-800"><x-ikon nama="cetak" :ukuran="15" /> Cetak</button>
     <button type="submit" formaction="{{ route('laporan.unduh', [$ekskul->id, $jenis, 'pdf']) }}"
             class="bg-red-600 text-white px-3 py-1.5 rounded text-sm font-semibold hover:bg-red-700">PDF</button>
     <button type="submit" formaction="{{ route('laporan.unduh', [$ekskul->id, $jenis, 'excel']) }}"

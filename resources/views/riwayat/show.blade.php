@@ -18,7 +18,7 @@
                     <h1 class="text-3xl font-bold">{{ $user->name }}</h1>
                     <div class="flex flex-wrap items-center gap-2 mt-2 text-sm">
                         <span class="px-2.5 py-0.5 rounded-full bg-white/60 dark:bg-white/15">{{ ucfirst($user->role) }}</span>
-                        @if($user->status_sekolah)<span class="px-2.5 py-0.5 rounded-full bg-white/60 dark:bg-white/15">🎓 {{ $user->status_sekolah }}</span>@endif
+                        @if($user->status_sekolah)<span class="px-2.5 py-0.5 rounded-full bg-white/60 dark:bg-white/15"><x-ikon nama="topi" :ukuran="13" /> {{ $user->status_sekolah }}</span>@endif
                         @if($user->kelas)<span class="px-2.5 py-0.5 rounded-full bg-white/60 dark:bg-white/15">{{ $user->kelas }}</span>@endif
                         @if($user->is_alumni && $user->tahun_lulus)<span class="px-2.5 py-0.5 rounded-full bg-white/60 dark:bg-white/15">Lulus {{ $user->tahun_lulus }}</span>@endif
                     </div>
@@ -29,13 +29,13 @@
         {{-- Ringkasan --}}
         <div class="grid grid-cols-3 gap-4 mb-6">
             @foreach([
-                ['Ekskul diikuti', $riwayat->where('status', 'diterima')->where('status_anggota', 'aktif')->count(), '🏫'],
-                ['Prestasi', $prestasis->count(), '🏆'],
-                ['Jabatan dipegang', $riwayat->filter(fn ($r) => $r->status === 'diterima' && $r->jabatanAktif->isNotEmpty())->count(), '⭐'],
+                ['Ekskul diikuti', $riwayat->where('status', 'diterima')->where('status_anggota', 'aktif')->count(), 'sekolah'],
+                ['Prestasi', $prestasis->count(), 'piala'],
+                ['Jabatan dipegang', $riwayat->filter(fn ($r) => $r->status === 'diterima' && $r->jabatanAktif->isNotEmpty())->count(), 'bintang'],
             ] as $i => $s)
                 <div data-aos="fade-up" data-aos-delay="{{ $i * 80 }}">
                     <div class="card-hover h-full bg-white rounded-xl border border-gray-200 shadow-sm p-4 text-center">
-                        <p class="text-2xl">{{ $s[2] }}</p>
+                        <p class="flex justify-center text-indigo-600"><x-ikon :nama="$s[2]" :ukuran="28" /></p>
                         <p class="text-2xl font-bold text-gray-800 leading-none mt-1">{{ $s[1] }}</p>
                         <p class="text-xs text-gray-500 mt-1">{{ $s[0] }}</p>
                     </div>
@@ -99,7 +99,7 @@
             @forelse($prestasis as $p)
                 <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-200" data-aos="fade-up">
                     <div class="flex flex-wrap items-center gap-2 mb-1">
-                        <span class="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-amber-100 text-amber-800">🏆 {{ $p->peringkat }}</span>
+                        <span class="inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-semibold rounded-full bg-amber-100 text-amber-800"><x-ikon nama="piala" :ukuran="13" /> {{ $p->peringkat }}</span>
                         <span class="px-2.5 py-0.5 text-xs rounded-full bg-indigo-100 text-indigo-800">{{ $p->tingkat_label }}</span>
                         <span class="text-xs text-gray-500">{{ $p->tahun }}</span>
                     </div>

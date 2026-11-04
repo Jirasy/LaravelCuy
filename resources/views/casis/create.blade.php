@@ -32,7 +32,7 @@
 
         @if($sudahPengurus)
             <div class="bg-white p-8 rounded-xl border border-gray-200 text-center text-gray-700 mb-6" data-aos="fade-up">
-                🏛️ Kamu sudah tercatat sebagai anggota {{ $ekskul->nama_ekstrakurikuler }}.
+                <x-ikon nama="gedung" :ukuran="18" /> Kamu sudah tercatat sebagai anggota {{ $ekskul->nama_ekstrakurikuler }}.
             </div>
         @elseif(!$periode)
             <div class="bg-white p-8 rounded-xl border border-gray-200 text-center text-gray-600 mb-6" data-aos="fade-up">

@@ -47,7 +47,7 @@ class KeanggotaanService
             'Pengajuan keluar ekskul',
             "{$pengaju->name} mengajukan keluar dari {$ekskul->nama_ekstrakurikuler}.",
             route('pengunduran.index', [], false),
-            '📤',
+            'unggah',
             $pengaju->id
         );
 
@@ -84,7 +84,7 @@ class KeanggotaanService
             'Pembina mengajukan keluar',
             "{$pembina->name} mengajukan keluar sebagai pembina {$ekskul->nama_ekstrakurikuler}.",
             route('pengunduran.index', [], false),
-            '📤',
+            'unggah',
             $pembina->id
         );
 
@@ -130,7 +130,7 @@ class KeanggotaanService
                 'Dikeluarkan dari ekskul',
                 "Kamu dikeluarkan dari {$p->ekstrakurikuler->nama_ekstrakurikuler}. Alasan: {$alasan}",
                 route('ekstrakurikuler.show', $p->ekstrakurikuler_id, false),
-                '⛔',
+                'larangan',
                 $pelaku->id
             );
         }
@@ -189,7 +189,7 @@ class KeanggotaanService
                 'Pengajuanmu keluar dari ' . $ekskul->nama_ekstrakurikuler . ($setuju ? ' disetujui.' : ' ditolak.')
                     . (!$setuju && $catatan ? " Catatan: {$catatan}" : ''),
                 route('ekstrakurikuler.show', $ekskul->id, false),
-                $setuju ? '✅' : '❌',
+                $setuju ? 'centang-lingkar' : 'silang-lingkar',
                 $pemutus->id
             );
         }
@@ -202,7 +202,7 @@ class KeanggotaanService
                 'Butuh pembina pengganti',
                 "{$ekskul->nama_ekstrakurikuler} sekarang belum punya pembina. Tugaskan pengganti.",
                 route('ekstrakurikuler.edit', $ekskul->id, false),
-                '🛡️',
+                'perisai',
                 $pemutus->id
             );
         }

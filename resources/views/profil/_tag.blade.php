@@ -29,7 +29,7 @@
                     <div class="flex flex-wrap items-center justify-between gap-2 border border-gray-200 rounded-lg px-3 py-2">
                         <div class="min-w-0">
                             <span class="{{ $pil }} {{ $t->isTampil() ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-gray-100 text-gray-600 border-gray-200' }}">
-                                {{ $t->isTampil() ? '👁️' : '🔒' }} {{ $t->teks }}
+                                <x-ikon :nama="$t->isTampil() ? 'mata' : 'gembok'" :ukuran="13" /> {{ $t->teks }}
                             </span>
                             <span class="ml-1 text-xs text-gray-400">{{ \App\Models\ProfilTag::STATUS[$t->status] ?? $t->status }}</span>
                             @if($bisaModerasi)

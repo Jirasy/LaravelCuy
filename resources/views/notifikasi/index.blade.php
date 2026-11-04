@@ -32,7 +32,7 @@
                 <a href="{{ route('notifikasi.buka', $n->id) }}"
                    class="block bg-white px-5 py-4 rounded-xl border shadow-sm hover:shadow-md transition {{ $n->read_at ? 'border-gray-200 opacity-75' : 'border-indigo-300' }}">
                     <div class="flex gap-3">
-                        <span class="text-2xl">{{ $n->data['ikon'] ?? '🔔' }}</span>
+                        <span class="flex-none inline-grid place-items-center w-10 h-10 rounded-xl bg-indigo-100 text-indigo-600"><x-ikon :nama="$n->data['ikon'] ?? 'lonceng'" :ukuran="20" /></span>
                         <div class="min-w-0 flex-1">
                             <p class="font-semibold text-gray-900">
                                 {{ $n->data['judul'] ?? 'Pemberitahuan' }}

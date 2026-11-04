@@ -16,7 +16,7 @@
         <div class="bg-white p-8 rounded-xl shadow-sm border border-gray-200">
             <div class="flex justify-between items-center mb-6">
                 <h1 class="text-2xl font-bold text-gray-800">Form Pendaftaran Ekskul</h1>
-                <a href="{{ route('ekstrakurikuler.index') }}" class="text-gray-600 hover:underline text-sm">← Kembali</a>
+                <a href="{{ route('ekstrakurikuler.index') }}" class="inline-flex items-center gap-1 text-gray-600 hover:underline text-sm"><x-ikon nama="panah-kiri" :ukuran="14" /> Kembali</a>
             </div>
 
             @if(session('error'))
@@ -57,7 +57,7 @@
 
                 @if(session('bentrok_baru'))
                     <div class="bg-amber-50 border border-amber-300 text-amber-900 px-4 py-3 rounded-lg text-sm" role="alert">
-                        <p class="font-bold mb-1">⚠️ Jadwal ekskul ini bentrok dengan ekskul lain milikmu</p>
+                        <p class="font-bold mb-1"><x-ikon nama="peringatan" :ukuran="16" /> Jadwal ekskul ini bentrok dengan ekskul lain milikmu</p>
                         <ul class="list-disc pl-5 mb-3">
                             @foreach(session('bentrok_baru') as $ringkasan)<li>{{ $ringkasan }}</li>@endforeach
                         </ul>

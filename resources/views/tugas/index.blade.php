@@ -76,7 +76,7 @@
                     </div>
                 </div>
             @empty
-                <div class="bg-white p-8 rounded-xl border border-gray-200 text-center text-gray-500">Tidak ada task yang menunggu. 🎉</div>
+                <div class="bg-white p-8 rounded-xl border border-gray-200 text-center text-gray-500"><x-ikon nama="pesta" :ukuran="18" class="text-emerald-500" /> Tidak ada task yang menunggu.</div>
             @endforelse
         </div>
 

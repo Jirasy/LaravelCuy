@@ -18,7 +18,7 @@
                 <div class="flex flex-wrap gap-2 mt-2">
                     <span class="pk-chip">{{ ucfirst($user->role) }}</span>
                     @if($user->status_sekolah)
-                        <span class="pk-chip">🎓 {{ $user->status_sekolah }}</span>
+                        <span class="pk-chip"><x-ikon nama="topi" :ukuran="14" /> {{ $user->status_sekolah }}</span>
                     @endif
                     @if($user->kelas)
                         <span class="pk-chip">{{ $user->kelas }}</span>
@@ -59,7 +59,7 @@
                         <span class="pk-chip cursor-default select-none">
                             {{ $p->nama }}
                             @if($p->utama && $isSelf)
-                                <span title="Dipakai untuk sapaan di dashboard">★</span>
+                                <span title="Dipakai untuk sapaan di dashboard"><x-ikon nama="bintang" :ukuran="12" isi /></span>
                             @endif
                         </span>
                     @endforeach
@@ -83,7 +83,7 @@
                 @if($bisaWa)
                     <a href="{{ $user->wa_link }}" target="_blank" rel="noopener noreferrer"
                        class="bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-emerald-700">
-                        💬 WhatsApp {{ $user->no_hp_tampilan }}
+                        <x-ikon nama="pesan" :ukuran="14" /> WhatsApp {{ $user->no_hp_tampilan }}
                     </a>
                 @endif
                 @if($isSelf)

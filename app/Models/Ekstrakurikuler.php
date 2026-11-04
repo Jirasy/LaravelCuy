@@ -156,12 +156,12 @@ class Ekstrakurikuler extends Model
 
     // ---- Kontak & sosial media (khusus anggota aktif) ----
 
-    // kolom => [ikon, nama, domain yang diizinkan]. Alamat harus https dan benar-benar milik platformnya.
+    // kolom => [nama ikon (lihat App\Support\Ikon), nama, domain yang diizinkan]. Alamat harus https dan benar-benar milik platformnya.
     public const KONTAK_URL = [
-        'wa_grup_url'   => ['💬', 'Grup WhatsApp', ['whatsapp.com']],
-        'telegram_url'  => ['✈️', 'Telegram',      ['t.me', 'telegram.me']],
-        'instagram_url' => ['📸', 'Instagram',     ['instagram.com']],
-        'tiktok_url'    => ['🎵', 'TikTok',        ['tiktok.com']],
+        'wa_grup_url'   => ['whatsapp', 'Grup WhatsApp', ['whatsapp.com']],
+        'telegram_url'  => ['telegram', 'Telegram',      ['t.me', 'telegram.me']],
+        'instagram_url' => ['instagram', 'Instagram',     ['instagram.com']],
+        'tiktok_url'    => ['musik', 'TikTok',        ['tiktok.com']],
     ];
 
     // Nomor WhatsApp pembina disimpan seperti users.no_hp: 62812xxxx (tanpa +, spasi, atau 0 di depan)
@@ -239,7 +239,7 @@ class Ekstrakurikuler extends Model
         }
 
         if ($this->wa_pembina) {
-            $daftar[] = ['ikon' => '📞', 'nama' => 'Chat Pembina', 'url' => 'https://wa.me/' . $this->wa_pembina, 'keterangan' => $this->wa_pembina_tampilan];
+            $daftar[] = ['ikon' => 'telepon', 'nama' => 'Chat Pembina', 'url' => 'https://wa.me/' . $this->wa_pembina, 'keterangan' => $this->wa_pembina_tampilan];
         }
 
         foreach (['telegram_url', 'instagram_url', 'tiktok_url'] as $kolom) {

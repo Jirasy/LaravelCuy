@@ -64,7 +64,7 @@ class EkskulMateriController extends Controller
             'Materi baru',
             "{$data['judul']} ditambahkan di {$ekstrakurikuler->nama_ekstrakurikuler}.",
             route('ekstrakurikuler.show', ['id' => $ekstrakurikuler->id, 'tab' => 'materi'], false),
-            '📚',
+            'buku',
             Auth::id()
         );
 

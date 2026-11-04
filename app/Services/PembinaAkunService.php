@@ -122,7 +122,7 @@ class PembinaAkunService
                 . 'Password sementara bisa dibuka di halaman Kredensial selama ' . KredensialSementara::MASA_BERLAKU_HARI
                 . ' hari, dan terhapus otomatis setelah pembina mengganti passwordnya.',
                 route('kredensial.index', [], false),
-                '🔑'
+                'kunci'
             );
 
             Pemberitahuan::kirim(
@@ -132,7 +132,7 @@ class PembinaAkunService
                 . "Email login: {$pembina->email}\n"
                 . 'Demi keamanan, segera ganti password sementara dari admin lewat halaman Pengaturan.',
                 route('pengaturan.edit', [], false),
-                '👋'
+                'user'
             );
 
             return;
@@ -143,7 +143,7 @@ class PembinaAkunService
             "Kamu ditugaskan sebagai pembina {$namaEkskul}",
             "{$admin->name} menugaskanmu sebagai pembina ekskul {$namaEkskul}.",
             route('ekstrakurikuler.show', $ekskul->id, false),
-            '📌'
+            'pin'
         );
     }
 }

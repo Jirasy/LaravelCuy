@@ -10,10 +10,10 @@
     {{-- Belum ada ekskul berseleksi: hanya admin yang perlu tahu --}}
     @if($saya->isAdmin())
         <div class="mb-6 rounded-2xl border border-amber-300 bg-amber-50 p-5" data-aos="fade-up">
-            <p class="font-bold text-amber-900">🗳️ Belum ada ekskul berseleksi</p>
+            <p class="font-bold text-amber-900"><x-ikon nama="kotak-suara" :ukuran="16" /> Belum ada ekskul berseleksi</p>
             <p class="text-sm text-amber-800 mt-1">
                 Pendaftaran lewat seleksi muncul setelah ada ekskul bertipe <strong>Ekskul Seleksi</strong> atau <strong>Organisasi</strong> (OSIS, MPK, dst).
-                Buat ekskul baru dengan tipe itu, atau ubah tipe ekskul yang sudah ada lewat <strong>Edit Ekskul → Tipe ekskul</strong>.
+                Buat ekskul baru dengan tipe itu, atau ubah tipe ekskul yang sudah ada lewat <strong>Edit Ekskul &rsaquo; Tipe ekskul</strong>.
             </p>
             <a href="{{ route('ekstrakurikuler.create') }}" class="inline-block mt-3 bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-emerald-700">+ Buat ekskul</a>
         </div>
@@ -41,7 +41,7 @@
         <div class="hero-glass rounded-2xl p-6 mb-6" data-aos="fade-up">
             <div class="flex flex-wrap items-center justify-between gap-4">
                 <div class="min-w-0">
-                    <h2 class="text-xl font-bold">🗳️ Rekrutmen {{ $ekskul->nama_tampil }}</h2>
+                    <h2 class="text-xl font-bold"><x-ikon nama="kotak-suara" :ukuran="22" /> Rekrutmen {{ $ekskul->nama_tampil }}</h2>
 
                     @if($saya->role === 'siswa')
                         @if($periodeBuka)

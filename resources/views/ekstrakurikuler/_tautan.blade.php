@@ -6,11 +6,11 @@
             @forelse($tautans as $t)
                 <span class="inline-flex items-center gap-1">
                     <a href="{{ $t->url }}" target="_blank" rel="noopener noreferrer"
-                       class="px-3 py-1 text-sm rounded-full bg-indigo-100 text-indigo-800 hover:bg-indigo-200">{{ $t->ikon }} {{ $t->label }}</a>
+                       class="px-3 py-1 text-sm rounded-full bg-indigo-100 text-indigo-800 hover:bg-indigo-200"><x-ikon :nama="$t->ikon" :ukuran="14" /> {{ $t->label }}</a>
                     @if($staff)
                         <form action="{{ route('tautan.destroy', $t->id) }}" method="POST" class="inline" onsubmit="return confirm('Hapus tautan ini?')">
                             @csrf @method('DELETE')
-                            <button type="submit" class="text-xs text-red-600 hover:underline" title="Hapus">✕</button>
+                            <button type="submit" class="text-red-600 hover:underline" title="Hapus" aria-label="Hapus"><x-ikon nama="silang" :ukuran="14" /></button>
                         </form>
                     @endif
                 </span>

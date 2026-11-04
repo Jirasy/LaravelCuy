@@ -46,8 +46,8 @@
             </div>
 
             <div class="flex gap-6 text-sm text-gray-800">
-                <label class="flex items-center gap-2"><input type="radio" name="jenis" value="saran" {{ old('jenis', 'saran') === 'saran' ? 'checked' : '' }}> 💡 Saran</label>
-                <label class="flex items-center gap-2"><input type="radio" name="jenis" value="kritik" {{ old('jenis') === 'kritik' ? 'checked' : '' }}> 📣 Kritik</label>
+                <label class="flex items-center gap-2"><input type="radio" name="jenis" value="saran" {{ old('jenis', 'saran') === 'saran' ? 'checked' : '' }}> <x-ikon nama="lampu" :ukuran="15" /> Saran</label>
+                <label class="flex items-center gap-2"><input type="radio" name="jenis" value="kritik" {{ old('jenis') === 'kritik' ? 'checked' : '' }}> <x-ikon nama="megafon" :ukuran="15" /> Kritik</label>
             </div>
 
             <div>
@@ -71,7 +71,7 @@
                 <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-200" data-aos="fade-up">
                     <div class="flex flex-wrap justify-between items-start gap-2">
                         <p class="text-xs text-gray-500">
-                            {{ $s->jenis === 'kritik' ? '📣 Kritik' : '💡 Saran' }}
+                            <x-ikon :nama="$s->jenis === 'kritik' ? 'megafon' : 'lampu'" :ukuran="13" /> {{ $s->jenis === 'kritik' ? 'Kritik' : 'Saran' }}
                             &middot; {{ $s->ekstrakurikuler->nama_tampil ?? 'Umum' }}
                             &middot; {{ $s->created_at->format('d-m-Y H:i') }}
                             @if($s->anonim) &middot; anonim @endif

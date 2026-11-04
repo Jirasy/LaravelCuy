@@ -48,7 +48,7 @@
                             @if($e->tanggal_selesai && !$e->tanggal_selesai->isSameDay($e->tanggal_mulai))
                                 – {{ $e->tanggal_selesai->format('d') }} {{ $bln[$e->tanggal_selesai->month - 1] }} {{ $e->tanggal_selesai->format('Y') }}
                             @endif
-                            @if($e->lokasi) &middot; 📍 {{ $e->lokasi }} @endif
+                            @if($e->lokasi) &middot; <x-ikon nama="lokasi" :ukuran="14" /> {{ $e->lokasi }} @endif
                         </p>
                         @if($e->deskripsi)<p class="text-gray-800 text-sm mt-2 whitespace-pre-line">{{ $e->deskripsi }}</p>@endif
                     </div>

@@ -26,7 +26,7 @@
                     </div>
                 @endif
             </div>
-            <a href="{{ route('ekstrakurikuler.index') }}" class="text-gray-600 hover:underline text-sm">← Katalog</a>
+            <a href="{{ route('ekstrakurikuler.index') }}" class="inline-flex items-center gap-1 text-gray-600 hover:underline text-sm"><x-ikon nama="panah-kiri" :ukuran="14" /> Katalog</a>
         </div>
 
         @if(session('success'))
@@ -131,7 +131,7 @@
                     @include('ekstrakurikuler._hierarki')
 
                     <div class="mt-4 pt-4 border-t border-gray-200">
-                        <a href="{{ route('saran.index', ['ekskul' => $ekskul->id]) }}" class="text-sm text-indigo-600 font-semibold hover:underline">💬 Kirim kritik &amp; saran untuk ekskul ini</a>
+                        <a href="{{ route('saran.index', ['ekskul' => $ekskul->id]) }}" class="text-sm text-indigo-600 font-semibold hover:underline"><x-ikon nama="pesan" :ukuran="15" /> Kirim kritik &amp; saran untuk ekskul ini</a>
                     </div>
 
                     @if($staff)

@@ -96,7 +96,7 @@ class CasisController extends Controller
                 "Pendaftar {$label} baru",
                 "{$user->name} mengajukan pendaftaran {$label} {$ekskul->nama_ekstrakurikuler} {$periode->nama}.",
                 route('casis.index', [$ekskul->id, 'periode' => $periode->id], false),
-                '🗳️',
+                'kotak-suara',
                 $user->id
             );
         }
@@ -127,7 +127,7 @@ class CasisController extends Controller
             "{$label} mengundurkan diri",
             "{$user->name} mengundurkan diri dari pendaftaran {$label} {$ekskul->nama_ekstrakurikuler} {$casis->periode->nama}.",
             route('casis.index', [$ekskul->id, 'periode' => $casis->osis_periode_id], false),
-            '↩️',
+            'panah-kiri',
             $user->id
         );
 
@@ -303,12 +303,12 @@ class CasisController extends Controller
         $hasil = $osis->tetapkanHasil($casis, $tahap, $lolos ? 'lolos' : 'tidak_lolos', $catatan, $user);
 
         if ($hasil['status'] === 'diterima') {
-            Pemberitahuan::kirim([$casis->user], "Selamat, kamu lolos seleksi {$ekskul->nama_ekstrakurikuler}!", "Kamu diterima di {$ekskul->nama_ekstrakurikuler} periode {$periode->nama}.", route('ekstrakurikuler.show', $ekskul->id, false), '🎉', $user->id);
+            Pemberitahuan::kirim([$casis->user], "Selamat, kamu lolos seleksi {$ekskul->nama_ekstrakurikuler}!", "Kamu diterima di {$ekskul->nama_ekstrakurikuler} periode {$periode->nama}.", route('ekstrakurikuler.show', $ekskul->id, false), 'pesta', $user->id);
         } elseif ($hasil['status'] === 'ditolak') {
-            Pemberitahuan::kirim([$casis->user], "Hasil seleksi {$ekskul->nama_ekstrakurikuler}", "Pendaftaran {$label} {$periode->nama} belum diterima pada tahap {$tahap->nama}." . ($catatan ? " Catatan: {$catatan}" : ''), route('casis.create', $ekskul->id, false), '📄', $user->id);
+            Pemberitahuan::kirim([$casis->user], "Hasil seleksi {$ekskul->nama_ekstrakurikuler}", "Pendaftaran {$label} {$periode->nama} belum diterima pada tahap {$tahap->nama}." . ($catatan ? " Catatan: {$catatan}" : ''), route('casis.create', $ekskul->id, false), 'dokumen', $user->id);
         } else {
             $berikut = $hasil['berikut'];
-            Pemberitahuan::kirim([$casis->user], "Lolos tahap {$tahap->nama}", "Kamu lanjut ke tahap berikutnya: {$berikut->ringkasan}.", route('casis.create', $ekskul->id, false), '✅', $user->id);
+            Pemberitahuan::kirim([$casis->user], "Lolos tahap {$tahap->nama}", "Kamu lanjut ke tahap berikutnya: {$berikut->ringkasan}.", route('casis.create', $ekskul->id, false), 'centang-lingkar', $user->id);
         }
 
         $pesan = match ($hasil['status']) {
@@ -372,7 +372,7 @@ class CasisController extends Controller
             "Kamu didaftarkan ke jalur {$nama}",
             "{$request->user()->name} memasukkanmu ke jalur {$label} {$nama} {$periode->nama}. Lengkapi formulir pendaftaranmu.",
             route('casis.create', [$ekskul->id], false),
-            '🗳️',
+            'kotak-suara',
             $request->user()->id
         );
 
@@ -471,7 +471,7 @@ class CasisController extends Controller
                 ? "{$request->user()->name} menetapkanmu sebagai {$sebutan} {$nama} angkatan {$d['angkatan']}."
                 : "{$request->user()->name} mencatat {$kata} {$nama} angkatan {$d['angkatan']} ({$d['tahun_mulai']}-{$d['tahun_selesai']}) di riwayatmu.",
             route('ekstrakurikuler.show', $ekskul->id, false),
-            '🏛️',
+            'gedung',
             $request->user()->id
         );
 
@@ -520,7 +520,7 @@ class CasisController extends Controller
             "Data {$kata} {$ekskul->nama_ekstrakurikuler} dikoreksi",
             "{$request->user()->name} memperbarui data {$kata} {$ekskul->nama_ekstrakurikuler}-mu: angkatan {$d['angkatan']}, " . OsisService::STATUS_PENGURUS[$d['status']] . '.',
             route('ekstrakurikuler.show', $ekskul->id, false),
-            '✏️',
+            'pensil',
             $request->user()->id
         );
 

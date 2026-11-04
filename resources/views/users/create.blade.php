@@ -28,10 +28,10 @@
         {{-- Pilih jenis akun --}}
         <div class="flex gap-2 mb-4" role="tablist">
             <a href="{{ route('users.create') }}" role="tab" aria-selected="{{ $tab === 'siswa' ? 'true' : 'false' }}"
-               class="px-4 py-2 rounded-lg text-sm font-semibold border {{ $tab === 'siswa' ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100' }}">🎓 Siswa</a>
+               class="px-4 py-2 rounded-lg text-sm font-semibold border {{ $tab === 'siswa' ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100' }}"><x-ikon nama="topi" :ukuran="15" /> Siswa</a>
             @if($bolehPembina)
                 <a href="{{ route('users.create', ['tab' => 'pembina']) }}" role="tab" aria-selected="{{ $tab === 'pembina' ? 'true' : 'false' }}"
-                   class="px-4 py-2 rounded-lg text-sm font-semibold border {{ $tab === 'pembina' ? 'bg-sky-600 text-white border-sky-600' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100' }}">🧑‍🏫 Pembina</a>
+                   class="px-4 py-2 rounded-lg text-sm font-semibold border {{ $tab === 'pembina' ? 'bg-sky-600 text-white border-sky-600' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100' }}"><x-ikon nama="papan-tulis" :ukuran="15" /> Pembina</a>
             @endif
         </div>
 
@@ -80,7 +80,7 @@
                 </details>
 
                 <div class="rounded-lg bg-indigo-50 border border-indigo-200 p-3 text-xs text-indigo-900">
-                    🔑 Password dibuat <strong>acak</strong> otomatis dan wajib diganti siswa saat login pertama. Setelah disimpan, kamu diarahkan ke halaman
+                    <x-ikon nama="kunci" :ukuran="15" /> Password dibuat <strong>acak</strong> otomatis dan wajib diganti siswa saat login pertama. Setelah disimpan, kamu diarahkan ke halaman
                     hasil untuk membuka password sementaranya (tersedia 7 hari, terenkripsi) dan mengunduhnya. Rekapnya juga tersimpan di Riwayat Pesan.
                 </div>
 
@@ -112,7 +112,7 @@
                 </div>
 
                 <div class="rounded-lg bg-sky-50 border border-sky-200 p-3 text-xs text-sky-900">
-                    🔑 Password dibuat <strong>acak</strong> otomatis dan ditampilkan <strong>sekali</strong> setelah disimpan. Setelahnya password sementara bisa dibuka admin
+                    <x-ikon nama="kunci" :ukuran="15" /> Password dibuat <strong>acak</strong> otomatis dan ditampilkan <strong>sekali</strong> setelah disimpan. Setelahnya password sementara bisa dibuka admin
                     di halaman <a href="{{ route('kredensial.index') }}" class="underline font-semibold">Kredensial</a> (terenkripsi, berlaku 7 hari, terhapus saat pembina mengganti passwordnya).
                     Riwayat Pesan admin hanya mencatat bahwa akun dibuat, tanpa password.
                 </div>

@@ -12,7 +12,7 @@
 
         <div class="flex justify-between items-center mb-6">
             <h1 class="text-3xl font-bold text-gray-800">Edit Profil</h1>
-            <a href="{{ route('profil.show') }}" class="text-gray-600 hover:underline text-sm">← Profilku</a>
+            <a href="{{ route('profil.show') }}" class="inline-flex items-center gap-1 text-gray-600 hover:underline text-sm"><x-ikon nama="panah-kiri" :ukuran="14" /> Profilku</a>
         </div>
 
         @if(session('success'))
@@ -98,7 +98,7 @@
         <div id="nama-panggilan" class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 mt-6" data-aos="fade-up">
             <h2 class="text-lg font-bold text-gray-800">Nama panggilan</h2>
             <p class="text-xs text-gray-500 mt-1 mb-4">
-                Tambahkan sampai {{ $maksPanggilan }} nama panggilan, tampil di profilmu. Yang bertanda ★ dipakai untuk sapaan di dashboard.
+                Tambahkan sampai {{ $maksPanggilan }} nama panggilan, tampil di profilmu. Yang bertanda <x-ikon nama="bintang" :ukuran="12" isi class="text-amber-500" /> dipakai untuk sapaan di dashboard.
                 Sapaanmu sekarang: <span class="font-semibold text-gray-700">{{ $user->sapaan }}</span>
                 @if($daftarPanggilan->where('utama', true)->isEmpty())(memakai nama depan){{-- belum ada panggilan utama --}}@endif
             </p>
@@ -108,7 +108,7 @@
                     @foreach($daftarPanggilan as $p)
                         <div class="flex flex-wrap items-center justify-between gap-2 border border-gray-200 rounded-lg px-3 py-2">
                             <span class="px-3 py-1.5 rounded-full text-sm font-semibold border {{ $p->utama ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-gray-50 text-gray-700 border-gray-200' }}">
-                                {{ $p->nama }}@if($p->utama) ★@endif
+                                {{ $p->nama }}@if($p->utama) <x-ikon nama="bintang" :ukuran="12" isi class="text-amber-500" />@endif
                             </span>
                             <div class="flex items-center gap-3 text-xs">
                                 @unless($p->utama)

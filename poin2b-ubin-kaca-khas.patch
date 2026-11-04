@@ -1,0 +1,254 @@
+diff --git a/resources/views/casis/create.blade.php b/resources/views/casis/create.blade.php
+index 7326eda..ac950bb 100644
+--- a/resources/views/casis/create.blade.php
++++ b/resources/views/casis/create.blade.php
+@@ -32,7 +32,7 @@
+ 
+         @if($sudahPengurus)
+             <div class="bg-white p-8 rounded-xl border border-gray-200 text-center text-gray-700 mb-6" data-aos="fade-up">
+-                <x-ikon nama="gedung" :ukuran="18" /> Kamu sudah tercatat sebagai anggota {{ $ekskul->nama_ekstrakurikuler }}.
++                <x-ikon-kaca nama="gedung" warna="langit" ukuran="sm" class="mr-2 align-middle" /> Kamu sudah tercatat sebagai anggota {{ $ekskul->nama_ekstrakurikuler }}.
+             </div>
+         @elseif(!$periode)
+             <div class="bg-white p-8 rounded-xl border border-gray-200 text-center text-gray-600 mb-6" data-aos="fade-up">
+diff --git a/resources/views/components/ikon-kaca.blade.php b/resources/views/components/ikon-kaca.blade.php
+new file mode 100644
+index 0000000..eb4418f
+--- /dev/null
++++ b/resources/views/components/ikon-kaca.blade.php
+@@ -0,0 +1,12 @@
++{{--
++    Ikon dalam ubin kaca berfaset (gaya di partials/ikon-style). Untuk ikon yang berdiri sendiri: kartu ringkasan, judul, status kosong.
++    Ikon di tengah kalimat tetap pakai <x-ikon>.
++    Pakai: <x-ikon-kaca nama="piala" warna="amber" ukuran="lg" />   <x-ikon-kaca :nama="$n->data['ikon']" ukuran="sm" class="mr-2 align-middle" />
++    warna : aksen (default, ikut jam lokal) | zamrud | amber | mawar | langit | ungu | abu
++    ukuran: sm (32px) | md (44px, default) | lg (56px)
++--}}
++@props(['nama', 'warna' => 'aksen', 'ukuran' => 'md'])
++@php
++    $glif = ['sm' => 16, 'md' => 22, 'lg' => 28][$ukuran] ?? 22;
++@endphp
++<span {{ $attributes->class(['ikon-kaca', 'ikon-kaca-'.$ukuran, 'ikon-kaca-'.$warna]) }}><span class="ikon-kaca-isi"><x-ikon :nama="$nama" :ukuran="$glif" /></span></span>
+diff --git a/resources/views/ekstrakurikuler/_kartu_osis.blade.php b/resources/views/ekstrakurikuler/_kartu_osis.blade.php
+index f31f235..fd3c317 100644
+--- a/resources/views/ekstrakurikuler/_kartu_osis.blade.php
++++ b/resources/views/ekstrakurikuler/_kartu_osis.blade.php
+@@ -41,7 +41,7 @@
+         <div class="hero-glass rounded-2xl p-6 mb-6" data-aos="fade-up">
+             <div class="flex flex-wrap items-center justify-between gap-4">
+                 <div class="min-w-0">
+-                    <h2 class="text-xl font-bold"><x-ikon nama="kotak-suara" :ukuran="22" /> Rekrutmen {{ $ekskul->nama_tampil }}</h2>
++                    <h2 class="text-xl font-bold"><x-ikon-kaca nama="kotak-suara" ukuran="sm" class="mr-2 align-middle" /> Rekrutmen {{ $ekskul->nama_tampil }}</h2>
+ 
+                     @if($saya->role === 'siswa')
+                         @if($periodeBuka)
+diff --git a/resources/views/ekstrakurikuler/_kredensial_baru.blade.php b/resources/views/ekstrakurikuler/_kredensial_baru.blade.php
+index 3044c50..fc72955 100644
+--- a/resources/views/ekstrakurikuler/_kredensial_baru.blade.php
++++ b/resources/views/ekstrakurikuler/_kredensial_baru.blade.php
+@@ -2,7 +2,7 @@
+ @if(session('kredensial'))
+     @php $kr = session('kredensial'); @endphp
+     <div class="bg-amber-50 border border-amber-300 text-amber-900 px-4 py-4 rounded-lg mb-4">
+-        <p class="font-semibold"><x-ikon nama="kunci" :ukuran="16" /> Akun pembina dibuat: {{ $kr['nama'] }}</p>
++        <p class="font-semibold"><x-ikon-kaca nama="kunci" warna="zamrud" ukuran="sm" class="mr-2 align-middle" /> Akun pembina dibuat: {{ $kr['nama'] }}</p>
+         <p class="text-sm mt-1">Email: <code class="font-mono select-all">{{ $kr['email'] }}</code></p>
+         <p class="text-sm">Password sementara: <code class="font-mono font-bold select-all">{{ $kr['password'] }}</code></p>
+         <p class="text-xs mt-2">
+diff --git a/resources/views/ekstrakurikuler/_tab_materi.blade.php b/resources/views/ekstrakurikuler/_tab_materi.blade.php
+index 21822c6..1d18a9a 100644
+--- a/resources/views/ekstrakurikuler/_tab_materi.blade.php
++++ b/resources/views/ekstrakurikuler/_tab_materi.blade.php
+@@ -1,7 +1,7 @@
+ {{-- Variabel: $ekskul, $staff, $bolehMateri, $materis, $prs, $anggotaAkses, $pengumpulanSaya, $pendaftaranSaya --}}
+ @if(!$bolehMateri)
+     <div class="bg-white p-8 rounded-xl shadow-sm border border-gray-200 text-center">
+-        <p class="font-semibold text-gray-800 mb-1"><x-ikon nama="gembok" :ukuran="16" /> Materi &amp; Task belum bisa kamu buka</p>
++        <p class="font-semibold text-gray-800 mb-1"><x-ikon-kaca nama="gembok" warna="abu" ukuran="sm" class="mr-2 align-middle" /> Materi &amp; Task belum bisa kamu buka</p>
+         <p class="text-sm text-gray-600 mb-4">Akses materi diberikan oleh pembina atau admin. Kamu bisa meminta izin.</p>
+         <form action="{{ route('materi.minta-akses', $ekskul->id) }}" method="POST">
+             @csrf
+diff --git a/resources/views/komunitas/create.blade.php b/resources/views/komunitas/create.blade.php
+index 631cc4f..5f24501 100644
+--- a/resources/views/komunitas/create.blade.php
++++ b/resources/views/komunitas/create.blade.php
+@@ -11,7 +11,7 @@
+         @include('partials.navbar')
+ 
+         <div class="mb-6" data-aos="fade-down">
+-            <h1 class="text-3xl font-bold text-gray-800"><x-ikon nama="tunas" :ukuran="30" /> Buat Komunitas</h1>
++            <h1 class="text-3xl font-bold text-gray-800"><x-ikon-kaca nama="tunas" warna="zamrud" class="mr-2 align-middle" /> Buat Komunitas</h1>
+             <p class="text-gray-600 text-sm">Komunitas adalah ekskul yang baru lahir. Admin akan meresmikannya jadi ekskul dan menentukan tipenya (biasa, seleksi, atau organisasi).</p>
+         </div>
+ 
+diff --git a/resources/views/notifikasi/index.blade.php b/resources/views/notifikasi/index.blade.php
+index 32d1c33..b9dd893 100644
+--- a/resources/views/notifikasi/index.blade.php
++++ b/resources/views/notifikasi/index.blade.php
+@@ -32,7 +32,7 @@
+                 <a href="{{ route('notifikasi.buka', $n->id) }}"
+                    class="block bg-white px-5 py-4 rounded-xl border shadow-sm hover:shadow-md transition {{ $n->read_at ? 'border-gray-200 opacity-75' : 'border-indigo-300' }}">
+                     <div class="flex gap-3">
+-                        <span class="flex-none inline-grid place-items-center w-10 h-10 rounded-xl bg-indigo-100 text-indigo-600"><x-ikon :nama="$n->data['ikon'] ?? 'lonceng'" :ukuran="20" /></span>
++                        <x-ikon-kaca :nama="$n->data['ikon'] ?? 'lonceng'" :warna="$n->read_at ? 'abu' : 'aksen'" ukuran="sm" />
+                         <div class="min-w-0 flex-1">
+                             <p class="font-semibold text-gray-900">
+                                 {{ $n->data['judul'] ?? 'Pemberitahuan' }}
+diff --git a/resources/views/partials/head.blade.php b/resources/views/partials/head.blade.php
+index def7b4a..6afca4e 100644
+--- a/resources/views/partials/head.blade.php
++++ b/resources/views/partials/head.blade.php
+@@ -631,3 +631,4 @@
+ </style>
+ @endverbatim
+ @include('partials.tema-waktu-style')
++@include('partials.ikon-style')
+diff --git a/resources/views/partials/ikon-style.blade.php b/resources/views/partials/ikon-style.blade.php
+new file mode 100644
+index 0000000..77069d4
+--- /dev/null
++++ b/resources/views/partials/ikon-style.blade.php
+@@ -0,0 +1,56 @@
++{{--
++    Gaya khas ikon: "ubin kaca berfaset" (serpihan kaca) yang jadi ciri tampilan situs ini. Dipasang lewat partials.head.
++    Bentuknya potongan miring seperti .shard di halaman masuk, isinya gradasi + faset terang/gelap + kilau saat disorot.
++    Warna "aksen" mengikuti jam lokal (html[data-waktu], dipasang partials/tema-waktu): biru-teal pagi, biru-indigo siang,
++    oranye-mawar sore, indigo-ungu malam. Warna lain (zamrud, amber, mawar, langit, ungu, abu) tetap, untuk makna tertentu.
++    Pakai: <x-ikon-kaca nama="piala" warna="amber" ukuran="lg" />
++--}}
++@verbatim
++<style>
++    /* Warna aksen per waktu; ikon putih di atasnya dijaga kontras >= 3:1 (batas untuk elemen grafis) */
++    :root                    { --ikon-a: 79 70 229;  --ikon-b: 168 85 247; }
++    html[data-waktu="pagi"]  { --ikon-a: 13 148 136; --ikon-b: 2 132 199; }
++    html[data-waktu="siang"] { --ikon-a: 2 132 199;  --ikon-b: 79 70 229; }
++    html[data-waktu="sore"]  { --ikon-a: 234 88 12;  --ikon-b: 225 29 72; }
++    html[data-waktu="malam"] { --ikon-a: 99 102 241; --ikon-b: 147 51 234; }
++
++    .ikon-kaca {
++        --ik-a: var(--ikon-a); --ik-b: var(--ikon-b); --ik-u: 44px;
++        position: relative; display: inline-block; flex: none; width: var(--ik-u); height: var(--ik-u);
++        filter: drop-shadow(0 8px 10px rgb(var(--ik-a) / .38)); /* bayangan di luar, mengikuti bentuk serpihan */
++        transition: transform .25s ease, filter .25s ease;
++    }
++    .ikon-kaca-sm { --ik-u: 32px; }
++    .ikon-kaca-lg { --ik-u: 56px; }
++    .ikon-kaca:hover, .card-hover:hover .ikon-kaca, a:hover > .ikon-kaca { transform: translateY(-2px) rotate(-3deg); }
++    html.dark .ikon-kaca { filter: drop-shadow(0 8px 14px rgb(var(--ik-a) / .6)); }
++
++    .ikon-kaca-isi {
++        position: absolute; inset: 0; display: grid; place-items: center; overflow: hidden; isolation: isolate; color: #fff;
++        clip-path: polygon(0 22%, 22% 0, 100% 0, 100% 78%, 78% 100%, 0 100%); /* sudut kiri-atas & kanan-bawah dipotong miring */
++        background: linear-gradient(150deg, rgb(var(--ik-a)), rgb(var(--ik-b)));
++    }
++    .ikon-kaca-isi::before { /* faset: serpihan terang kiri-atas, garis retak tipis, bayangan kanan-bawah */
++        content: ''; position: absolute; inset: 0; z-index: -1;
++        background:
++            linear-gradient(122deg, rgba(255, 255, 255, .42) 0 30%, transparent 30.4%),
++            linear-gradient(122deg, transparent 0 56%, rgba(255, 255, 255, .22) 56% 57.4%, transparent 57.8%),
++            linear-gradient(302deg, rgba(15, 23, 42, .24) 0 26%, transparent 26.4%);
++    }
++    .ikon-kaca-isi::after { /* kilau yang menyapu saat disorot */
++        content: ''; position: absolute; top: -20%; bottom: -20%; left: -70%; width: 40%; pointer-events: none;
++        background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .55), transparent);
++        transform: skewX(-20deg); transition: left .7s ease;
++    }
++    .ikon-kaca:hover .ikon-kaca-isi::after, .card-hover:hover .ikon-kaca-isi::after, a:hover > .ikon-kaca .ikon-kaca-isi::after { left: 130%; }
++    .ikon-kaca-isi > svg { position: relative; filter: drop-shadow(0 1px 1.5px rgba(15, 23, 42, .4)); }
++
++    /* Warna bermakna: tidak ikut jam */
++    .ikon-kaca-zamrud { --ik-a: 5 150 105;  --ik-b: 13 148 136; }
++    .ikon-kaca-amber  { --ik-a: 217 119 6;  --ik-b: 234 88 12; }
++    .ikon-kaca-mawar  { --ik-a: 225 29 72;  --ik-b: 192 38 211; }
++    .ikon-kaca-langit { --ik-a: 2 132 199;  --ik-b: 79 70 229; }
++    .ikon-kaca-ungu   { --ik-a: 124 58 237; --ik-b: 192 38 211; }
++    .ikon-kaca-abu    { --ik-a: 71 85 105;  --ik-b: 51 65 85; }
++</style>
++@endverbatim
+diff --git a/resources/views/pendaftaran/create.blade.php b/resources/views/pendaftaran/create.blade.php
+index 6bc8b99..6e9877e 100644
+--- a/resources/views/pendaftaran/create.blade.php
++++ b/resources/views/pendaftaran/create.blade.php
+@@ -57,7 +57,7 @@
+ 
+                 @if(session('bentrok_baru'))
+                     <div class="bg-amber-50 border border-amber-300 text-amber-900 px-4 py-3 rounded-lg text-sm" role="alert">
+-                        <p class="font-bold mb-1"><x-ikon nama="peringatan" :ukuran="16" /> Jadwal ekskul ini bentrok dengan ekskul lain milikmu</p>
++                        <p class="font-bold mb-1"><x-ikon-kaca nama="peringatan" warna="amber" ukuran="sm" class="mr-2 align-middle" /> Jadwal ekskul ini bentrok dengan ekskul lain milikmu</p>
+                         <ul class="list-disc pl-5 mb-3">
+                             @foreach(session('bentrok_baru') as $ringkasan)<li>{{ $ringkasan }}</li>@endforeach
+                         </ul>
+diff --git a/resources/views/profil/_bentrok.blade.php b/resources/views/profil/_bentrok.blade.php
+index 8ea16de..f5d8fbe 100644
+--- a/resources/views/profil/_bentrok.blade.php
++++ b/resources/views/profil/_bentrok.blade.php
+@@ -10,7 +10,7 @@
+     ];
+ @endphp
+ <div class="bg-amber-50 border border-amber-300 text-amber-900 p-5 rounded-xl shadow-sm mb-6 text-sm" id="bentrok-jadwal" role="alert" data-aos="fade-up">
+-    <h2 class="text-base font-bold mb-1"><x-ikon nama="peringatan" :ukuran="18" /> Ada {{ $bentrok->count() }} jadwal ekskul yang bentrok</h2>
++    <h2 class="text-base font-bold mb-1"><x-ikon-kaca nama="peringatan" warna="amber" ukuran="sm" class="mr-2 align-middle" /> Ada {{ $bentrok->count() }} jadwal ekskul yang bentrok</h2>
+     <p class="mb-4">Jamnya tumpang tindih di hari yang sama. Pilih ekskul yang kamu hadiri atau atur pembagian waktunya, supaya pembina tahu rencanamu.</p>
+ 
+     <div class="space-y-3">
+diff --git a/resources/views/riwayat/show.blade.php b/resources/views/riwayat/show.blade.php
+index efee60d..3335fa3 100644
+--- a/resources/views/riwayat/show.blade.php
++++ b/resources/views/riwayat/show.blade.php
+@@ -29,13 +29,13 @@
+         {{-- Ringkasan --}}
+         <div class="grid grid-cols-3 gap-4 mb-6">
+             @foreach([
+-                ['Ekskul diikuti', $riwayat->where('status', 'diterima')->where('status_anggota', 'aktif')->count(), 'sekolah'],
+-                ['Prestasi', $prestasis->count(), 'piala'],
+-                ['Jabatan dipegang', $riwayat->filter(fn ($r) => $r->status === 'diterima' && $r->jabatanAktif->isNotEmpty())->count(), 'bintang'],
++                ['Ekskul diikuti', $riwayat->where('status', 'diterima')->where('status_anggota', 'aktif')->count(), 'sekolah', 'langit'],
++                ['Prestasi', $prestasis->count(), 'piala', 'amber'],
++                ['Jabatan dipegang', $riwayat->filter(fn ($r) => $r->status === 'diterima' && $r->jabatanAktif->isNotEmpty())->count(), 'bintang', 'mawar'],
+             ] as $i => $s)
+                 <div data-aos="fade-up" data-aos-delay="{{ $i * 80 }}">
+                     <div class="card-hover h-full bg-white rounded-xl border border-gray-200 shadow-sm p-4 text-center">
+-                        <p class="flex justify-center text-indigo-600"><x-ikon :nama="$s[2]" :ukuran="28" /></p>
++                        <p class="flex justify-center"><x-ikon-kaca :nama="$s[2]" :warna="$s[3]" ukuran="lg" /></p>
+                         <p class="text-2xl font-bold text-gray-800 leading-none mt-1">{{ $s[1] }}</p>
+                         <p class="text-xs text-gray-500 mt-1">{{ $s[0] }}</p>
+                     </div>
+diff --git a/resources/views/tugas/index.blade.php b/resources/views/tugas/index.blade.php
+index 3408f5f..c6a24f1 100644
+--- a/resources/views/tugas/index.blade.php
++++ b/resources/views/tugas/index.blade.php
+@@ -76,7 +76,7 @@
+                     </div>
+                 </div>
+             @empty
+-                <div class="bg-white p-8 rounded-xl border border-gray-200 text-center text-gray-500"><x-ikon nama="pesta" :ukuran="18" class="text-emerald-500" /> Tidak ada task yang menunggu.</div>
++                <div class="bg-white p-8 rounded-xl border border-gray-200 text-center text-gray-500"><div class="flex justify-center mb-3"><x-ikon-kaca nama="pesta" warna="zamrud" ukuran="lg" /></div>Tidak ada task yang menunggu.</div>
+             @endforelse
+         </div>
+ 
+diff --git a/resources/views/users/index.blade.php b/resources/views/users/index.blade.php
+index 35f1a03..9258ed4 100644
+--- a/resources/views/users/index.blade.php
++++ b/resources/views/users/index.blade.php
+@@ -95,16 +95,16 @@
+         <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+             @php
+                 $stat = [
+-                    ['Total user',      $users->count(),                                          'pengguna'],
+-                    ['Admin & Pembina', $users->whereIn('role', ['admin', 'pembina'])->count(),  'perisai'],
+-                    ['Siswa',           $users->where('role', 'siswa')->count(),                  'topi'],
+-                    ['Nonaktif',        $users->where('is_active', false)->count(),               'jeda'],
++                    ['Total user',      $users->count(),                                          'pengguna', 'langit'],
++                    ['Admin & Pembina', $users->whereIn('role', ['admin', 'pembina'])->count(),  'perisai', 'ungu'],
++                    ['Siswa',           $users->where('role', 'siswa')->count(),                  'topi', 'aksen'],
++                    ['Nonaktif',        $users->where('is_active', false)->count(),               'jeda', 'abu'],
+                 ];
+             @endphp
+             @foreach($stat as $i => $s)
+                 <div data-aos="fade-up" data-aos-delay="{{ $i * 80 }}">
+                     <div class="card-hover h-full bg-white rounded-xl border border-gray-200 shadow-sm p-4 flex items-center gap-3">
+-                        <span class="inline-grid place-items-center w-10 h-10 rounded-xl bg-indigo-100 text-indigo-600"><x-ikon :nama="$s[2]" :ukuran="22" /></span>
++                        <x-ikon-kaca :nama="$s[2]" :warna="$s[3]" />
+                         <div>
+                             <p class="text-2xl font-bold text-gray-800 leading-none">{{ $s[1] }}</p>
+                             <p class="text-xs text-gray-500 mt-1">{{ $s[0] }}</p>

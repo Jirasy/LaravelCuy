@@ -110,7 +110,7 @@ class EkskulTugasController extends Controller
             'Task baru',
             "{$user->name} memberimu task: {$tugas->judul}{$tenggat}",
             route('tugas.index', [], false),
-            '📝',
+            'catatan',
             $user->id
         );
 
@@ -134,7 +134,7 @@ class EkskulTugasController extends Controller
 
         $tugas = $penerima->tugas;
         if ($data['status'] === 'selesai' && $tugas->pembuat && $tugas->dibuat_oleh !== $user->id) {
-            Pemberitahuan::kirim([$tugas->pembuat], 'Task selesai', "{$user->name} menyelesaikan: {$tugas->judul}", route('tugas.index', [], false), '✅');
+            Pemberitahuan::kirim([$tugas->pembuat], 'Task selesai', "{$user->name} menyelesaikan: {$tugas->judul}", route('tugas.index', [], false), 'centang-lingkar');
         }
 
         return back();

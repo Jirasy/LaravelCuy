@@ -4,7 +4,7 @@
         $pilihanTipe = \App\Models\JenisEkskul::urut()->aktif()->resmi()->get();
     @endphp
     <div class="mt-4 pt-4 border-t border-gray-200">
-        <p class="text-xs font-semibold text-gray-500 uppercase mb-2">🌱 Komunitas · belum resmi</p>
+        <p class="text-xs font-semibold text-gray-500 uppercase mb-2"><x-ikon nama="tunas" :ukuran="13" /> Komunitas · belum resmi</p>
         <p class="text-sm text-gray-700 mb-3">
             Ekskul ini masih komunitas{{ $ekskul->pembuat ? ', dibuat oleh '.$ekskul->pembuat->name : '' }}. Setelah diresmikan admin, ia menjadi ekskul resmi.
         </p>

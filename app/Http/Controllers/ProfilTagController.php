@@ -46,7 +46,7 @@ class ProfilTagController extends Controller
             'Tag baru di profilmu',
             'Seseorang memberi tag "' . $data['teks'] . '" di profilmu. Tag ini privat: hanya kamu yang bisa melihatnya sampai kamu menampilkannya.',
             route('profil.show', [], false),
-            '🏷️',
+            'label',
             $pemberi->id
         );
 
