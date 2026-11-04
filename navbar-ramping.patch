@@ -1,0 +1,135 @@
+diff --git a/resources/views/jenis-ekskul/index.blade.php b/resources/views/jenis-ekskul/index.blade.php
+index d761422..9ee1a34 100644
+--- a/resources/views/jenis-ekskul/index.blade.php
++++ b/resources/views/jenis-ekskul/index.blade.php
+@@ -9,6 +9,7 @@
+ <body class="app-bg p-6">
+     <div class="max-w-4xl mx-auto">
+         @include('partials.navbar')
++        @include('partials.tab-pengelompokan')
+ 
+         <div class="mb-6" data-aos="fade-down">
+             <h1 class="text-3xl font-bold text-gray-800">Tipe Ekskul</h1>
+diff --git a/resources/views/kategori-ekskul/index.blade.php b/resources/views/kategori-ekskul/index.blade.php
+index 77aa468..8d5556e 100644
+--- a/resources/views/kategori-ekskul/index.blade.php
++++ b/resources/views/kategori-ekskul/index.blade.php
+@@ -9,6 +9,7 @@
+ <body class="app-bg p-6">
+     <div class="max-w-4xl mx-auto">
+         @include('partials.navbar')
++        @include('partials.tab-pengelompokan')
+ 
+         <div class="mb-6" data-aos="fade-down">
+             <h1 class="text-3xl font-bold text-gray-800">Kategori Ekskul</h1>
+diff --git a/resources/views/partials/navbar.blade.php b/resources/views/partials/navbar.blade.php
+index f17f4e8..e1907d7 100644
+--- a/resources/views/partials/navbar.blade.php
++++ b/resources/views/partials/navbar.blade.php
+@@ -49,12 +49,12 @@
+                     <a href="{{ route('saran.index') }}" class="{{ $tab(request()->routeIs('saran.*')) }}">Kritik &amp; Saran</a>
+                 @endif
+                 @if($me->isStaff())
+-                    <a href="{{ route('users.index') }}" class="{{ $tab(request()->routeIs('users.*')) }}">Kelola User</a>
+-                    <a href="{{ route('import-siswa.create') }}" class="{{ $tab(request()->routeIs('import-siswa.*')) }}">Import Siswa</a>
++                    {{-- Import Siswa ada sebagai tombol di halaman Kelola User, jadi tab ini ikut menyala di sana --}}
++                    <a href="{{ route('users.index') }}" class="{{ $tab(request()->routeIs('users.*', 'import-siswa.*')) }}">Kelola User</a>
+                     @if($me->isAdmin())
+                         <a href="{{ route('kredensial.index') }}" class="{{ $tab(request()->routeIs('kredensial.*')) }}">Kredensial</a>
+-                        <a href="{{ route('jenis-ekskul.index') }}" class="{{ $tab(request()->routeIs('jenis-ekskul.*')) }}">Tipe Ekskul</a>
+-                        <a href="{{ route('kategori-ekskul.index') }}" class="{{ $tab(request()->routeIs('kategori-ekskul.*')) }}">Kategori Ekskul</a>
++                        {{-- Tipe dan Kategori satu menu; pindah antar-keduanya lewat tab di halamannya --}}
++                        <a href="{{ route('jenis-ekskul.index') }}" class="{{ $tab(request()->routeIs('jenis-ekskul.*', 'kategori-ekskul.*')) }}">Tipe &amp; Kategori</a>
+                     @endif
+                     @php $menungguKeputusan = \App\Models\EkskulPengunduranDiri::menungguUntuk($me)->count(); @endphp
+                     <a href="{{ route('pengunduran.index') }}" class="{{ $tab(request()->routeIs('pengunduran.*')) }}">
+diff --git a/resources/views/partials/tab-pengelompokan.blade.php b/resources/views/partials/tab-pengelompokan.blade.php
+new file mode 100644
+index 0000000..3567853
+--- /dev/null
++++ b/resources/views/partials/tab-pengelompokan.blade.php
+@@ -0,0 +1,8 @@
++{{-- Tab untuk pindah antara halaman Tipe Ekskul dan Kategori Ekskul (keduanya satu menu di navbar) --}}
++<div class="flex gap-1 border-b border-gray-200 mb-6 overflow-x-auto" role="tablist" aria-label="Pengelompokan ekskul">
++    @foreach(['jenis-ekskul.index' => ['jenis-ekskul.*', 'Tipe Ekskul'], 'kategori-ekskul.index' => ['kategori-ekskul.*', 'Kategori Ekskul']] as $rute => [$pola, $label])
++        @php $aktif = request()->routeIs($pola); @endphp
++        <a href="{{ route($rute) }}" role="tab" aria-selected="{{ $aktif ? 'true' : 'false' }}"
++           class="px-4 py-2 text-sm font-semibold border-b-2 whitespace-nowrap {{ $aktif ? 'border-indigo-600 text-indigo-700' : 'border-transparent text-gray-500 hover:text-gray-700' }}">{{ $label }}</a>
++    @endforeach
++</div>
+diff --git a/tests/Feature/NavbarRampingTest.php b/tests/Feature/NavbarRampingTest.php
+new file mode 100644
+index 0000000..c8aef40
+--- /dev/null
++++ b/tests/Feature/NavbarRampingTest.php
+@@ -0,0 +1,70 @@
++<?php
++
++use App\Models\User;
++use Illuminate\Foundation\Testing\RefreshDatabase;
++
++uses(RefreshDatabase::class);
++
++beforeEach(function () {
++    $this->withoutVite();
++});
++
++function akunNav(string $role): User
++{
++    return User::factory()->create(['role' => $role, 'is_active' => true]);
++}
++
++test('navbar admin tidak lagi punya tab Import Siswa; tombolnya ada di Kelola User', function () {
++    $admin = akunNav('admin');
++    $import = route('import-siswa.create');
++
++    $this->actingAs($admin)->get(route('ekstrakurikuler.index'))
++        ->assertOk()
++        ->assertDontSee($import, false)
++        ->assertSee(route('users.index'), false);
++
++    $this->actingAs($admin)->get(route('users.index'))
++        ->assertOk()
++        ->assertSee($import, false);
++});
++
++test('pembina juga mencapai Import Siswa lewat Kelola User, bukan lewat navbar', function () {
++    $pembina = akunNav('pembina');
++    $import = route('import-siswa.create');
++
++    $this->actingAs($pembina)->get(route('ekstrakurikuler.index'))->assertOk()->assertDontSee($import, false);
++    $this->actingAs($pembina)->get(route('users.index'))->assertOk()->assertSee($import, false);
++    $this->actingAs($pembina)->get($import)->assertOk();
++});
++
++test('navbar admin punya satu menu Tipe & Kategori, bukan dua', function () {
++    $admin = akunNav('admin');
++
++    $this->actingAs($admin)->get(route('ekstrakurikuler.index'))
++        ->assertOk()
++        ->assertSee(route('jenis-ekskul.index'), false)
++        ->assertSee('Tipe &amp; Kategori', false)
++        ->assertDontSee(route('kategori-ekskul.index'), false);
++});
++
++test('halaman Tipe dan Kategori saling terhubung lewat tab', function () {
++    $admin = akunNav('admin');
++
++    $this->actingAs($admin)->get(route('jenis-ekskul.index'))
++        ->assertOk()
++        ->assertSee(route('kategori-ekskul.index'), false)
++        ->assertSee('aria-selected="true"', false);
++
++    $this->actingAs($admin)->get(route('kategori-ekskul.index'))
++        ->assertOk()
++        ->assertSee(route('jenis-ekskul.index'), false)
++        ->assertSee('aria-selected="true"', false);
++});
++
++test('pembina dan siswa tidak melihat menu Tipe & Kategori', function () {
++    foreach (['pembina', 'siswa'] as $role) {
++        $this->actingAs(akunNav($role))->get(route('ekstrakurikuler.index'))
++            ->assertOk()
++            ->assertDontSee(route('jenis-ekskul.index'), false);
++    }
++});

@@ -49,12 +49,12 @@
                     <a href="{{ route('saran.index') }}" class="{{ $tab(request()->routeIs('saran.*')) }}">Kritik &amp; Saran</a>
                 @endif
                 @if($me->isStaff())
-                    <a href="{{ route('users.index') }}" class="{{ $tab(request()->routeIs('users.*')) }}">Kelola User</a>
-                    <a href="{{ route('import-siswa.create') }}" class="{{ $tab(request()->routeIs('import-siswa.*')) }}">Import Siswa</a>
+                    {{-- Import Siswa ada sebagai tombol di halaman Kelola User, jadi tab ini ikut menyala di sana --}}
+                    <a href="{{ route('users.index') }}" class="{{ $tab(request()->routeIs('users.*', 'import-siswa.*')) }}">Kelola User</a>
                     @if($me->isAdmin())
                         <a href="{{ route('kredensial.index') }}" class="{{ $tab(request()->routeIs('kredensial.*')) }}">Kredensial</a>
-                        <a href="{{ route('jenis-ekskul.index') }}" class="{{ $tab(request()->routeIs('jenis-ekskul.*')) }}">Tipe Ekskul</a>
-                        <a href="{{ route('kategori-ekskul.index') }}" class="{{ $tab(request()->routeIs('kategori-ekskul.*')) }}">Kategori Ekskul</a>
+                        {{-- Tipe dan Kategori satu menu; pindah antar-keduanya lewat tab di halamannya --}}
+                        <a href="{{ route('jenis-ekskul.index') }}" class="{{ $tab(request()->routeIs('jenis-ekskul.*', 'kategori-ekskul.*')) }}">Tipe &amp; Kategori</a>
                     @endif
                     @php $menungguKeputusan = \App\Models\EkskulPengunduranDiri::menungguUntuk($me)->count(); @endphp
                     <a href="{{ route('pengunduran.index') }}" class="{{ $tab(request()->routeIs('pengunduran.*')) }}">

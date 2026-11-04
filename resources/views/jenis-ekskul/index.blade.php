@@ -9,6 +9,7 @@
 <body class="app-bg p-6">
     <div class="max-w-4xl mx-auto">
         @include('partials.navbar')
+        @include('partials.tab-pengelompokan')
 
         <div class="mb-6" data-aos="fade-down">
             <h1 class="text-3xl font-bold text-gray-800">Tipe Ekskul</h1>
