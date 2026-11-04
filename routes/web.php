@@ -19,4 +19,9 @@ Route::middleware('auth')->group(function () {
 
 Route::get('/hello', [App\Http\Controllers\HelloController::class, 'index'])->middleware('auth');
 
+Route::get('/hitung_tenor', [App\Http\Controllers\UtangController::class, 'index']);
+Route::post('/hitung_tenor', [App\Http\Controllers\UtangController::class, 'store']);
+Route::get('/pinjam', [App\Http\Controllers\PinjamController::class, 'index'])->middleware('auth');
+Route::post('/pinjam', [App\Http\Controllers\PinjamController::class, 'store'])->middleware('auth');
+
 require __DIR__.'/auth.php';
