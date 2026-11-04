@@ -220,6 +220,12 @@ Route::middleware(['auth', EnsureUserIsActive::class, PaksaGantiPassword::class]
     Route::get('/pendaftaran/create', [PendaftaranEkskulController::class, 'create'])->name('pendaftaran.create');
     Route::post('/pendaftaran/store', [PendaftaranEkskulController::class, 'store'])->name('pendaftaran.store');
 
+    // Kuota, buka/tutup pendaftaran, dan memutuskan pendaftar: admin, pembina ekskul itu, atau penanggung jawab anggota
+    // (siswa pemegang jabatan bertanda). Hak dicek lewat Gate di controller (kelolaAnggota / putuskanPendaftaran),
+    // bukan lewat peran, supaya penanggung jawab yang berperan siswa tetap bisa.
+    Route::patch('/pendaftaran/{pendaftaran}/status', [PendaftaranEkskulController::class, 'updateStatus'])->name('pendaftaran.updateStatus');
+    Route::patch('/ekstrakurikuler/{ekstrakurikuler}/pendaftaran-kontrol', [PendaftaranKontrolController::class, 'update'])->name('pendaftaran-kontrol.update');
+
     // Admin & pembina aja
     Route::middleware(RoleMiddleware::class.':admin,pembina')->group(function () {
         Route::get('/ekstrakurikuler/create', [EkstrakurikulerController::class, 'create'])->name('ekstrakurikuler.create');
@@ -227,7 +233,6 @@ Route::middleware(['auth', EnsureUserIsActive::class, PaksaGantiPassword::class]
         Route::get('/ekstrakurikuler/{id}/edit', [EkstrakurikulerController::class, 'edit'])->name('ekstrakurikuler.edit');
         Route::put('/ekstrakurikuler/{id}', [EkstrakurikulerController::class, 'update'])->name('ekstrakurikuler.update');
         Route::delete('/ekstrakurikuler/{id}', [EkstrakurikulerController::class, 'destroy'])->name('ekstrakurikuler.destroy');
-        Route::patch('/pendaftaran/{pendaftaran}/status', [PendaftaranEkskulController::class, 'updateStatus'])->name('pendaftaran.updateStatus');
         Route::post('/ekstrakurikuler/{ekstrakurikuler}/pengumuman', [EkskulPengumumanController::class, 'store'])->name('ekskul-pengumuman.store');
         Route::get('/ekskul-pengumuman/{pengumuman}/edit', [EkskulPengumumanController::class, 'edit'])->name('ekskul-pengumuman.edit');
         Route::put('/ekskul-pengumuman/{pengumuman}', [EkskulPengumumanController::class, 'update'])->name('ekskul-pengumuman.update');
@@ -259,8 +264,7 @@ Route::middleware(['auth', EnsureUserIsActive::class, PaksaGantiPassword::class]
         Route::post('/ekstrakurikuler/{ekstrakurikuler}/pembina/keluar', [PengunduranDiriController::class, 'ajukanPembina'])->name('pengunduran.pembina');
         Route::post('/pendaftaran/{pendaftaran}/keluarkan', [PengunduranDiriController::class, 'keluarkan'])->name('pengunduran.keluarkan');
 
-        // Buka/tutup pendaftaran dan tautan ekskul
-        Route::patch('/ekstrakurikuler/{ekstrakurikuler}/pendaftaran-kontrol', [PendaftaranKontrolController::class, 'update'])->name('pendaftaran-kontrol.update');
+        // Tautan ekskul
         Route::post('/tautan', [EkskulTautanController::class, 'store'])->name('tautan.store');
         Route::delete('/tautan/{tautan}', [EkskulTautanController::class, 'destroy'])->name('tautan.destroy');
 

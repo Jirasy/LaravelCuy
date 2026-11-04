@@ -10,7 +10,7 @@
     ];
 @endphp
 <div class="bg-amber-50 border border-amber-300 text-amber-900 p-5 rounded-xl shadow-sm mb-6 text-sm" id="bentrok-jadwal" role="alert" data-aos="fade-up">
-    <h2 class="text-base font-bold mb-1"><x-ikon nama="peringatan" :ukuran="18" /> Ada {{ $bentrok->count() }} jadwal ekskul yang bentrok</h2>
+    <h2 class="text-base font-bold mb-1"><x-ikon-kaca nama="peringatan" warna="amber" ukuran="sm" class="mr-2 align-middle" /> Ada {{ $bentrok->count() }} jadwal ekskul yang bentrok</h2>
     <p class="mb-4">Jamnya tumpang tindih di hari yang sama. Pilih ekskul yang kamu hadiri atau atur pembagian waktunya, supaya pembina tahu rencanamu.</p>
 
     <div class="space-y-3">

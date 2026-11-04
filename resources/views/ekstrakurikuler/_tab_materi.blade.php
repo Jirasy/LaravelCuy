@@ -1,7 +1,7 @@
 {{-- Variabel: $ekskul, $staff, $bolehMateri, $materis, $prs, $anggotaAkses, $pengumpulanSaya, $pendaftaranSaya --}}
 @if(!$bolehMateri)
     <div class="bg-white p-8 rounded-xl shadow-sm border border-gray-200 text-center">
-        <p class="font-semibold text-gray-800 mb-1"><x-ikon nama="gembok" :ukuran="16" /> Materi &amp; Task belum bisa kamu buka</p>
+        <p class="font-semibold text-gray-800 mb-1"><x-ikon-kaca nama="gembok" warna="abu" ukuran="sm" class="mr-2 align-middle" /> Materi &amp; Task belum bisa kamu buka</p>
         <p class="text-sm text-gray-600 mb-4">Akses materi diberikan oleh pembina atau admin. Kamu bisa meminta izin.</p>
         <form action="{{ route('materi.minta-akses', $ekskul->id) }}" method="POST">
             @csrf

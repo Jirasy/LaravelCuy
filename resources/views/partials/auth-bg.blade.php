@@ -1,6 +1,7 @@
 {{--
     Latar halaman masuk/daftar: pemandangan gunung berlapis (SVG buatan sendiri, tanpa gambar eksternal).
-    Mode terang = siang berawan, mode gelap = malam berbintang. Warna diatur lewat variabel --sc-* di partials/auth-style.
+    Pagi / siang / sore / malam mengikuti jam lokal perangkat (html[data-waktu], dipasang partials/tema-waktu).
+    Warna diatur lewat variabel --sc-* di partials/auth-style; posisi matahari lewat .sc-matahari di file yang sama.
 --}}
 @php
     // Puncak gunung belakang yang diberi salju, dan polygon bergerigi untuk tutup saljunya
@@ -25,6 +26,7 @@
     <defs>
         <linearGradient id="sc-langit" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0" style="stop-color:var(--sc-sky-top)"/>
+            <stop offset=".6" style="stop-color:var(--sc-sky-mid)"/>
             <stop offset="1" style="stop-color:var(--sc-sky-bottom)"/>
         </linearGradient>
         <radialGradient id="sc-cahaya">
@@ -55,10 +57,12 @@
 
     <rect width="1600" height="900" fill="url(#sc-langit)"/>
 
-    {{-- Siang: matahari + awan + burung --}}
+    {{-- Pagi / siang / sore: matahari (posisinya mengikuti waktu) + awan + burung --}}
     <g class="sc-day">
-        <circle cx="1010" cy="240" r="230" fill="url(#sc-cahaya)"/>
-        <circle cx="1010" cy="240" r="76" style="fill:var(--sc-sun)"/>
+        <g class="sc-matahari">
+            <circle cx="1010" cy="240" r="230" fill="url(#sc-cahaya)"/>
+            <circle cx="1010" cy="240" r="76" style="fill:var(--sc-sun)"/>
+        </g>
         <g transform="translate(150 150) scale(1.25)"><g class="sc-awan sc-awan-1"><use href="#sc-awan"/></g></g>
         <g transform="translate(1240 110)"><g class="sc-awan sc-awan-2"><use href="#sc-awan"/></g></g>
         <g transform="translate(560 235) scale(.8)"><g class="sc-awan sc-awan-3"><use href="#sc-awan"/></g></g>

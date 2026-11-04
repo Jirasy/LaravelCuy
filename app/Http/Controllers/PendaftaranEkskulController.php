@@ -28,12 +28,18 @@ class PendaftaranEkskulController extends Controller
                     ->orWhere('user_id', $user->id);
             });
         } elseif (! $user->isAdmin()) {
-            $query->where('user_id', $user->id);
+            // Siswa melihat pendaftarannya sendiri. Penanggung jawab anggota juga melihat pendaftar yang MENUNGGU
+            // di ekskul yang ia tanggung jawabi (bukan seluruh riwayat pendaftar).
+            $query->where(function ($q) use ($user) {
+                $q->where('user_id', $user->id)
+                    ->orWhere(fn ($t) => $t->whereIn('ekstrakurikuler_id', $user->idEkskulPenanggungJawab())->where('status', 'pending'));
+            });
         }
 
         $pendaftarans = $query->get();
+        $ikutMengelola = ! $user->isStaff() && count($user->idEkskulPenanggungJawab()) > 0;
 
-        return view('pendaftaran.index', compact('pendaftarans'));
+        return view('pendaftaran.index', compact('pendaftarans', 'ikutMengelola'));
     }
 
     public function create(Request $request)
@@ -195,15 +201,20 @@ class PendaftaranEkskulController extends Controller
         );
     }
 
-    // Hanya admin atau pembina ekskul yang bersangkutan
+    // Admin atau pembina ekskul yang bersangkutan; penanggung jawab anggota hanya untuk pendaftar yang menunggu
     public function updateStatus(Request $request, PendaftaranEkskul $pendaftaran)
     {
-        Gate::authorize('kelola', $pendaftaran->ekstrakurikuler);
+        Gate::authorize('putuskanPendaftaran', [$pendaftaran->ekstrakurikuler, $pendaftaran]);
 
         $data = $request->validate([
             'status' => 'required|in:pending,diterima,ditolak',
             'alasan' => 'nullable|string',
         ]);
+
+        // Penanggung jawab anggota hanya menyetujui/menolak; mengembalikan ke "menunggu" tetap hak admin/pembina
+        if ($data['status'] === 'pending' && ! $request->user()->can('kelola', $pendaftaran->ekstrakurikuler)) {
+            return back()->with('error', 'Penanggung jawab anggota hanya dapat menyetujui atau menolak pendaftar yang menunggu.');
+        }
 
         $sebelumnya = $pendaftaran->status;
 

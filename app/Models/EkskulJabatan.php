@@ -10,6 +10,11 @@ class EkskulJabatan extends Model
 
     protected $fillable = [
         'ekstrakurikuler_id', 'nama', 'varian', 'deskripsi', 'tugas', 'tanggung_jawab', 'urutan', 'kuota',
+        'boleh_kelola_anggota',
+    ];
+
+    protected $casts = [
+        'boleh_kelola_anggota' => 'boolean',
     ];
 
     public function ekstrakurikuler()

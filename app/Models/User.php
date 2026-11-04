@@ -6,6 +6,7 @@ use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\DB;
 
 class User extends Authenticatable
 {
@@ -152,6 +153,29 @@ class User extends Authenticatable
         return $this->cacheIdKelola ??= $this->ekskulDikelola()
             ->pluck('ekstrakurikulers.id')
             ->map(fn ($id) => (int) $id)
+            ->all();
+    }
+
+    private ?array $cacheIdPenanggungJawab = null;
+
+    // Id ekskul tempat user ini "penanggung jawab anggota": anggota aktif yang SEDANG memegang jabatan bertanda
+    // boleh_kelola_anggota di ekskul itu (periode jabatan belum berakhir). Keluar dari ekskul atau jabatannya
+    // berakhir = hak hilang seketika. Di-cache selama satu request.
+    public function idEkskulPenanggungJawab(): array
+    {
+        return $this->cacheIdPenanggungJawab ??= DB::table('ekskul_anggota_jabatans as aj')
+            ->join('ekskul_jabatans as j', 'j.id', '=', 'aj.jabatan_id')
+            ->join('pendaftaran_ekskuls as p', 'p.id', '=', 'aj.pendaftaran_id')
+            ->where('p.user_id', $this->id)
+            ->where('p.status', 'diterima')
+            ->where('p.status_anggota', 'aktif')
+            ->whereColumn('p.ekstrakurikuler_id', 'j.ekstrakurikuler_id')
+            ->where('j.boleh_kelola_anggota', true)
+            ->whereNull('aj.periode_selesai')
+            ->pluck('j.ekstrakurikuler_id')
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values()
             ->all();
     }
 

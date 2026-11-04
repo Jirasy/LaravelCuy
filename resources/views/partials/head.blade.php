@@ -1,26 +1,5 @@
-{{-- Dipasang di <head> setiap halaman: tema gelap/terang, Tailwind, AOS, sapaan, animasi --}}
-<script>
-    // Terapkan tema tersimpan SEBELUM halaman tampil (supaya tidak kedip putih)
-    (function () {
-        var t = localStorage.getItem('theme');
-        if (t === 'dark' || (!t && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-            document.documentElement.classList.add('dark');
-        }
-    })();
-    // Sinkronkan status saklar untuk pembaca layar (aria-checked = mode gelap aktif)
-    function syncThemeSwitch() {
-        var dark = document.documentElement.classList.contains('dark');
-        document.querySelectorAll('[data-theme-switch]').forEach(function (el) {
-            el.setAttribute('aria-checked', dark ? 'true' : 'false');
-        });
-    }
-    function toggleTheme() {
-        var dark = document.documentElement.classList.toggle('dark');
-        syncThemeSwitch();
-        localStorage.setItem('theme', dark ? 'dark' : 'light');
-    }
-    document.addEventListener('DOMContentLoaded', syncThemeSwitch);
-</script>
+{{-- Dipasang di <head> setiap halaman: tema otomatis menurut jam lokal (gelap/terang), Tailwind, AOS, sapaan, animasi --}}
+@include('partials.tema-waktu')
 @auth
 <script>document.documentElement.dataset.palet = @json(auth()->user()->palet ?? 'aurora');</script>
 @php
@@ -131,7 +110,7 @@ html.dark .app-bg::after {
     50%  { transform: translate3d(3%, -4%, 0) scale(1.12) rotate(6deg); }
     100% { transform: translate3d(-4%, 3%, 0) scale(1.05) rotate(-5deg); }
 }
-@keyframes auroraHue { from { filter: hue-rotate(-25deg); } to { filter: hue-rotate(45deg); } }
+@keyframes auroraHue { from { filter: hue-rotate(var(--hue-dari, -25deg)); } to { filter: hue-rotate(var(--hue-ke, 45deg)); } }
 @keyframes twinkle { from { opacity: .25; } to { opacity: .85; } }
 @keyframes gradientShift {
     0%   { background-position: 0% 50%; }
@@ -651,3 +630,5 @@ html.dark .sparkle { color: #e0e7ff; }
     .pk-kustom .pk-muted { opacity: .9; }
 </style>
 @endverbatim
+@include('partials.tema-waktu-style')
+@include('partials.ikon-style')

@@ -42,3 +42,12 @@
         <input type="number" name="urutan" min="0" max="255" value="{{ old('urutan', $jabatan->urutan ?? 0) }}" class="w-full border p-2 rounded-lg">
     </div>
 </div>
+
+<label class="flex items-start gap-2 text-sm text-gray-800 bg-amber-50 border border-amber-200 rounded-lg p-3">
+    <input type="checkbox" name="boleh_kelola_anggota" value="1" class="mt-0.5"
+           {{ old('boleh_kelola_anggota', $jabatan->boleh_kelola_anggota ?? false) ? 'checked' : '' }}>
+    <span>
+        <span class="font-semibold">Penanggung jawab anggota</span>
+        <span class="block text-xs text-gray-600">Pemegang jabatan ini (selama masih anggota aktif) ikut mengatur kuota, buka/tutup pendaftaran, dan menyetujui atau menolak pendaftar ekskul ini. Jabatan, keanggotaan, dan pengeluaran anggota tetap hanya hak admin dan pembina.</span>
+    </span>
+</label>

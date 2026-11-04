@@ -138,6 +138,11 @@
                         @include('ekstrakurikuler._kontrol_pendaftaran')
                         @include('ekstrakurikuler._beri_tugas')
                     @endif
+
+                    {{-- Penanggung jawab anggota (siswa pemegang jabatan bertanda) hanya mendapat panel kuota/buka-tutup pendaftaran --}}
+                    @if($kelolaAnggota && ! $staff)
+                        @include('ekstrakurikuler._kontrol_pendaftaran')
+                    @endif
                 </div>
             </div>
 

@@ -57,7 +57,7 @@
 
                 @if(session('bentrok_baru'))
                     <div class="bg-amber-50 border border-amber-300 text-amber-900 px-4 py-3 rounded-lg text-sm" role="alert">
-                        <p class="font-bold mb-1"><x-ikon nama="peringatan" :ukuran="16" /> Jadwal ekskul ini bentrok dengan ekskul lain milikmu</p>
+                        <p class="font-bold mb-1"><x-ikon-kaca nama="peringatan" warna="amber" ukuran="sm" class="mr-2 align-middle" /> Jadwal ekskul ini bentrok dengan ekskul lain milikmu</p>
                         <ul class="list-disc pl-5 mb-3">
                             @foreach(session('bentrok_baru') as $ringkasan)<li>{{ $ringkasan }}</li>@endforeach
                         </ul>

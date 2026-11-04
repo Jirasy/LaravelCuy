@@ -79,6 +79,10 @@ class EkskulJabatanController extends Controller
         $data['urutan'] = $data['urutan'] ?? 0;
         $data['kuota']  = $data['kuota'] ?? null;
 
+        // Tanda "penanggung jawab anggota": kotak centang tak dikirim = mati. Hanya sampai sini karena rute jabatan
+        // sudah dibatasi admin/pembina ekskul itu (senior tidak bisa menaikkan haknya sendiri).
+        $data['boleh_kelola_anggota'] = $request->boolean('boleh_kelola_anggota');
+
         $kembar = EkskulJabatan::where('ekstrakurikuler_id', $ekskulId)
             ->where('nama', $data['nama'])
             ->where('varian', $data['varian'])

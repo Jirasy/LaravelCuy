@@ -95,16 +95,16 @@
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
             @php
                 $stat = [
-                    ['Total user',      $users->count(),                                          'pengguna'],
-                    ['Admin & Pembina', $users->whereIn('role', ['admin', 'pembina'])->count(),  'perisai'],
-                    ['Siswa',           $users->where('role', 'siswa')->count(),                  'topi'],
-                    ['Nonaktif',        $users->where('is_active', false)->count(),               'jeda'],
+                    ['Total user',      $users->count(),                                          'pengguna', 'langit'],
+                    ['Admin & Pembina', $users->whereIn('role', ['admin', 'pembina'])->count(),  'perisai', 'ungu'],
+                    ['Siswa',           $users->where('role', 'siswa')->count(),                  'topi', 'aksen'],
+                    ['Nonaktif',        $users->where('is_active', false)->count(),               'jeda', 'abu'],
                 ];
             @endphp
             @foreach($stat as $i => $s)
                 <div data-aos="fade-up" data-aos-delay="{{ $i * 80 }}">
                     <div class="card-hover h-full bg-white rounded-xl border border-gray-200 shadow-sm p-4 flex items-center gap-3">
-                        <span class="inline-grid place-items-center w-10 h-10 rounded-xl bg-indigo-100 text-indigo-600"><x-ikon :nama="$s[2]" :ukuran="22" /></span>
+                        <x-ikon-kaca :nama="$s[2]" :warna="$s[3]" />
                         <div>
                             <p class="text-2xl font-bold text-gray-800 leading-none">{{ $s[1] }}</p>
                             <p class="text-xs text-gray-500 mt-1">{{ $s[0] }}</p>

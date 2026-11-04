@@ -23,6 +23,10 @@
             <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-lg mb-4">{{ session('success') }}</div>
         @endif
 
+        @if(!empty($ikutMengelola))
+            <p class="text-sm text-gray-600 mb-4">Selain pendaftaranmu, di sini juga tampil pendaftar yang masih menunggu di ekskul yang kamu tanggung jawabi sebagai penanggung jawab anggota.</p>
+        @endif
+
         @if(session('error'))
             <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg mb-4">{{ session('error') }}</div>
         @endif
@@ -58,11 +62,11 @@
                                     </span>
                                 @endif
                             </td>
-                            <td class="p-3">{{ $p->kelas ?? '-' }}<br><span class="text-xs text-gray-500">{{ $p->nisn ?? '' }}</span></td>
+                            <td class="p-3">{{ $p->kelas ?? '-' }}<br>@if(auth()->user()->isStaff() || $p->user_id === auth()->id())<span class="text-xs text-gray-500">{{ $p->nisn ?? '' }}</span>@endif</td>
                             <td class="p-3">{{ $p->ekstrakurikuler->nama_ekstrakurikuler ?? '-' }}</td>
                             <td class="p-3 max-w-xs">{{ $p->alasan_mendaftar ?? '-' }}</td>
                             <td class="p-3">
-                                @can('kelola', $p->ekstrakurikuler)
+                                @can('putuskanPendaftaran', [$p->ekstrakurikuler, $p])
                                 <form action="{{ route('pendaftaran.updateStatus', $p->id) }}" method="POST" class="space-y-2">
                                     @csrf
                                     @method('PATCH')

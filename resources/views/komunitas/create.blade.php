@@ -11,7 +11,7 @@
         @include('partials.navbar')
 
         <div class="mb-6" data-aos="fade-down">
-            <h1 class="text-3xl font-bold text-gray-800"><x-ikon nama="tunas" :ukuran="30" /> Buat Komunitas</h1>
+            <h1 class="text-3xl font-bold text-gray-800"><x-ikon-kaca nama="tunas" warna="zamrud" class="mr-2 align-middle" /> Buat Komunitas</h1>
             <p class="text-gray-600 text-sm">Komunitas adalah ekskul yang baru lahir. Admin akan meresmikannya jadi ekskul dan menentukan tipenya (biasa, seleksi, atau organisasi).</p>
         </div>
 

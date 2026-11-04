@@ -17,6 +17,9 @@
             <div class="flex justify-between items-start gap-4">
                 <div>
                     <h3 class="text-lg font-bold text-gray-900">{{ $j->label_lengkap }}</h3>
+                    @if($j->boleh_kelola_anggota)
+                        <span class="inline-block mt-1 px-2 py-0.5 text-xs font-semibold rounded-full bg-amber-100 text-amber-800">Penanggung jawab anggota</span>
+                    @endif
                     <p class="text-xs text-gray-500 mt-0.5">
                         @if($j->kuota)
                             {{ $j->pemegangAktif->count() }} dari {{ $j->kuota }} kursi terisi

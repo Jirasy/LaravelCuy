@@ -6,12 +6,12 @@ use App\Models\Ekstrakurikuler;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 
-// Buka/tutup pendaftaran ekskul: admin & pembina ekskul itu.
+// Buka/tutup pendaftaran dan kuota ekskul: admin, pembina ekskul itu, atau penanggung jawab anggota.
 class PendaftaranKontrolController extends Controller
 {
     public function update(Request $request, Ekstrakurikuler $ekstrakurikuler)
     {
-        Gate::authorize('kelola', $ekstrakurikuler);
+        Gate::authorize('kelolaAnggota', $ekstrakurikuler);
 
         $data = $request->validate([
             'pendaftaran_dibuka'     => 'required|boolean',

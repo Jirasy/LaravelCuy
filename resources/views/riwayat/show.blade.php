@@ -29,13 +29,13 @@
         {{-- Ringkasan --}}
         <div class="grid grid-cols-3 gap-4 mb-6">
             @foreach([
-                ['Ekskul diikuti', $riwayat->where('status', 'diterima')->where('status_anggota', 'aktif')->count(), 'sekolah'],
-                ['Prestasi', $prestasis->count(), 'piala'],
-                ['Jabatan dipegang', $riwayat->filter(fn ($r) => $r->status === 'diterima' && $r->jabatanAktif->isNotEmpty())->count(), 'bintang'],
+                ['Ekskul diikuti', $riwayat->where('status', 'diterima')->where('status_anggota', 'aktif')->count(), 'sekolah', 'langit'],
+                ['Prestasi', $prestasis->count(), 'piala', 'amber'],
+                ['Jabatan dipegang', $riwayat->filter(fn ($r) => $r->status === 'diterima' && $r->jabatanAktif->isNotEmpty())->count(), 'bintang', 'mawar'],
             ] as $i => $s)
                 <div data-aos="fade-up" data-aos-delay="{{ $i * 80 }}">
                     <div class="card-hover h-full bg-white rounded-xl border border-gray-200 shadow-sm p-4 text-center">
-                        <p class="flex justify-center text-indigo-600"><x-ikon :nama="$s[2]" :ukuran="28" /></p>
+                        <p class="flex justify-center"><x-ikon-kaca :nama="$s[2]" :warna="$s[3]" ukuran="lg" /></p>
                         <p class="text-2xl font-bold text-gray-800 leading-none mt-1">{{ $s[1] }}</p>
                         <p class="text-xs text-gray-500 mt-1">{{ $s[0] }}</p>
                     </div>

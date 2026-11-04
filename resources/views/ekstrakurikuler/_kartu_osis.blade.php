@@ -41,7 +41,7 @@
         <div class="hero-glass rounded-2xl p-6 mb-6" data-aos="fade-up">
             <div class="flex flex-wrap items-center justify-between gap-4">
                 <div class="min-w-0">
-                    <h2 class="text-xl font-bold"><x-ikon nama="kotak-suara" :ukuran="22" /> Rekrutmen {{ $ekskul->nama_tampil }}</h2>
+                    <h2 class="text-xl font-bold"><x-ikon-kaca nama="kotak-suara" ukuran="sm" class="mr-2 align-middle" /> Rekrutmen {{ $ekskul->nama_tampil }}</h2>
 
                     @if($saya->role === 'siswa')
                         @if($periodeBuka)

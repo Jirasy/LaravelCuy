@@ -98,6 +98,7 @@ class EkstrakurikulerController extends Controller
         // Hak kelola per ekskul: admin, atau pembina yang ditugaskan di ekskul ini.
         // (variabel $staff dipakai view untuk menampilkan form/tombol kelola)
         $staff = $user->can('kelola', $ekskul);
+        $kelolaAnggota = $user->can('kelolaAnggota', $ekskul);
 
         // Pendaftaran milik user yang sedang login (kalau ada)
         $pendaftaranSaya = PendaftaranEkskul::where('ekstrakurikuler_id', $ekskul->id)
@@ -313,7 +314,7 @@ class EkstrakurikulerController extends Controller
         return view('ekstrakurikuler.show', compact(
             'ekskul', 'tab', 'staff', 'bolehLihat', 'pendaftaranSaya',
             'pengumumans', 'anggota', 'filterAnggota', 'prestasis', 'events', 'anggotaOpsi', 'jabatans',
-            'pengajuanTerakhir', 'sayaPembina', 'tautans', 'kontak', 'anggotaTugas',
+            'pengajuanTerakhir', 'sayaPembina', 'kelolaAnggota', 'tautans', 'kontak', 'anggotaTugas',
             'pertemuans', 'kehadiranSaya', 'anggotaNilai', 'persenHadir', 'daftarPeriode', 'nilaiSaya',
             'bolehMateri', 'materis', 'prs', 'anggotaAkses', 'pengumpulanSaya',
             'fotos', 'fotoMenunggu', 'fotoSaya', 'eventOpsi', 'kategoriDipilih', 'bisaUnggah'
