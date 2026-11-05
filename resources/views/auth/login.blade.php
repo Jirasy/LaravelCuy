@@ -5,7 +5,7 @@
 @section('content')
     <div class="auth-card">
         <header class="auth-head">
-            <span class="auth-badge">@include('partials.auth-icon', ['ikon' => 'topi', 'ukuran' => 26])</span>
+            @include('partials.auth-sekolah')
             <h1 class="auth-title">Masuk</h1>
             <p class="auth-sub">Masuk untuk mendaftar atau mengelola ekstrakurikuler.</p>
         </header>

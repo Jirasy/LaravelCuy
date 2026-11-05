@@ -12,12 +12,20 @@
     <div class="nav-bar nav-{{ $gayaNav }} nav-grid {{ $utama ? 'mb-6' : '' }}"
          @if($utama) data-aos="fade-down" @endif>
 
-        {{-- Hanya foto profil (tanpa nama) supaya hemat tempat; nama & peran muncul sebagai tooltip --}}
-        <a href="{{ route('profil.show') }}" class="nav-avatar {{ $profilAktif ? 'is-active' : '' }}"
-           title="{{ $me->name }} · {{ ucfirst($me->role) }}" aria-label="Profil saya ({{ $me->name }})"
-           @if($profilAktif) aria-current="page" @endif>
-            @include('partials.avatar', ['user' => $me, 'ukuran' => $gayaNav === 'ringkas' ? 28 : 36])
-        </a>
+        {{-- Identitas: logo sekolah (ke katalog) lalu foto profil. Keduanya satu kolom grid supaya tata letak responsif tidak berubah. --}}
+        <div class="nav-ident">
+            <a href="{{ route('ekstrakurikuler.index') }}" class="nav-brand" title="{{ config('sekolah.nama') }}" aria-label="{{ config('sekolah.nama') }}, ke katalog ekskul">
+                @include('partials.logo-sekolah', ['ukuran' => $gayaNav === 'ringkas' ? 26 : 32])
+                <span class="nav-brand-teks">{{ config('sekolah.singkatan') }}</span>
+            </a>
+
+            {{-- Hanya foto profil (tanpa nama) supaya hemat tempat; nama & peran muncul sebagai tooltip --}}
+            <a href="{{ route('profil.show') }}" class="nav-avatar {{ $profilAktif ? 'is-active' : '' }}"
+               title="{{ $me->name }} · {{ ucfirst($me->role) }}" aria-label="Profil saya ({{ $me->name }})"
+               @if($profilAktif) aria-current="page" @endif>
+                @include('partials.avatar', ['user' => $me, 'ukuran' => $gayaNav === 'ringkas' ? 28 : 36])
+            </a>
+        </div>
 
         {{-- Menu: satu baris yang bisa digeser; panah muncul otomatis kalau menunya melebihi lebar layar --}}
         <div class="nav-links" data-nav-links>

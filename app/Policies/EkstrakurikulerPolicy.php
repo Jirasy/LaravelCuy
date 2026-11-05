@@ -27,6 +27,13 @@ class EkstrakurikulerPolicy
             || in_array((int) $ekskul->id, $user->idEkskulPenanggungJawab(), true);
     }
 
+    // Menambah/mengganti/menghapus logo ekskul: admin, pembina ekskul itu, atau penanggung jawab anggota
+    // (siswa pemegang jabatan bertanda). Satu pintu supaya kalau aturannya berubah cukup diubah di sini.
+    public function ubahLogo(User $user, Ekstrakurikuler $ekskul): bool
+    {
+        return $this->kelolaAnggota($user, $ekskul);
+    }
+
     // Memutuskan pendaftar: pengelola boleh semuanya. Penanggung jawab anggota hanya boleh memutuskan pendaftar yang
     // masih menunggu, bukan miliknya sendiri, dan bukan di ekskul berseleksi (itu lewat alur seleksi/CaSis).
     public function putuskanPendaftaran(User $user, Ekstrakurikuler $ekskul, PendaftaranEkskul $pendaftaran): bool

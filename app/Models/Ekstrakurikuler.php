@@ -17,6 +17,7 @@ class Ekstrakurikuler extends Model
     protected $fillable = [
         'nama_ekstrakurikuler',
         'nama_singkatan',
+        'logo',
         'wa_grup_url',
         'wa_pembina',
         'telegram_url',
@@ -79,6 +80,11 @@ class Ekstrakurikuler extends Model
             foreach (['materi', 'pr', 'galeri'] as $folder) {
                 Storage::disk('local')->deleteDirectory("{$folder}/{$ekskul->id}");
             }
+
+            // Logo disimpan di disk publik (bukan privat seperti materi/galeri), jadi dihapus terpisah
+            if ($ekskul->logo) {
+                Storage::disk('public')->delete($ekskul->logo);
+            }
         });
     }
 
@@ -92,6 +98,51 @@ class Ekstrakurikuler extends Model
     public function getNamaTampilAttribute(): string
     {
         return $this->nama_singkatan ?: (string) $this->nama_ekstrakurikuler;
+    }
+
+    // ---- Logo ----
+
+    // Warna latar monogram (gradasi dua warna Tailwind 600/700, semuanya cukup gelap untuk teks putih).
+    // Dipilih dari nama, jadi satu ekskul selalu berwarna sama dan antar-ekskul tersebar rata.
+    public const WARNA_MONOGRAM = [
+        ['#4f46e5', '#7c3aed'],   // indigo -> violet
+        ['#0284c7', '#0891b2'],   // sky -> cyan
+        ['#059669', '#0d9488'],   // emerald -> teal
+        ['#d97706', '#ea580c'],   // amber -> orange
+        ['#dc2626', '#e11d48'],   // red -> rose
+        ['#c026d3', '#db2777'],   // fuchsia -> pink
+        ['#4338ca', '#1d4ed8'],   // indigo -> blue
+        ['#65a30d', '#16a34a'],   // lime -> green
+    ];
+
+    // Alamat logo yang diunggah, atau null kalau belum ada (tampilan lalu memakai monogram)
+    public function getLogoUrlAttribute(): ?string
+    {
+        return $this->logo ? asset('storage/'.$this->logo) : null;
+    }
+
+    // Teks monogram cadangan: singkatan kalau ada ("PMR"), kalau tidak huruf pertama dua kata pertama ("Palang Merah" -> "PM").
+    // Maksimal 3 huruf supaya tetap terbaca di lingkaran kecil.
+    public function getMonogramAttribute(): string
+    {
+        $singkatan = preg_replace('/[^\p{L}\p{N}]/u', '', (string) $this->nama_singkatan);
+
+        if ($singkatan !== '') {
+            return mb_strtoupper(mb_substr($singkatan, 0, 3));
+        }
+
+        $kata = preg_split('/[^\p{L}\p{N}]+/u', trim((string) $this->nama_ekstrakurikuler), -1, PREG_SPLIT_NO_EMPTY);
+        $huruf = collect($kata)->take(2)->map(fn ($k) => mb_substr($k, 0, 1))->implode('');
+
+        return mb_strtoupper($huruf !== '' ? $huruf : '?');
+    }
+
+    // Pasangan warna gradasi untuk monogram, tetap untuk nama yang sama
+    public function getWarnaMonogramAttribute(): array
+    {
+        $kunci = mb_strtolower((string) $this->nama_ekstrakurikuler);
+
+        return self::WARNA_MONOGRAM[crc32($kunci) % count(self::WARNA_MONOGRAM)];
     }
 
     // Singkatan kosong/spasi saja disimpan sebagai null (kolomnya unik; null boleh banyak, string kosong tidak)

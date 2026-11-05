@@ -97,6 +97,8 @@
         background: linear-gradient(135deg, rgb(var(--p1-rgb)), rgb(var(--p2-rgb)));
         box-shadow: inset 0 1px 0 rgba(255, 255, 255, .45), 0 12px 26px -10px rgb(var(--p1-rgb) / .85);
     }
+    .auth-logo { display: block; margin: 0 auto .65rem; filter: drop-shadow(0 12px 18px rgb(var(--p1-rgb) / .4)); }
+    .auth-sekolah { margin: 0 0 1rem; font-size: .72rem; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; color: var(--au-muted); }
     .auth-title { margin: 0; font-size: 1.85rem; line-height: 1.15; font-weight: 800; color: var(--au-text); letter-spacing: -.01em; }
     .auth-sub { margin: .45rem 0 0; font-size: .875rem; line-height: 1.45; color: var(--au-muted); }
 

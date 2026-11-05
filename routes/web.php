@@ -11,6 +11,7 @@ use App\Http\Controllers\CasisController;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\EkskulEventController;
 use App\Http\Controllers\EkskulFotoController;
+use App\Http\Controllers\EkskulLogoController;
 use App\Http\Controllers\EkskulJabatanController;
 use App\Http\Controllers\EkskulMateriController;
 use App\Http\Controllers\EkskulPembinaController;
@@ -225,6 +226,10 @@ Route::middleware(['auth', EnsureUserIsActive::class, PaksaGantiPassword::class]
     // bukan lewat peran, supaya penanggung jawab yang berperan siswa tetap bisa.
     Route::patch('/pendaftaran/{pendaftaran}/status', [PendaftaranEkskulController::class, 'updateStatus'])->name('pendaftaran.updateStatus');
     Route::patch('/ekstrakurikuler/{ekstrakurikuler}/pendaftaran-kontrol', [PendaftaranKontrolController::class, 'update'])->name('pendaftaran-kontrol.update');
+
+    // Logo ekskul: admin, pembina ekskul itu, atau penanggung jawab anggota (Gate "ubahLogo" di controller)
+    Route::patch('/ekstrakurikuler/{ekstrakurikuler}/logo', [EkskulLogoController::class, 'update'])->middleware('throttle:10,60')->name('ekskul-logo.update');
+    Route::delete('/ekstrakurikuler/{ekstrakurikuler}/logo', [EkskulLogoController::class, 'destroy'])->name('ekskul-logo.destroy');
 
     // Admin & pembina aja
     Route::middleware(RoleMiddleware::class.':admin,pembina')->group(function () {

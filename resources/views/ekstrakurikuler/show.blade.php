@@ -12,7 +12,9 @@
 
         {{-- Header --}}
         <div class="flex justify-between items-start mb-4">
-            <div>
+            <div class="flex items-start gap-4 min-w-0">
+            <x-logo-ekskul :ekskul="$ekskul" :ukuran="72" />
+            <div class="min-w-0">
                 <span class="inline-block px-3 py-1 text-xs font-semibold rounded-full {{ $ekskul->status === 'aktif' ? 'bg-green-100 text-green-800' : 'bg-gray-200 text-gray-700' }}">
                     {{ ucfirst($ekskul->status) }}
                 </span>
@@ -25,6 +27,10 @@
                         @endforeach
                     </div>
                 @endif
+                @can('ubahLogo', $ekskul)
+                    @include('ekstrakurikuler._logo_form')
+                @endcan
+            </div>
             </div>
             <a href="{{ route('ekstrakurikuler.index') }}" class="inline-flex items-center gap-1 text-gray-600 hover:underline text-sm"><x-ikon nama="panah-kiri" :ukuran="14" /> Katalog</a>
         </div>

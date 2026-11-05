@@ -1,5 +1,8 @@
 {{-- Dipasang di <head> setiap halaman: tema otomatis menurut jam lokal (gelap/terang), Tailwind, AOS, sapaan, animasi --}}
 @include('partials.tema-waktu')
+{{-- Ikon tab browser (logo sekolah). Urutan: .ico untuk browser lama, SVG untuk yang mendukungnya. --}}
+<link rel="icon" href="{{ asset('favicon.ico') }}" sizes="48x48">
+<link rel="icon" href="{{ asset('favicon.svg') }}" type="image/svg+xml">
 @auth
 <script>document.documentElement.dataset.palet = @json(auth()->user()->palet ?? 'aurora');</script>
 @php
@@ -493,6 +496,15 @@ html.dark .sparkle { color: #e0e7ff; }
     @media (min-width: 1024px) {
         .nav-grid { gap: .75rem 1rem; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "avatar links actions"; }
     }
+    /* Kolom kiri navbar: logo sekolah + foto profil. Nama ringkas sekolah baru tampil di layar >= 640px. */
+    .nav-ident { grid-area: avatar; display: flex; align-items: center; gap: .6rem; min-width: 0; }
+    .nav-brand { display: inline-flex; align-items: center; gap: .45rem; border-radius: .6rem; padding-right: .25rem; text-decoration: none; color: #1e1b4b; font-weight: 800; font-size: .85rem; letter-spacing: .01em; line-height: 1; white-space: nowrap; transition: transform .2s ease; }
+    .nav-brand:hover { transform: scale(1.03); }
+    .nav-brand:focus-visible { outline: 2px solid rgb(var(--p1-rgb)); outline-offset: 2px; }
+    .nav-brand-teks { display: none; }
+    @media (min-width: 640px) { .nav-brand-teks { display: inline; } }
+    html.dark .nav-brand { color: #e0e7ff; }
+    .nav-ident .nav-avatar { padding-left: 2px; }
     .nav-avatar {
         grid-area: avatar; display: inline-flex; border-radius: 9999px; padding: 2px;
         border: 2px solid transparent; transition: border-color .2s ease, transform .2s ease;

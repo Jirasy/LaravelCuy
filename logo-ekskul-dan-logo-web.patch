@@ -1,0 +1,1158 @@
+diff --git a/.env.example b/.env.example
+index c0660ea..755d7f0 100644
+--- a/.env.example
++++ b/.env.example
+@@ -1,4 +1,4 @@
+-APP_NAME=Laravel
++APP_NAME="Ekstrakurikuler SMKS MCU"
+ APP_ENV=local
+ APP_KEY=
+ APP_DEBUG=true
+diff --git a/app/Http/Controllers/EkskulLogoController.php b/app/Http/Controllers/EkskulLogoController.php
+new file mode 100644
+index 0000000..34cf6e3
+--- /dev/null
++++ b/app/Http/Controllers/EkskulLogoController.php
+@@ -0,0 +1,70 @@
++<?php
++
++namespace App\Http\Controllers;
++
++use App\Models\Ekstrakurikuler;
++use App\Support\Gambar;
++use Illuminate\Http\Request;
++use Illuminate\Support\Facades\Gate;
++use Illuminate\Support\Facades\Storage;
++use Illuminate\Support\Str;
++
++// Logo ekskul: dipasang, diganti, atau dihapus oleh admin, pembina ekskul itu, atau penanggung jawab anggota
++// (hak dicek lewat Gate "ubahLogo", bukan lewat peran, supaya siswa penanggung jawab tetap bisa).
++// Disimpan di disk "public" karena logo tampil di katalog untuk semua orang yang login.
++class EkskulLogoController extends Controller
++{
++    public function update(Request $request, Ekstrakurikuler $ekstrakurikuler)
++    {
++        Gate::authorize('ubahLogo', $ekstrakurikuler);
++
++        // "image" dan "mimes" sengaja tidak menyertakan SVG: SVG bisa memuat skrip.
++        $request->validate([
++            'logo' => ['required', 'file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048', 'dimensions:min_width=64,min_height=64'],
++        ], [
++            'logo.required'   => 'Pilih berkas logo terlebih dahulu.',
++            'logo.uploaded'   => 'Logo gagal diunggah. Kemungkinan ukurannya melebihi batas server (upload_max_filesize dan post_max_size di php.ini).',
++            'logo.image'      => 'Berkas harus berupa gambar.',
++            'logo.mimes'      => 'Logo harus berformat PNG, JPG, atau WEBP.',
++            'logo.max'        => 'Ukuran logo maksimal 2 MB.',
++            'logo.dimensions' => 'Logo terlalu kecil. Minimal 64 × 64 piksel (disarankan 512 × 512).',
++        ]);
++
++        $file = $request->file('logo');
++        $png  = Gambar::logo($file->getRealPath());
++
++        // Nama acak setiap kali: logo baru langsung tampil tanpa tersangkut cache peramban
++        $nama = "logo-ekskul/{$ekstrakurikuler->id}-".Str::lower(Str::random(8));
++        $path = $png !== null
++            ? "{$nama}.png"
++            : "{$nama}.".$file->guessExtension();
++
++        if ($png !== null) {
++            Storage::disk('public')->put($path, $png);
++        } else {
++            // GD tidak tersedia / gagal: simpan berkas aslinya (sudah lolos validasi gambar di atas)
++            Storage::disk('public')->putFileAs('logo-ekskul', $file, basename($path));
++        }
++
++        $lama = $ekstrakurikuler->logo;
++        $ekstrakurikuler->update(['logo' => $path]);
++
++        if ($lama) {
++            Storage::disk('public')->delete($lama);
++        }
++
++        return back()->with('success', 'Logo '.$ekstrakurikuler->nama_tampil.' berhasil disimpan.');
++    }
++
++    public function destroy(Ekstrakurikuler $ekstrakurikuler)
++    {
++        Gate::authorize('ubahLogo', $ekstrakurikuler);
++
++        if ($ekstrakurikuler->logo) {
++            Storage::disk('public')->delete($ekstrakurikuler->logo);
++            $ekstrakurikuler->update(['logo' => null]);
++        }
++
++        return back()->with('success', 'Logo dihapus. Katalog kembali memakai monogram.');
++    }
++}
+diff --git a/app/Models/Ekstrakurikuler.php b/app/Models/Ekstrakurikuler.php
+index b4e46c4..87c2baf 100644
+--- a/app/Models/Ekstrakurikuler.php
++++ b/app/Models/Ekstrakurikuler.php
+@@ -17,6 +17,7 @@ class Ekstrakurikuler extends Model
+     protected $fillable = [
+         'nama_ekstrakurikuler',
+         'nama_singkatan',
++        'logo',
+         'wa_grup_url',
+         'wa_pembina',
+         'telegram_url',
+@@ -79,6 +80,11 @@ protected static function booted(): void
+             foreach (['materi', 'pr', 'galeri'] as $folder) {
+                 Storage::disk('local')->deleteDirectory("{$folder}/{$ekskul->id}");
+             }
++
++            // Logo disimpan di disk publik (bukan privat seperti materi/galeri), jadi dihapus terpisah
++            if ($ekskul->logo) {
++                Storage::disk('public')->delete($ekskul->logo);
++            }
+         });
+     }
+ 
+@@ -94,6 +100,51 @@ public function getNamaTampilAttribute(): string
+         return $this->nama_singkatan ?: (string) $this->nama_ekstrakurikuler;
+     }
+ 
++    // ---- Logo ----
++
++    // Warna latar monogram (gradasi dua warna Tailwind 600/700, semuanya cukup gelap untuk teks putih).
++    // Dipilih dari nama, jadi satu ekskul selalu berwarna sama dan antar-ekskul tersebar rata.
++    public const WARNA_MONOGRAM = [
++        ['#4f46e5', '#7c3aed'],   // indigo -> violet
++        ['#0284c7', '#0891b2'],   // sky -> cyan
++        ['#059669', '#0d9488'],   // emerald -> teal
++        ['#d97706', '#ea580c'],   // amber -> orange
++        ['#dc2626', '#e11d48'],   // red -> rose
++        ['#c026d3', '#db2777'],   // fuchsia -> pink
++        ['#4338ca', '#1d4ed8'],   // indigo -> blue
++        ['#65a30d', '#16a34a'],   // lime -> green
++    ];
++
++    // Alamat logo yang diunggah, atau null kalau belum ada (tampilan lalu memakai monogram)
++    public function getLogoUrlAttribute(): ?string
++    {
++        return $this->logo ? asset('storage/'.$this->logo) : null;
++    }
++
++    // Teks monogram cadangan: singkatan kalau ada ("PMR"), kalau tidak huruf pertama dua kata pertama ("Palang Merah" -> "PM").
++    // Maksimal 3 huruf supaya tetap terbaca di lingkaran kecil.
++    public function getMonogramAttribute(): string
++    {
++        $singkatan = preg_replace('/[^\p{L}\p{N}]/u', '', (string) $this->nama_singkatan);
++
++        if ($singkatan !== '') {
++            return mb_strtoupper(mb_substr($singkatan, 0, 3));
++        }
++
++        $kata = preg_split('/[^\p{L}\p{N}]+/u', trim((string) $this->nama_ekstrakurikuler), -1, PREG_SPLIT_NO_EMPTY);
++        $huruf = collect($kata)->take(2)->map(fn ($k) => mb_substr($k, 0, 1))->implode('');
++
++        return mb_strtoupper($huruf !== '' ? $huruf : '?');
++    }
++
++    // Pasangan warna gradasi untuk monogram, tetap untuk nama yang sama
++    public function getWarnaMonogramAttribute(): array
++    {
++        $kunci = mb_strtolower((string) $this->nama_ekstrakurikuler);
++
++        return self::WARNA_MONOGRAM[crc32($kunci) % count(self::WARNA_MONOGRAM)];
++    }
++
+     // Singkatan kosong/spasi saja disimpan sebagai null (kolomnya unik; null boleh banyak, string kosong tidak)
+     public function setNamaSingkatanAttribute($nilai): void
+     {
+diff --git a/app/Policies/EkstrakurikulerPolicy.php b/app/Policies/EkstrakurikulerPolicy.php
+index a082abe..db98e29 100644
+--- a/app/Policies/EkstrakurikulerPolicy.php
++++ b/app/Policies/EkstrakurikulerPolicy.php
+@@ -27,6 +27,13 @@ public function kelolaAnggota(User $user, Ekstrakurikuler $ekskul): bool
+             || in_array((int) $ekskul->id, $user->idEkskulPenanggungJawab(), true);
+     }
+ 
++    // Menambah/mengganti/menghapus logo ekskul: admin, pembina ekskul itu, atau penanggung jawab anggota
++    // (siswa pemegang jabatan bertanda). Satu pintu supaya kalau aturannya berubah cukup diubah di sini.
++    public function ubahLogo(User $user, Ekstrakurikuler $ekskul): bool
++    {
++        return $this->kelolaAnggota($user, $ekskul);
++    }
++
+     // Memutuskan pendaftar: pengelola boleh semuanya. Penanggung jawab anggota hanya boleh memutuskan pendaftar yang
+     // masih menunggu, bukan miliknya sendiri, dan bukan di ekskul berseleksi (itu lewat alur seleksi/CaSis).
+     public function putuskanPendaftaran(User $user, Ekstrakurikuler $ekskul, PendaftaranEkskul $pendaftaran): bool
+diff --git a/app/Support/Gambar.php b/app/Support/Gambar.php
+index ce93186..4570973 100644
+--- a/app/Support/Gambar.php
++++ b/app/Support/Gambar.php
+@@ -6,6 +6,59 @@
+ // dikembalikan false dan galeri memakai foto asli (tetap jalan, hanya lebih berat).
+ class Gambar
+ {
++    // Mengolah logo unggahan menjadi PNG yang bersih: sisi terpanjang dibatasi $sisi px (tidak pernah diperbesar),
++    // transparansi dipertahankan (beda dengan thumbnail() yang berlatar putih), dan karena digambar ulang dari piksel,
++    // EXIF serta data tersembunyi di dalam berkas ikut terbuang. Mengembalikan isi PNG, atau null kalau GD tidak bisa
++    // memprosesnya (pemanggil lalu menyimpan berkas aslinya yang sudah lolos validasi gambar).
++    public static function logo(string $sumber, int $sisi = 512): ?string
++    {
++        if (! function_exists('imagecreatetruecolor') || ! function_exists('imagepng')) {
++            return null;
++        }
++
++        $info = @getimagesize($sumber);
++        if (! $info) {
++            return null;
++        }
++
++        [$w, $h] = $info;
++
++        // Batas yang sama dengan thumbnail(): cegah kehabisan memori pada gambar berukuran raksasa
++        if ($w < 1 || $h < 1 || $w * $h > 25_000_000) {
++            return null;
++        }
++
++        $gambar = match ($info[2]) {
++            IMAGETYPE_JPEG => function_exists('imagecreatefromjpeg') ? @imagecreatefromjpeg($sumber) : false,
++            IMAGETYPE_PNG  => function_exists('imagecreatefrompng') ? @imagecreatefrompng($sumber) : false,
++            IMAGETYPE_WEBP => function_exists('imagecreatefromwebp') ? @imagecreatefromwebp($sumber) : false,
++            default        => false,
++        };
++
++        if (! $gambar) {
++            return null;
++        }
++
++        $skala = min(1, $sisi / max($w, $h));
++        $lebar = max(1, (int) round($w * $skala));
++        $tinggi = max(1, (int) round($h * $skala));
++
++        $hasil = imagecreatetruecolor($lebar, $tinggi);
++        imagealphablending($hasil, false);
++        imagesavealpha($hasil, true);
++        imagefill($hasil, 0, 0, imagecolorallocatealpha($hasil, 0, 0, 0, 127));
++        imagecopyresampled($hasil, $gambar, 0, 0, 0, 0, $lebar, $tinggi, $w, $h);
++
++        ob_start();
++        $berhasil = imagepng($hasil, null, 9);
++        $png = ob_get_clean();
++
++        imagedestroy($gambar);
++        imagedestroy($hasil);
++
++        return $berhasil && $png !== false && $png !== '' ? $png : null;
++    }
++
+     public static function thumbnail(string $sumber, string $tujuan, int $lebar = 480): bool
+     {
+         if (!function_exists('imagecreatetruecolor') || !function_exists('imagejpeg')) {
+diff --git a/config/sekolah.php b/config/sekolah.php
+new file mode 100644
+index 0000000..f2ef57c
+--- /dev/null
++++ b/config/sekolah.php
+@@ -0,0 +1,20 @@
++<?php
++
++// Identitas sekolah untuk logo web, judul halaman, dan halaman masuk/daftar.
++// Cukup ubah di sini (atau lewat .env) tanpa menyentuh tampilan.
++//
++// Mengganti logo web dengan logo resmi sekolah:
++//   1. Simpan berkasnya di public/images/ (SVG atau PNG transparan, persegi, minimal 256 px), mis. public/images/logo-resmi.png
++//   2. Isi SEKOLAH_LOGO=images/logo-resmi.png di .env  (atau ubah nilai bawaan di bawah)
++//   3. Ganti juga public/favicon.svg dan public/favicon.ico kalau ingin ikon tab browser ikut berubah.
++
++return [
++    // Nama lengkap: halaman masuk/daftar, teks alternatif logo, dan tooltip di navbar
++    'nama' => env('SEKOLAH_NAMA', 'SMKS Mahaputra Cerdas Utama'),
++
++    // Nama ringkas di navbar dan judul tab browser
++    'singkatan' => env('SEKOLAH_SINGKATAN', 'SMKS MCU'),
++
++    // Berkas logo, relatif terhadap folder public/
++    'logo' => env('SEKOLAH_LOGO', 'images/logo-sekolah.svg'),
++];
+diff --git a/database/migrations/2026_11_09_090000_add_logo_to_ekstrakurikulers_table.php b/database/migrations/2026_11_09_090000_add_logo_to_ekstrakurikulers_table.php
+new file mode 100644
+index 0000000..1dc48de
+--- /dev/null
++++ b/database/migrations/2026_11_09_090000_add_logo_to_ekstrakurikulers_table.php
+@@ -0,0 +1,23 @@
++<?php
++
++use Illuminate\Database\Migrations\Migration;
++use Illuminate\Database\Schema\Blueprint;
++use Illuminate\Support\Facades\Schema;
++
++return new class extends Migration
++{
++    public function up(): void
++    {
++        // Logo ekskul: path relatif di disk "public" (mis. logo-ekskul/12-ab34cd.png). Kosong = tampilkan monogram dari nama.
++        Schema::table('ekstrakurikulers', function (Blueprint $table) {
++            $table->string('logo')->nullable()->after('nama_singkatan');
++        });
++    }
++
++    public function down(): void
++    {
++        Schema::table('ekstrakurikulers', function (Blueprint $table) {
++            $table->dropColumn('logo');
++        });
++    }
++};
+diff --git a/public/favicon.ico b/public/favicon.ico
+index e69de29bb2d1d6434b8b29ae775ad8c2e48c5391..5efd1e2667e5ce7ec0e2b1c0651c386502c1fd1c 100644
+GIT binary patch
+literal 6847
+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
+QXB{rm=Y!n*|F8A`0p2tm_W%F@
+
+literal 0
+HcmV?d00001
+
+diff --git a/public/favicon.svg b/public/favicon.svg
+new file mode 100644
+index 0000000..d18e2c2
+--- /dev/null
++++ b/public/favicon.svg
+@@ -0,0 +1,14 @@
++<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
++  <defs>
++    <linearGradient id="latar" x1="8" y1="3" x2="56" y2="61" gradientUnits="userSpaceOnUse">
++      <stop offset="0" stop-color="#4f46e5"/>
++      <stop offset="1" stop-color="#7c3aed"/>
++    </linearGradient>
++  </defs>
++  <path d="M32 2 58 10.500v20C58 46 47 58 32 63 17 58 6 46 6 30.500v-20z" fill="url(#latar)"/>
++  <g fill="none" stroke="#fff" stroke-width="5.2">
++    <circle cx="32" cy="24.500" r="9"/>
++    <circle cx="24.500" cy="37.500" r="9"/>
++    <circle cx="39.500" cy="37.500" r="9"/>
++  </g>
++</svg>
+diff --git a/public/images/logo-sekolah.svg b/public/images/logo-sekolah.svg
+new file mode 100644
+index 0000000..a33455d
+--- /dev/null
++++ b/public/images/logo-sekolah.svg
+@@ -0,0 +1,18 @@
++<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Logo SMKS Mahaputra Cerdas Utama">
++  <defs>
++    <linearGradient id="latar" x1="8" y1="3" x2="56" y2="61" gradientUnits="userSpaceOnUse">
++      <stop offset="0" stop-color="#4f46e5"/>
++      <stop offset="1" stop-color="#7c3aed"/>
++    </linearGradient>
++  </defs>
++  <!-- Perisai sekolah -->
++  <path d="M32 3 56 11v19c0 15-10 26-24 31C18 56 8 45 8 30V11z" fill="url(#latar)"/>
++  <path d="M32 3 56 11v19c0 15-10 26-24 31C18 56 8 45 8 30V11z" fill="none" stroke="#fff" stroke-opacity=".35" stroke-width="1.2"/>
++  <!-- Tiga lingkaran saling bertaut: banyak ekskul dalam satu sekolah -->
++  <g fill="none" stroke="#fff" stroke-width="3.2">
++    <circle cx="32" cy="25" r="9.5"/>
++    <circle cx="25" cy="37.5" r="9.5" stroke-opacity=".9"/>
++    <circle cx="39" cy="37.5" r="9.5" stroke-opacity=".9"/>
++  </g>
++  <circle cx="32" cy="33" r="2.6" fill="#fff"/>
++</svg>
+diff --git a/resources/views/auth/login.blade.php b/resources/views/auth/login.blade.php
+index 0a0151b..8c3d799 100644
+--- a/resources/views/auth/login.blade.php
++++ b/resources/views/auth/login.blade.php
+@@ -5,7 +5,7 @@
+ @section('content')
+     <div class="auth-card">
+         <header class="auth-head">
+-            <span class="auth-badge">@include('partials.auth-icon', ['ikon' => 'topi', 'ukuran' => 26])</span>
++            @include('partials.auth-sekolah')
+             <h1 class="auth-title">Masuk</h1>
+             <p class="auth-sub">Masuk untuk mendaftar atau mengelola ekstrakurikuler.</p>
+         </header>
+diff --git a/resources/views/auth/register.blade.php b/resources/views/auth/register.blade.php
+index b19b8b8..7c7ee6b 100644
+--- a/resources/views/auth/register.blade.php
++++ b/resources/views/auth/register.blade.php
+@@ -5,7 +5,7 @@
+ @section('content')
+     <div class="auth-card auth-card-lebar">
+         <header class="auth-head">
+-            <span class="auth-badge">@include('partials.auth-icon', ['ikon' => 'user-plus', 'ukuran' => 26])</span>
++            @include('partials.auth-sekolah')
+             <h1 class="auth-title">Daftar Akun <span class="text-aurora">Siswa</span></h1>
+             <p class="auth-sub">Buat akun untuk mendaftar ekstrakurikuler.</p>
+         </header>
+diff --git a/resources/views/components/logo-ekskul.blade.php b/resources/views/components/logo-ekskul.blade.php
+new file mode 100644
+index 0000000..90955b0
+--- /dev/null
++++ b/resources/views/components/logo-ekskul.blade.php
+@@ -0,0 +1,26 @@
++{{--
++    Logo ekskul dalam lingkaran berukuran tetap, supaya katalog tetap rapi walau tiap ekskul punya desain sendiri.
++    Belum ada logo -> monogram (singkatan atau huruf awal nama) di atas gradasi warna yang tetap untuk nama itu.
++    Pakai: <x-logo-ekskul :ekskul="$ekskul" />   <x-logo-ekskul :ekskul="$ekskul" :ukuran="72" />
++    ukuran: lebar & tinggi dalam px (default 48)
++--}}
++@props(['ekskul', 'ukuran' => 48])
++@php $alt = 'Logo '.$ekskul->nama_ekstrakurikuler; @endphp
++@if($ekskul->logo_url)
++    {{-- Logo apa adanya (object-contain + sedikit bantalan) di atas dasar putih, supaya tidak terpotong lingkaran dan tetap terbaca di mode gelap.
++         Warna dasar dan garis tepi sengaja inline: kelas bg-white / border-gray-200 ditimpa tema aplikasi (semi-transparan di mode terang, gelap di mode gelap),
++         dan logo yang dirancang untuk latar putih (mis. palang merah) jadi nyaris tak terlihat di atasnya. --}}
++    <span {{ $attributes->merge(['class' => 'rounded-full shrink-0 inline-flex items-center justify-center overflow-hidden']) }}
++          style="width:{{ $ukuran }}px;height:{{ $ukuran }}px;padding:{{ max(2, round($ukuran * .1)) }}px;background:#fff;border:1px solid rgba(148,163,184,.55)">
++        <img src="{{ $ekskul->logo_url }}" alt="{{ $alt }}" loading="lazy" class="w-full h-full object-contain">
++    </span>
++@else
++    @php
++        [$warna1, $warna2] = $ekskul->warna_monogram;
++        $huruf = $ekskul->monogram;
++        $skala = mb_strlen($huruf) >= 3 ? .30 : .38;
++    @endphp
++    <span {{ $attributes->merge(['class' => 'rounded-full shrink-0 inline-flex items-center justify-center font-bold text-white select-none']) }}
++          role="img" aria-label="{{ $alt }}"
++          style="width:{{ $ukuran }}px;height:{{ $ukuran }}px;font-size:{{ round($ukuran * $skala) }}px;letter-spacing:-.02em;background:linear-gradient(135deg, {{ $warna1 }}, {{ $warna2 }})">{{ $huruf }}</span>
++@endif
+diff --git a/resources/views/ekstrakurikuler/_logo_form.blade.php b/resources/views/ekstrakurikuler/_logo_form.blade.php
+new file mode 100644
+index 0000000..b19a9ba
+--- /dev/null
++++ b/resources/views/ekstrakurikuler/_logo_form.blade.php
+@@ -0,0 +1,47 @@
++{{-- Tambah / ganti / hapus logo ekskul. Hanya dipasang untuk yang lolos Gate "ubahLogo" (admin, pembina ekskul ini, penanggung jawab anggota). Variabel: $ekskul --}}
++<details class="mt-3" @if($errors->has('logo')) open @endif>
++    <summary class="cursor-pointer text-sm text-indigo-600 font-semibold">{{ $ekskul->logo ? 'Ganti logo' : 'Tambah logo' }}</summary>
++
++    <div class="mt-3 p-4 rounded-lg border border-gray-200 bg-white max-w-md space-y-3">
++        <form action="{{ route('ekskul-logo.update', $ekskul->id) }}" method="POST" enctype="multipart/form-data" class="space-y-3">
++            @csrf
++            @method('PATCH')
++
++            <div class="flex items-center gap-3">
++                <div data-logo-pratinjau>
++                    <x-logo-ekskul :ekskul="$ekskul" :ukuran="56" />
++                </div>
++                <input type="file" name="logo" required accept="image/png,image/jpeg,image/webp" data-logo-input class="w-full text-xs">
++            </div>
++
++            <p class="text-xs text-gray-500">
++                PNG, JPG, atau WEBP &middot; maksimal 2 MB &middot; minimal 64&times;64 px. Disarankan 512&times;512 px, persegi, latar transparan,
++                dan tetap terbaca saat dikecilkan jadi 40 px. SVG tidak diterima.
++            </p>
++            @error('logo')<p class="text-xs text-red-600">{{ $message }}</p>@enderror
++
++            <x-tombol jenis="sukses" ukuran="md" type="submit">Simpan logo</x-tombol>
++        </form>
++
++        @if($ekskul->logo)
++            <form action="{{ route('ekskul-logo.destroy', $ekskul->id) }}" method="POST" onsubmit="return confirm('Hapus logo ekskul ini? Katalog akan memakai monogram.')">
++                @csrf
++                @method('DELETE')
++                <button type="submit" class="text-sm text-red-600 hover:underline">Hapus logo (pakai monogram)</button>
++            </form>
++        @endif
++    </div>
++</details>
++
++<script>
++    // Pratinjau logo yang baru dipilih sebelum disimpan (tidak ada yang terkirim ke server)
++    document.querySelectorAll('[data-logo-input]').forEach(function (isian) {
++        isian.addEventListener('change', function () {
++            var pratinjau = isian.closest('form').querySelector('[data-logo-pratinjau]');
++            var berkas = isian.files && isian.files[0];
++            if (!pratinjau || !berkas || berkas.type.indexOf('image/') !== 0) return;
++            pratinjau.innerHTML = '<span class="rounded-full shrink-0 inline-flex items-center justify-center overflow-hidden" style="width:56px;height:56px;padding:6px;background:#fff;border:1px solid rgba(148,163,184,.55)"><img alt="Pratinjau logo" class="w-full h-full object-contain"></span>';
++            pratinjau.querySelector('img').src = URL.createObjectURL(berkas);
++        });
++    });
++</script>
+diff --git a/resources/views/ekstrakurikuler/index.blade.php b/resources/views/ekstrakurikuler/index.blade.php
+index 78149b1..9539826 100644
+--- a/resources/views/ekstrakurikuler/index.blade.php
++++ b/resources/views/ekstrakurikuler/index.blade.php
+@@ -87,8 +87,13 @@
+                             <span class="inline-block px-2 py-0.5 ml-1 text-xs rounded-full bg-red-100 text-red-700">Belum ada pembina</span>
+                         @endif
+ 
+-                        <h2 class="text-xl font-bold text-gray-900 mt-2" title="{{ $ekskul->nama_ekstrakurikuler }}">{{ $ekskul->nama_tampil }}</h2>
+-                        <p class="text-sm text-gray-600 mt-1">Pembina: <strong>{{ $ekskul->pembina_tampil }}</strong></p>
++                        <div class="flex items-center gap-3 mt-3">
++                            <x-logo-ekskul :ekskul="$ekskul" :ukuran="48" />
++                            <div class="min-w-0">
++                                <h2 class="text-xl font-bold text-gray-900 leading-tight" title="{{ $ekskul->nama_ekstrakurikuler }}">{{ $ekskul->nama_tampil }}</h2>
++                                <p class="text-sm text-gray-600 mt-0.5">Pembina: <strong>{{ $ekskul->pembina_tampil }}</strong></p>
++                            </div>
++                        </div>
+                         @if($ekskul->kategoris->isNotEmpty())
+                             <div class="flex flex-wrap gap-1 mt-2">
+                                 @foreach($ekskul->kategoris->sortBy('urutan') as $kat)
+diff --git a/resources/views/ekstrakurikuler/show.blade.php b/resources/views/ekstrakurikuler/show.blade.php
+index 1355c1c..3d6c043 100644
+--- a/resources/views/ekstrakurikuler/show.blade.php
++++ b/resources/views/ekstrakurikuler/show.blade.php
+@@ -12,7 +12,9 @@
+ 
+         {{-- Header --}}
+         <div class="flex justify-between items-start mb-4">
+-            <div>
++            <div class="flex items-start gap-4 min-w-0">
++            <x-logo-ekskul :ekskul="$ekskul" :ukuran="72" />
++            <div class="min-w-0">
+                 <span class="inline-block px-3 py-1 text-xs font-semibold rounded-full {{ $ekskul->status === 'aktif' ? 'bg-green-100 text-green-800' : 'bg-gray-200 text-gray-700' }}">
+                     {{ ucfirst($ekskul->status) }}
+                 </span>
+@@ -25,6 +27,10 @@
+                         @endforeach
+                     </div>
+                 @endif
++                @can('ubahLogo', $ekskul)
++                    @include('ekstrakurikuler._logo_form')
++                @endcan
++            </div>
+             </div>
+             <a href="{{ route('ekstrakurikuler.index') }}" class="inline-flex items-center gap-1 text-gray-600 hover:underline text-sm"><x-ikon nama="panah-kiri" :ukuran="14" /> Katalog</a>
+         </div>
+diff --git a/resources/views/layouts/auth.blade.php b/resources/views/layouts/auth.blade.php
+index 55678fb..d349316 100644
+--- a/resources/views/layouts/auth.blade.php
++++ b/resources/views/layouts/auth.blade.php
+@@ -3,7 +3,7 @@
+ <head>
+     <meta charset="UTF-8">
+     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+-    <title>@yield('title') - Ekstrakurikuler</title>
++    <title>@yield('title') - Ekstrakurikuler {{ config('sekolah.singkatan') }}</title>
+     @include('partials.head')
+     @include('partials.auth-style')
+ </head>
+diff --git a/resources/views/partials/auth-sekolah.blade.php b/resources/views/partials/auth-sekolah.blade.php
+new file mode 100644
+index 0000000..6fab8c8
+--- /dev/null
++++ b/resources/views/partials/auth-sekolah.blade.php
+@@ -0,0 +1,3 @@
++{{-- Identitas sekolah di kepala kartu masuk/daftar: logo + nama lengkap. Sumber: config/sekolah.php --}}
++@include('partials.logo-sekolah', ['ukuran' => 64, 'class' => 'auth-logo'])
++<p class="auth-sekolah">{{ config('sekolah.nama') }}</p>
+diff --git a/resources/views/partials/auth-style.blade.php b/resources/views/partials/auth-style.blade.php
+index 14ec442..6ea3d8f 100644
+--- a/resources/views/partials/auth-style.blade.php
++++ b/resources/views/partials/auth-style.blade.php
+@@ -97,6 +97,8 @@
+         background: linear-gradient(135deg, rgb(var(--p1-rgb)), rgb(var(--p2-rgb)));
+         box-shadow: inset 0 1px 0 rgba(255, 255, 255, .45), 0 12px 26px -10px rgb(var(--p1-rgb) / .85);
+     }
++    .auth-logo { display: block; margin: 0 auto .65rem; filter: drop-shadow(0 12px 18px rgb(var(--p1-rgb) / .4)); }
++    .auth-sekolah { margin: 0 0 1rem; font-size: .72rem; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; color: var(--au-muted); }
+     .auth-title { margin: 0; font-size: 1.85rem; line-height: 1.15; font-weight: 800; color: var(--au-text); letter-spacing: -.01em; }
+     .auth-sub { margin: .45rem 0 0; font-size: .875rem; line-height: 1.45; color: var(--au-muted); }
+ 
+diff --git a/resources/views/partials/head.blade.php b/resources/views/partials/head.blade.php
+index 6afca4e..0441285 100644
+--- a/resources/views/partials/head.blade.php
++++ b/resources/views/partials/head.blade.php
+@@ -1,5 +1,8 @@
+ {{-- Dipasang di <head> setiap halaman: tema otomatis menurut jam lokal (gelap/terang), Tailwind, AOS, sapaan, animasi --}}
+ @include('partials.tema-waktu')
++{{-- Ikon tab browser (logo sekolah). Urutan: .ico untuk browser lama, SVG untuk yang mendukungnya. --}}
++<link rel="icon" href="{{ asset('favicon.ico') }}" sizes="48x48">
++<link rel="icon" href="{{ asset('favicon.svg') }}" type="image/svg+xml">
+ @auth
+ <script>document.documentElement.dataset.palet = @json(auth()->user()->palet ?? 'aurora');</script>
+ @php
+@@ -493,6 +496,15 @@
+     @media (min-width: 1024px) {
+         .nav-grid { gap: .75rem 1rem; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "avatar links actions"; }
+     }
++    /* Kolom kiri navbar: logo sekolah + foto profil. Nama ringkas sekolah baru tampil di layar >= 640px. */
++    .nav-ident { grid-area: avatar; display: flex; align-items: center; gap: .6rem; min-width: 0; }
++    .nav-brand { display: inline-flex; align-items: center; gap: .45rem; border-radius: .6rem; padding-right: .25rem; text-decoration: none; color: #1e1b4b; font-weight: 800; font-size: .85rem; letter-spacing: .01em; line-height: 1; white-space: nowrap; transition: transform .2s ease; }
++    .nav-brand:hover { transform: scale(1.03); }
++    .nav-brand:focus-visible { outline: 2px solid rgb(var(--p1-rgb)); outline-offset: 2px; }
++    .nav-brand-teks { display: none; }
++    @media (min-width: 640px) { .nav-brand-teks { display: inline; } }
++    html.dark .nav-brand { color: #e0e7ff; }
++    .nav-ident .nav-avatar { padding-left: 2px; }
+     .nav-avatar {
+         grid-area: avatar; display: inline-flex; border-radius: 9999px; padding: 2px;
+         border: 2px solid transparent; transition: border-color .2s ease, transform .2s ease;
+diff --git a/resources/views/partials/logo-sekolah.blade.php b/resources/views/partials/logo-sekolah.blade.php
+new file mode 100644
+index 0000000..1e9ff4a
+--- /dev/null
++++ b/resources/views/partials/logo-sekolah.blade.php
+@@ -0,0 +1,4 @@
++{{-- Logo web (identitas sekolah dari config/sekolah.php). Pemakaian: @include('partials.logo-sekolah', ['ukuran' => 36]) --}}
++@php $ukuran = $ukuran ?? 36; @endphp
++<img src="{{ asset(config('sekolah.logo')) }}" alt="Logo {{ config('sekolah.nama') }}" width="{{ $ukuran }}" height="{{ $ukuran }}"
++     class="shrink-0 object-contain {{ $class ?? '' }}" style="width:{{ $ukuran }}px;height:{{ $ukuran }}px">
+diff --git a/resources/views/partials/navbar.blade.php b/resources/views/partials/navbar.blade.php
+index e1907d7..8bd2c6f 100644
+--- a/resources/views/partials/navbar.blade.php
++++ b/resources/views/partials/navbar.blade.php
+@@ -12,12 +12,20 @@
+     <div class="nav-bar nav-{{ $gayaNav }} nav-grid {{ $utama ? 'mb-6' : '' }}"
+          @if($utama) data-aos="fade-down" @endif>
+ 
+-        {{-- Hanya foto profil (tanpa nama) supaya hemat tempat; nama & peran muncul sebagai tooltip --}}
+-        <a href="{{ route('profil.show') }}" class="nav-avatar {{ $profilAktif ? 'is-active' : '' }}"
+-           title="{{ $me->name }} · {{ ucfirst($me->role) }}" aria-label="Profil saya ({{ $me->name }})"
+-           @if($profilAktif) aria-current="page" @endif>
+-            @include('partials.avatar', ['user' => $me, 'ukuran' => $gayaNav === 'ringkas' ? 28 : 36])
+-        </a>
++        {{-- Identitas: logo sekolah (ke katalog) lalu foto profil. Keduanya satu kolom grid supaya tata letak responsif tidak berubah. --}}
++        <div class="nav-ident">
++            <a href="{{ route('ekstrakurikuler.index') }}" class="nav-brand" title="{{ config('sekolah.nama') }}" aria-label="{{ config('sekolah.nama') }}, ke katalog ekskul">
++                @include('partials.logo-sekolah', ['ukuran' => $gayaNav === 'ringkas' ? 26 : 32])
++                <span class="nav-brand-teks">{{ config('sekolah.singkatan') }}</span>
++            </a>
++
++            {{-- Hanya foto profil (tanpa nama) supaya hemat tempat; nama & peran muncul sebagai tooltip --}}
++            <a href="{{ route('profil.show') }}" class="nav-avatar {{ $profilAktif ? 'is-active' : '' }}"
++               title="{{ $me->name }} · {{ ucfirst($me->role) }}" aria-label="Profil saya ({{ $me->name }})"
++               @if($profilAktif) aria-current="page" @endif>
++                @include('partials.avatar', ['user' => $me, 'ukuran' => $gayaNav === 'ringkas' ? 28 : 36])
++            </a>
++        </div>
+ 
+         {{-- Menu: satu baris yang bisa digeser; panah muncul otomatis kalau menunya melebihi lebar layar --}}
+         <div class="nav-links" data-nav-links>
+diff --git a/routes/web.php b/routes/web.php
+index 6c5aa11..63b24d5 100644
+--- a/routes/web.php
++++ b/routes/web.php
+@@ -11,6 +11,7 @@
+ use App\Http\Controllers\Controller;
+ use App\Http\Controllers\EkskulEventController;
+ use App\Http\Controllers\EkskulFotoController;
++use App\Http\Controllers\EkskulLogoController;
+ use App\Http\Controllers\EkskulJabatanController;
+ use App\Http\Controllers\EkskulMateriController;
+ use App\Http\Controllers\EkskulPembinaController;
+@@ -226,6 +227,10 @@
+     Route::patch('/pendaftaran/{pendaftaran}/status', [PendaftaranEkskulController::class, 'updateStatus'])->name('pendaftaran.updateStatus');
+     Route::patch('/ekstrakurikuler/{ekstrakurikuler}/pendaftaran-kontrol', [PendaftaranKontrolController::class, 'update'])->name('pendaftaran-kontrol.update');
+ 
++    // Logo ekskul: admin, pembina ekskul itu, atau penanggung jawab anggota (Gate "ubahLogo" di controller)
++    Route::patch('/ekstrakurikuler/{ekstrakurikuler}/logo', [EkskulLogoController::class, 'update'])->middleware('throttle:10,60')->name('ekskul-logo.update');
++    Route::delete('/ekstrakurikuler/{ekstrakurikuler}/logo', [EkskulLogoController::class, 'destroy'])->name('ekskul-logo.destroy');
++
+     // Admin & pembina aja
+     Route::middleware(RoleMiddleware::class.':admin,pembina')->group(function () {
+         Route::get('/ekstrakurikuler/create', [EkstrakurikulerController::class, 'create'])->name('ekstrakurikuler.create');
+diff --git a/tests/Feature/LogoEkskulTest.php b/tests/Feature/LogoEkskulTest.php
+new file mode 100644
+index 0000000..e208f7e
+--- /dev/null
++++ b/tests/Feature/LogoEkskulTest.php
+@@ -0,0 +1,384 @@
++<?php
++
++use App\Models\EkskulAnggotaJabatan;
++use App\Models\EkskulJabatan;
++use App\Models\Ekstrakurikuler;
++use App\Models\JenisEkskul;
++use App\Models\PendaftaranEkskul;
++use App\Models\User;
++use Illuminate\Foundation\Testing\RefreshDatabase;
++use Illuminate\Http\UploadedFile;
++use Illuminate\Support\Facades\Storage;
++
++uses(RefreshDatabase::class);
++
++beforeEach(function () {
++    $this->withoutVite();
++    Storage::fake('public');
++});
++
++function akunLg(string $role = 'siswa'): User
++{
++    return User::factory()->create(['role' => $role, 'is_active' => true]);
++}
++
++function ekskulLg(string $nama = 'Palang Merah Remaja', array $tambahan = []): Ekstrakurikuler
++{
++    return Ekstrakurikuler::create(array_merge([
++        'nama_ekstrakurikuler' => $nama,
++        'pembina' => 'Pak Uji',
++        'status' => 'aktif',
++        'jenis_ekskul_id' => (int) JenisEkskul::where('kode', 'ekskul')->value('id'),
++    ], $tambahan));
++}
++
++function pembinaLg(Ekstrakurikuler $ekskul): User
++{
++    $pembina = akunLg('pembina');
++    $ekskul->pembinas()->attach($pembina->id, ['mulai' => now()->toDateString()]);
++
++    return $pembina;
++}
++
++// Siswa anggota aktif yang memegang jabatan bertanda "penanggung jawab anggota"
++function penanggungJawabLg(Ekstrakurikuler $ekskul): User
++{
++    $siswa = akunLg();
++    $pendaftaran = anggotaLg($ekskul, $siswa);
++    $jabatan = EkskulJabatan::create([
++        'ekstrakurikuler_id' => $ekskul->id,
++        'nama' => 'Ketua',
++        'varian' => '',
++        'boleh_kelola_anggota' => true,
++    ]);
++    EkskulAnggotaJabatan::create([
++        'pendaftaran_id' => $pendaftaran->id,
++        'jabatan_id' => $jabatan->id,
++        'periode_mulai' => 2026,
++        'periode_selesai' => null,
++    ]);
++
++    return $siswa;
++}
++
++function anggotaLg(Ekstrakurikuler $ekskul, User $akun): PendaftaranEkskul
++{
++    return PendaftaranEkskul::create([
++        'user_id' => $akun->id,
++        'ekstrakurikuler_id' => $ekskul->id,
++        'nama_pendaftar' => $akun->name,
++        'peran' => 'siswa',
++        'status' => 'diterima',
++        'status_anggota' => 'aktif',
++    ]);
++}
++
++function logoLg(int $lebar = 300, int $tinggi = 300): UploadedFile
++{
++    return UploadedFile::fake()->image('logo.png', $lebar, $tinggi);
++}
++
++function unggahLogoLg($tes, User $akun, Ekstrakurikuler $ekskul, $berkas = null)
++{
++    return $tes->actingAs($akun)->patch(route('ekskul-logo.update', $ekskul->id), ['logo' => $berkas ?? logoLg()]);
++}
++
++// ---------------------------------------------------------------------------
++// Siapa yang boleh mengubah logo
++// ---------------------------------------------------------------------------
++
++test('admin bisa menambahkan logo ekskul', function () {
++    $ekskul = ekskulLg();
++
++    unggahLogoLg($this, akunLg('admin'), $ekskul)->assertRedirect()->assertSessionHas('success');
++
++    $ekskul->refresh();
++    expect($ekskul->logo)->toStartWith("logo-ekskul/{$ekskul->id}-")->toEndWith('.png');
++    Storage::disk('public')->assertExists($ekskul->logo);
++    expect($ekskul->logo_url)->toContain('storage/'.$ekskul->logo);
++});
++
++test('pembina ekskul itu dan penanggung jawab anggota bisa mengganti logo', function () {
++    $ekskul = ekskulLg();
++
++    foreach ([pembinaLg($ekskul), penanggungJawabLg($ekskul)] as $akun) {
++        unggahLogoLg($this, $akun, $ekskul)->assertRedirect()->assertSessionHasNoErrors();
++        expect($ekskul->fresh()->logo)->not->toBeNull();
++    }
++});
++
++test('pembina ekskul lain, anggota biasa, dan siswa lain tidak boleh mengubah logo', function () {
++    $ekskul = ekskulLg();
++    $lain = ekskulLg('Robotik');
++
++    $anggotaBiasa = akunLg();
++    anggotaLg($ekskul, $anggotaBiasa);
++
++    // Jabatan tanpa tanda penanggung jawab tidak cukup
++    $pemegangJabatan = akunLg();
++    $pendaftaran = anggotaLg($ekskul, $pemegangJabatan);
++    $jabatan = EkskulJabatan::create(['ekstrakurikuler_id' => $ekskul->id, 'nama' => 'Sekretaris', 'varian' => '', 'boleh_kelola_anggota' => false]);
++    EkskulAnggotaJabatan::create(['pendaftaran_id' => $pendaftaran->id, 'jabatan_id' => $jabatan->id, 'periode_mulai' => 2026, 'periode_selesai' => null]);
++
++    foreach ([pembinaLg($lain), $anggotaBiasa, $pemegangJabatan, akunLg()] as $akun) {
++        unggahLogoLg($this, $akun, $ekskul)->assertForbidden();
++    }
++
++    expect($ekskul->fresh()->logo)->toBeNull();
++    expect(Storage::disk('public')->allFiles())->toBeEmpty();
++});
++
++test('penanggung jawab ekskul lain tidak bisa mengubah logo ekskul ini', function () {
++    $ekskul = ekskulLg();
++    $lain = ekskulLg('Robotik');
++
++    unggahLogoLg($this, penanggungJawabLg($lain), $ekskul)->assertForbidden();
++    expect($ekskul->fresh()->logo)->toBeNull();
++});
++
++test('tamu yang belum login diarahkan ke halaman masuk', function () {
++    $ekskul = ekskulLg();
++
++    $this->patch(route('ekskul-logo.update', $ekskul->id), ['logo' => logoLg()])->assertRedirect(route('login'));
++    $this->delete(route('ekskul-logo.destroy', $ekskul->id))->assertRedirect(route('login'));
++});
++
++// ---------------------------------------------------------------------------
++// Validasi berkas
++// ---------------------------------------------------------------------------
++
++test('berkas yang bukan gambar, SVG, terlalu besar, atau terlalu kecil ditolak', function () {
++    $ekskul = ekskulLg();
++    $admin = akunLg('admin');
++
++    $svg = UploadedFile::fake()->createWithContent('logo.svg', '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200"><script>alert(1)</script></svg>');
++
++    $ditolak = [
++        'pdf' => UploadedFile::fake()->create('logo.pdf', 50, 'application/pdf'),
++        'svg' => $svg,
++        'terlalu besar' => UploadedFile::fake()->image('besar.png', 300, 300)->size(3000),
++        'terlalu kecil' => UploadedFile::fake()->image('kecil.png', 32, 32),
++    ];
++
++    foreach ($ditolak as $alasan => $berkas) {
++        unggahLogoLg($this, $admin, $ekskul, $berkas)->assertSessionHasErrors('logo');
++    }
++
++    $this->actingAs($admin)->patch(route('ekskul-logo.update', $ekskul->id), [])->assertSessionHasErrors('logo');
++
++    expect($ekskul->fresh()->logo)->toBeNull();
++    expect(Storage::disk('public')->allFiles())->toBeEmpty();
++});
++
++// ---------------------------------------------------------------------------
++// Pengolahan gambar
++// ---------------------------------------------------------------------------
++
++test('transparansi PNG tetap terjaga, tidak berubah jadi latar putih', function () {
++    $ekskul = ekskulLg();
++
++    $gd = imagecreatetruecolor(200, 200);
++    imagealphablending($gd, false);
++    imagesavealpha($gd, true);
++    imagefill($gd, 0, 0, imagecolorallocatealpha($gd, 0, 0, 0, 127));
++    imagefilledellipse($gd, 100, 100, 120, 120, imagecolorallocatealpha($gd, 220, 30, 30, 0));
++    $sementara = tempnam(sys_get_temp_dir(), 'logo').'.png';
++    imagepng($gd, $sementara);
++    imagedestroy($gd);
++
++    unggahLogoLg($this, akunLg('admin'), $ekskul, new UploadedFile($sementara, 'logo.png', 'image/png', null, true))->assertSessionHasNoErrors();
++
++    $hasil = imagecreatefromstring(Storage::disk('public')->get($ekskul->fresh()->logo));
++    $sudut = imagecolorsforindex($hasil, imagecolorat($hasil, 2, 2));
++    $tengah = imagecolorsforindex($hasil, imagecolorat($hasil, 100, 100));
++
++    expect($sudut['alpha'])->toBe(127);   // pojok tetap transparan penuh
++    expect($tengah['alpha'])->toBe(0);    // isi logo tetap utuh
++    expect($tengah['red'])->toBeGreaterThan(200);
++});
++
++test('gambar besar dikecilkan ke 512 px, gambar kecil tidak diperbesar', function () {
++    $ekskul = ekskulLg();
++    $admin = akunLg('admin');
++
++    unggahLogoLg($this, $admin, $ekskul, logoLg(1200, 800))->assertSessionHasNoErrors();
++    [$w, $h] = getimagesizefromstring(Storage::disk('public')->get($ekskul->fresh()->logo));
++    expect([$w, $h])->toBe([512, 341]);
++
++    unggahLogoLg($this, $admin, $ekskul, logoLg(200, 200))->assertSessionHasNoErrors();
++    [$w, $h] = getimagesizefromstring(Storage::disk('public')->get($ekskul->fresh()->logo));
++    expect([$w, $h])->toBe([200, 200]);
++});
++
++// ---------------------------------------------------------------------------
++// Mengganti dan menghapus
++// ---------------------------------------------------------------------------
++
++test('mengganti logo menghapus berkas lama dan memakai nama baru', function () {
++    $ekskul = ekskulLg();
++    $admin = akunLg('admin');
++
++    unggahLogoLg($this, $admin, $ekskul);
++    $lama = $ekskul->fresh()->logo;
++
++    unggahLogoLg($this, $admin, $ekskul);
++    $baru = $ekskul->fresh()->logo;
++
++    expect($baru)->not->toBe($lama);
++    Storage::disk('public')->assertMissing($lama);
++    Storage::disk('public')->assertExists($baru);
++    expect(Storage::disk('public')->allFiles())->toHaveCount(1);
++});
++
++test('menghapus logo membuang berkas dan mengosongkan kolom, hanya untuk yang berhak', function () {
++    $ekskul = ekskulLg();
++    unggahLogoLg($this, akunLg('admin'), $ekskul);
++    $path = $ekskul->fresh()->logo;
++
++    $this->actingAs(akunLg())->delete(route('ekskul-logo.destroy', $ekskul->id))->assertForbidden();
++    Storage::disk('public')->assertExists($path);
++
++    $this->actingAs(pembinaLg($ekskul))->delete(route('ekskul-logo.destroy', $ekskul->id))->assertRedirect()->assertSessionHas('success');
++
++    expect($ekskul->fresh()->logo)->toBeNull();
++    Storage::disk('public')->assertMissing($path);
++});
++
++test('menghapus ekskul ikut menghapus berkas logonya', function () {
++    $ekskul = ekskulLg();
++    unggahLogoLg($this, akunLg('admin'), $ekskul);
++    $path = $ekskul->fresh()->logo;
++    Storage::disk('public')->assertExists($path);
++
++    $ekskul->fresh()->delete();
++
++    Storage::disk('public')->assertMissing($path);
++});
++
++// ---------------------------------------------------------------------------
++// Monogram cadangan
++// ---------------------------------------------------------------------------
++
++test('monogram memakai singkatan, atau huruf awal dua kata pertama, maksimal tiga huruf', function () {
++    expect(Ekstrakurikuler::make(['nama_ekstrakurikuler' => 'Palang Merah Remaja', 'nama_singkatan' => 'pmr'])->monogram)->toBe('PMR');
++    expect(Ekstrakurikuler::make(['nama_ekstrakurikuler' => 'Palang Merah Remaja'])->monogram)->toBe('PM');
++    expect(Ekstrakurikuler::make(['nama_ekstrakurikuler' => 'Pramuka'])->monogram)->toBe('P');
++    expect(Ekstrakurikuler::make(['nama_ekstrakurikuler' => 'Seni Tari Tradisional', 'nama_singkatan' => 'Tari Tradisi'])->monogram)->toBe('TAR');
++    expect(Ekstrakurikuler::make(['nama_ekstrakurikuler' => '  -- Karya Ilmiah --  '])->monogram)->toBe('KI');
++    expect(Ekstrakurikuler::make(['nama_ekstrakurikuler' => '???'])->monogram)->toBe('?');
++});
++
++test('warna monogram tetap untuk nama yang sama dan berasal dari palet', function () {
++    $a = Ekstrakurikuler::make(['nama_ekstrakurikuler' => 'Palang Merah Remaja']);
++    $b = Ekstrakurikuler::make(['nama_ekstrakurikuler' => 'PALANG MERAH REMAJA']);
++
++    expect($a->warna_monogram)->toBe($b->warna_monogram)->and(Ekstrakurikuler::WARNA_MONOGRAM)->toContain($a->warna_monogram);
++});
++
++// ---------------------------------------------------------------------------
++// Tampilan
++// ---------------------------------------------------------------------------
++
++test('katalog menampilkan monogram kalau belum ada logo, dan gambar logo kalau sudah ada', function () {
++    $ekskul = ekskulLg('Palang Merah Remaja', ['nama_singkatan' => 'PMR']);
++    $siswa = akunLg();
++
++    $this->actingAs($siswa)->get(route('ekstrakurikuler.index'))
++        ->assertOk()
++        ->assertSee('aria-label="Logo Palang Merah Remaja"', false)
++        ->assertSee('>PMR</span>', false)
++        ->assertDontSee('storage/logo-ekskul/', false);
++
++    unggahLogoLg($this, akunLg('admin'), $ekskul);
++
++    $this->actingAs($siswa)->get(route('ekstrakurikuler.index'))
++        ->assertOk()
++        ->assertSee('storage/'.$ekskul->fresh()->logo, false)
++        ->assertSee('alt="Logo Palang Merah Remaja"', false);
++});
++
++test('dasar putih logo ditulis inline, tidak lewat kelas bg-white yang ditimpa tema gelap', function () {
++    // Tema aplikasi menimpa .bg-white (semi-transparan / gelap), sehingga logo berlatar transparan
++    // seperti palang merah nyaris tak terlihat. Warna dasar harus inline supaya tidak ikut tertimpa.
++    $ekskul = ekskulLg();
++    unggahLogoLg($this, akunLg('admin'), $ekskul);
++
++    $html = $this->actingAs(akunLg())->get(route('ekstrakurikuler.index'))->assertOk()->getContent();
++    preg_match('/<span[^>]*background:#fff[^>]*>\s*<img src="[^"]*storage\/logo-ekskul\/[^"]*"/s', $html, $cocok);
++
++    expect($cocok)->not->toBeEmpty();
++    expect($cocok[0])->not->toContain('bg-white');
++});
++
++test('form logo di halaman detail hanya muncul untuk yang berhak', function () {
++    $ekskul = ekskulLg();
++    $rute = route('ekskul-logo.update', $ekskul->id);
++
++    $berhak = [akunLg('admin'), pembinaLg($ekskul), penanggungJawabLg($ekskul)];
++    foreach ($berhak as $akun) {
++        $this->actingAs($akun)->get(route('ekstrakurikuler.show', $ekskul->id))
++            ->assertOk()->assertSee($rute, false)->assertSee('Tambah logo');
++    }
++
++    $anggota = akunLg();
++    anggotaLg($ekskul, $anggota);
++    foreach ([akunLg(), $anggota, pembinaLg(ekskulLg('Robotik'))] as $akun) {
++        $this->actingAs($akun)->get(route('ekstrakurikuler.show', $ekskul->id))
++            ->assertOk()->assertDontSee($rute, false)->assertDontSee('Tambah logo');
++    }
++});
++
++test('setelah logo terpasang, form menawarkan ganti dan hapus', function () {
++    $ekskul = ekskulLg();
++    $admin = akunLg('admin');
++    unggahLogoLg($this, $admin, $ekskul);
++
++    $this->actingAs($admin)->get(route('ekstrakurikuler.show', $ekskul->id))
++        ->assertOk()
++        ->assertSee('Ganti logo')
++        ->assertSee(route('ekskul-logo.destroy', $ekskul->id), false);
++});
++
++// ---------------------------------------------------------------------------
++// Logo web (identitas sekolah)
++// ---------------------------------------------------------------------------
++
++test('berkas logo web dan favicon tersedia dan bukan berkas kosong', function () {
++    foreach (['images/logo-sekolah.svg', 'favicon.svg', 'favicon.ico'] as $berkas) {
++        expect(public_path($berkas))->toBeFile();
++        expect(filesize(public_path($berkas)))->toBeGreaterThan(0);
++    }
++
++    expect(file_get_contents(public_path('images/logo-sekolah.svg')))->not->toContain('<script');
++});
++
++test('halaman masuk memuat logo, nama sekolah, dan ikon tab', function () {
++    $this->get(route('login'))
++        ->assertOk()
++        ->assertSee('SMKS Mahaputra Cerdas Utama')
++        ->assertSee(asset('images/logo-sekolah.svg'), false)
++        ->assertSee(asset('favicon.svg'), false)
++        ->assertSee(asset('favicon.ico'), false)
++        ->assertSee('Masuk - Ekstrakurikuler SMKS MCU');
++
++    $this->get(route('register'))->assertOk()->assertSee('SMKS Mahaputra Cerdas Utama')->assertSee(asset('images/logo-sekolah.svg'), false);
++});
++
++test('navbar memuat logo sekolah yang mengarah ke katalog', function () {
++    $this->actingAs(akunLg())->get(route('ekstrakurikuler.index'))
++        ->assertOk()
++        ->assertSee('class="nav-brand"', false)
++        ->assertSee(asset('images/logo-sekolah.svg'), false)
++        ->assertSee('SMKS MCU');
++});
++
++test('identitas sekolah bisa diganti lewat konfigurasi tanpa menyentuh tampilan', function () {
++    config(['sekolah.nama' => 'SMK Contoh Bangsa', 'sekolah.singkatan' => 'SMKCB', 'sekolah.logo' => 'images/logo-lain.png']);
++
++    $this->get(route('login'))
++        ->assertOk()
++        ->assertSee('SMK Contoh Bangsa')
++        ->assertSee(asset('images/logo-lain.png'), false)
++        ->assertSee('Masuk - Ekstrakurikuler SMKCB')
++        ->assertDontSee('SMKS Mahaputra Cerdas Utama');
++});
