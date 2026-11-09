@@ -59,7 +59,7 @@
                         <p class="text-xs text-gray-500">Dinilai oleh {{ $n->penilai->name ?? 'pembina' }} &middot; {{ $n->updated_at->format('d-m-Y') }}</p>
                     </div>
                     <div class="text-right">
-                        <p class="text-3xl font-bold text-gray-900 leading-none">{{ number_format($n->rata_rata, 1) }}</p>
+                        <p class="text-2xl sm:text-3xl font-bold text-gray-900 leading-none">{{ number_format($n->rata_rata, 1) }}</p>
                         <span class="inline-block mt-1 px-2.5 py-0.5 text-xs font-semibold rounded-full {{ $warnaPredikat[$n->predikat] }}">Predikat {{ $n->predikat }}</span>
                     </div>
                 </div>
@@ -89,7 +89,7 @@
                 @endif
             </div>
         @empty
-            <div class="bg-white p-8 rounded-xl border border-gray-200 text-center text-gray-500">Kamu belum mendapat nilai di ekskul ini.</div>
+            <div class="bg-white p-5 sm:p-8 rounded-xl border border-gray-200 text-center text-gray-500">Kamu belum mendapat nilai di ekskul ini.</div>
         @endforelse
     </div>
 @endif

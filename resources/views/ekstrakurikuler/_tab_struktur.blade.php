@@ -14,7 +14,7 @@
 <div class="space-y-4">
     @forelse($jabatans as $j)
         <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200" data-aos="fade-up">
-            <div class="flex justify-between items-start gap-4">
+            <div class="flex flex-wrap justify-between items-start gap-4">
                 <div>
                     <h3 class="text-lg font-bold text-gray-900">{{ $j->label_lengkap }}</h3>
                     @if($j->boleh_kelola_anggota)
@@ -82,7 +82,7 @@
             </div>
         </div>
     @empty
-        <div class="bg-white p-8 rounded-xl border border-gray-200 text-center text-gray-500">
+        <div class="bg-white p-5 sm:p-8 rounded-xl border border-gray-200 text-center text-gray-500">
             Belum ada struktur jabatan di ekskul ini.
             @if($staff) Tambahkan jabatan pertama lewat form di atas. @endif
         </div>

@@ -6,13 +6,13 @@
     <title>{{ $pr->judul }}</title>
     @include('partials.head')
 </head>
-<body class="app-bg p-6">
+<body class="app-bg p-3 sm:p-6">
     <div class="max-w-4xl mx-auto">
         @include('partials.navbar')
 
         <div class="flex flex-wrap justify-between items-start gap-3 mb-6" data-aos="fade-down">
             <div>
-                <h1 class="text-3xl font-bold text-gray-800">{{ $pr->judul }}</h1>
+                <h1 class="text-2xl sm:text-3xl font-bold text-gray-800">{{ $pr->judul }}</h1>
                 <p class="text-gray-600 text-sm">
                     {{ $ekskul->nama_ekstrakurikuler }} &middot; nilai maks {{ $pr->nilai_maks }}
                     @if($pr->tenggat) &middot; tenggat {{ $pr->tenggat->format('d-m-Y') }} @endif
@@ -83,7 +83,7 @@
                     @endif
                 </div>
             @empty
-                <div class="bg-white p-8 rounded-xl border border-gray-200 text-center text-gray-500">Belum ada anggota aktif.</div>
+                <div class="bg-white p-5 sm:p-8 rounded-xl border border-gray-200 text-center text-gray-500">Belum ada anggota aktif.</div>
             @endforelse
         </div>
     </div>

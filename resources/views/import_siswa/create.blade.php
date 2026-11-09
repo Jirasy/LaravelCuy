@@ -6,12 +6,12 @@
     <title>Import Siswa</title>
     @include('partials.head')
 </head>
-<body class="app-bg p-6">
+<body class="app-bg p-3 sm:p-6">
     <div class="max-w-2xl mx-auto">
         @include('partials.navbar')
 
-        <div class="bg-white p-8 rounded-xl shadow-sm border border-gray-200">
-            <div class="flex justify-between items-center mb-2">
+        <div class="bg-white p-5 sm:p-8 rounded-xl shadow-sm border border-gray-200">
+            <div class="flex flex-wrap gap-3 justify-between items-center mb-2">
                 <h1 class="text-2xl font-bold text-gray-800">Import Data Siswa</h1>
                 <a href="{{ route('users.index') }}" class="inline-flex items-center gap-1 text-gray-600 hover:underline text-sm"><x-ikon nama="panah-kiri" :ukuran="14" /> Kelola User</a>
             </div>

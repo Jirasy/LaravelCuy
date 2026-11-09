@@ -6,12 +6,12 @@
     <title>Tambah User</title>
     @include('partials.head')
 </head>
-<body class="app-bg p-6">
+<body class="app-bg p-3 sm:p-6">
     <div class="max-w-2xl mx-auto">
         @include('partials.navbar')
 
         <div class="mb-6" data-aos="fade-down">
-            <h1 class="text-3xl font-bold text-gray-800">Tambah User</h1>
+            <h1 class="text-2xl sm:text-3xl font-bold text-gray-800">Tambah User</h1>
             <p class="text-gray-600 text-sm">Tambah satu akun langsung dari sini. Untuk banyak siswa sekaligus, pakai
                 <a href="{{ route('import-siswa.create') }}" class="underline font-semibold text-indigo-700">Import siswa</a>.</p>
         </div>

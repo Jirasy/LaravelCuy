@@ -6,15 +6,15 @@
     <title>Kelola User</title>
     @include('partials.head')
 </head>
-<body class="app-bg p-6">
+<body class="app-bg p-3 sm:p-6">
     <div class="max-w-6xl mx-auto">
         @include('partials.navbar')
 
         {{-- Banner --}}
         <div class="relative overflow-hidden rounded-2xl mb-6 shadow-lg hero-glass" data-aos="fade-down">
-            <div class="relative px-8 py-8 flex flex-wrap justify-between items-center gap-4">
+            <div class="relative px-5 py-6 sm:px-8 sm:py-8 flex flex-wrap justify-between items-center gap-4">
                 <div>
-                    <h1 class="text-3xl font-bold">Kelola User</h1>
+                    <h1 class="text-2xl sm:text-3xl font-bold">Kelola User</h1>
                     <p class="opacity-80 text-sm mt-1">Atur role, aktifkan atau nonaktifkan akun, dan edit data pengguna.</p>
                 </div>
                 <div class="flex flex-wrap items-center gap-3">
@@ -23,7 +23,7 @@
                         <a href="{{ route('users.create', ['tab' => 'pembina']) }}" class="bg-sky-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-sky-700 inline-flex items-center gap-1.5"><x-ikon nama="tambah" :ukuran="15" :tebal="2.5" /> Tambah pembina</a>
                     @endif
                     <a href="{{ route('import-siswa.create') }}" class="bg-white/90 text-indigo-700 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-white inline-flex items-center gap-1.5"><x-ikon nama="unduh" :ukuran="15" /> Import siswa</a>
-                    <input type="search" id="cari-user" placeholder="Cari nama, email, kelas..." class="field-glass !w-64 !mt-0">
+                    <input type="search" id="cari-user" placeholder="Cari nama, email, kelas..." class="field-glass !w-full sm:!w-64 !mt-0">
                 </div>
             </div>
         </div>
@@ -161,7 +161,7 @@
                 </thead>
                 <tbody id="tabel-user">
                     @if($users->isEmpty())
-                        <tr data-cari=""><td colspan="6" class="p-8 text-center text-gray-500">Tidak ada user yang cocok dengan saringan ini.</td></tr>
+                        <tr data-cari=""><td colspan="6" class="p-5 sm:p-8 text-center text-gray-500">Tidak ada user yang cocok dengan saringan ini.</td></tr>
                     @endif
                     @foreach($users as $u)
                         @php $saya = $u->id === auth()->id(); @endphp
@@ -225,7 +225,7 @@
                                     @if($u->is_active)
                                         <details class="w-full">
                                             <summary class="cursor-pointer inline-block bg-teal-600 text-white px-3 py-1 rounded text-xs font-semibold hover:bg-teal-700 list-none">Beri task</summary>
-                                            <div class="mt-2 w-64">
+                                            <div class="mt-2 w-64 max-w-[75vw]">
                                                 @include('tugas._form', ['mode' => 'user', 'userTarget' => $u])
                                             </div>
                                         </details>

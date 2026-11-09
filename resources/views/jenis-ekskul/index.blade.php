@@ -6,13 +6,13 @@
     <title>Tipe Ekskul</title>
     @include('partials.head')
 </head>
-<body class="app-bg p-6">
+<body class="app-bg p-3 sm:p-6">
     <div class="max-w-4xl mx-auto">
         @include('partials.navbar')
         @include('partials.tab-pengelompokan')
 
         <div class="mb-6" data-aos="fade-down">
-            <h1 class="text-3xl font-bold text-gray-800">Tipe Ekskul</h1>
+            <h1 class="text-2xl sm:text-3xl font-bold text-gray-800">Tipe Ekskul</h1>
             <p class="text-gray-600 text-sm">
                 Tipe menentukan cara orang masuk: <strong>Ekskul Biasa</strong> (daftar langsung, disetujui pembina),
                 <strong>Ekskul Seleksi</strong> dan <strong>Organisasi</strong> (OSIS, MPK, dst; lewat seleksi dengan jumlah tahap bebas),

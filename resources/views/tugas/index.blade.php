@@ -9,12 +9,12 @@
     <title>Task</title>
     @include('partials.head')
 </head>
-<body class="app-bg p-6">
+<body class="app-bg p-3 sm:p-6">
     <div class="max-w-4xl mx-auto">
         @include('partials.navbar')
 
         <div class="mb-6" data-aos="fade-down">
-            <h1 class="text-3xl font-bold text-gray-800">Task</h1>
+            <h1 class="text-2xl sm:text-3xl font-bold text-gray-800">Task</h1>
             <p class="text-gray-600 text-sm">Daftar task untukmu dari pembina atau admin, ditambah task pribadimu.</p>
         </div>
 
@@ -76,7 +76,7 @@
                     </div>
                 </div>
             @empty
-                <div class="bg-white p-8 rounded-xl border border-gray-200 text-center text-gray-500"><div class="flex justify-center mb-3"><x-ikon-kaca nama="pesta" warna="zamrud" ukuran="lg" /></div>Tidak ada task yang menunggu.</div>
+                <div class="bg-white p-5 sm:p-8 rounded-xl border border-gray-200 text-center text-gray-500"><div class="flex justify-center mb-3"><x-ikon-kaca nama="pesta" warna="zamrud" ukuran="lg" /></div>Tidak ada task yang menunggu.</div>
             @endforelse
         </div>
 
@@ -85,7 +85,7 @@
                 <summary class="cursor-pointer text-sm font-semibold text-gray-500 uppercase mb-2">Selesai ({{ $selesai->count() }})</summary>
                 <div class="space-y-2 mt-2">
                     @foreach($selesai as $p)
-                        <div class="bg-white px-4 py-3 rounded-lg border border-gray-200 flex justify-between items-center gap-3 opacity-80">
+                        <div class="bg-white px-4 py-3 rounded-lg border border-gray-200 flex flex-wrap justify-between items-center gap-3 opacity-80">
                             <span class="text-sm text-gray-700 line-through">{{ $p->tugas->judul }}</span>
                             <form action="{{ route('tugas.status', $p->id) }}" method="POST">
                                 @csrf @method('PATCH')
@@ -117,7 +117,7 @@
                 @foreach($untukOrangLain as $t)
                     @php $selesaiN = $t->penerimas->where('status', 'selesai')->count(); $total = $t->penerimas->count(); @endphp
                     <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-200" data-aos="fade-up">
-                        <div class="flex justify-between items-start gap-3">
+                        <div class="flex flex-wrap justify-between items-start gap-3">
                             <div>
                                 <h3 class="font-bold text-gray-900">{{ $t->judul }}</h3>
                                 <p class="text-xs text-gray-500 mt-0.5">

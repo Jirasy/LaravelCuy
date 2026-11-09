@@ -6,12 +6,12 @@
     <title>Edit Profil</title>
     @include('partials.head')
 </head>
-<body class="app-bg p-6">
+<body class="app-bg p-3 sm:p-6">
     <div class="max-w-2xl mx-auto">
         @include('partials.navbar')
 
-        <div class="flex justify-between items-center mb-6">
-            <h1 class="text-3xl font-bold text-gray-800">Edit Profil</h1>
+        <div class="flex flex-wrap gap-3 justify-between items-center mb-6">
+            <h1 class="text-2xl sm:text-3xl font-bold text-gray-800">Edit Profil</h1>
             <a href="{{ route('profil.show') }}" class="inline-flex items-center gap-1 text-gray-600 hover:underline text-sm"><x-ikon nama="panah-kiri" :ukuran="14" /> Profilku</a>
         </div>
 
@@ -77,7 +77,7 @@
                 <p class="text-xs text-gray-500 mt-2">Nomor hanya dipakai agar orang lain bisa menghubungimu lewat WhatsApp. Jangan bagikan ke orang yang tidak kamu kenal.</p>
             </div>
 
-            <div class="grid grid-cols-3 gap-4 text-sm border-t pt-4">
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 text-sm border-t pt-4">
                 <div><p class="text-xs text-gray-500">Email</p><p class="text-gray-800 break-all">{{ $user->email }}</p></div>
                 <div><p class="text-xs text-gray-500">Kelas</p><p class="text-gray-800">{{ $user->kelas ?? '-' }}</p></div>
                 <div><p class="text-xs text-gray-500">Role</p><p class="text-gray-800">{{ ucfirst($user->role) }}</p></div>

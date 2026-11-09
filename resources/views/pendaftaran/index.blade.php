@@ -6,12 +6,12 @@
     <title>Data Pendaftaran Ekskul</title>
     @include('partials.head')
 </head>
-<body class="app-bg p-6">
+<body class="app-bg p-3 sm:p-6">
     <div class="max-w-7xl mx-auto">
         @include('partials.navbar')
-        <div class="flex justify-between items-center mb-6">
-            <h1 class="text-3xl font-bold text-gray-800">{{ auth()->user()->isStaff() ? 'Data Pendaftaran Ekskul' : 'Pendaftaran Saya' }}</h1>
-            <div class="space-x-2">
+        <div class="flex flex-wrap gap-3 justify-between items-center mb-6">
+            <h1 class="text-2xl sm:text-3xl font-bold text-gray-800">{{ auth()->user()->isStaff() ? 'Data Pendaftaran Ekskul' : 'Pendaftaran Saya' }}</h1>
+            <div class="flex flex-wrap gap-2">
                 @unless(auth()->user()->isStaff())
                     <a href="{{ route('pendaftaran.create') }}" class="bg-emerald-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-emerald-700">+ Daftar Baru</a>
                 @endunless

@@ -27,7 +27,7 @@
                         <p class="text-xs uppercase mt-1">{{ $bln[$e->tanggal_mulai->month - 1] }}</p>
                     </div>
                     <div class="flex-1">
-                        <div class="flex justify-between items-start gap-3">
+                        <div class="flex flex-wrap justify-between items-start gap-3">
                             <div>
                                 <span class="px-2.5 py-0.5 text-xs rounded-full bg-indigo-100 text-indigo-800">{{ $e->jenis_label }}</span>
                                 <h3 class="text-lg font-bold text-gray-900 mt-1">{{ $e->judul }}</h3>
@@ -59,5 +59,5 @@
 @endforeach
 
 @if($events->isEmpty())
-    <div class="bg-white p-8 rounded-xl border border-gray-200 text-center text-gray-500">Belum ada event atau acara.</div>
+    <div class="bg-white p-5 sm:p-8 rounded-xl border border-gray-200 text-center text-gray-500">Belum ada event atau acara.</div>
 @endif

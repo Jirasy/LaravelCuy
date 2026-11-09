@@ -128,5 +128,11 @@
         var aktif = geser.querySelector('.is-active');
         if (aktif) { geser.scrollLeft = Math.max(0, aktif.offsetLeft - (geser.clientWidth - aktif.offsetWidth) / 2); }
         perbarui();
+
+        // Layar sentuh tidak punya "hover": navbar yang tenggelam dibuka lewat pegangan, jadi tutup lagi saat menyentuh di luarnya
+        document.addEventListener('click', function (e) {
+            var terbuka = document.querySelector('.nav-wrap.open');
+            if (terbuka && !terbuka.contains(e.target)) { terbuka.classList.remove('open'); }
+        });
     })();
 </script>

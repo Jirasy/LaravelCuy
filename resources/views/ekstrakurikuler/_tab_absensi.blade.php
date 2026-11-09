@@ -50,7 +50,7 @@
                 </div>
             </div>
         @empty
-            <div class="bg-white p-8 rounded-xl border border-gray-200 text-center text-gray-500">Belum ada pertemuan yang dicatat.</div>
+            <div class="bg-white p-5 sm:p-8 rounded-xl border border-gray-200 text-center text-gray-500">Belum ada pertemuan yang dicatat.</div>
         @endforelse
     </div>
 @else

@@ -9,12 +9,12 @@
     <title>Pengunduran Diri</title>
     @include('partials.head')
 </head>
-<body class="app-bg p-6">
+<body class="app-bg p-3 sm:p-6">
     <div class="max-w-5xl mx-auto">
         @include('partials.navbar')
 
         <div class="mb-6" data-aos="fade-down">
-            <h1 class="text-3xl font-bold text-gray-800">Pengunduran Diri</h1>
+            <h1 class="text-2xl sm:text-3xl font-bold text-gray-800">Pengunduran Diri</h1>
             <p class="text-gray-600 text-sm">Setujui atau tolak pengajuan keluar dari ekskul.
                 @if(auth()->user()->isAdmin()) Pengajuan pembina hanya bisa diputuskan admin. @endif</p>
         </div>
@@ -38,7 +38,7 @@
                 <p class="text-xs text-red-700 mb-3">Ekskul ini tidak punya pembina yang bertugas. Tugaskan pembina lewat tombol di samping nama ekskul.</p>
                 <div class="space-y-2">
                     @foreach($tanpaPembina as $e)
-                        <div class="flex items-center justify-between gap-3 bg-white border border-red-100 rounded-lg px-4 py-2">
+                        <div class="flex flex-wrap items-center justify-between gap-3 bg-white border border-red-100 rounded-lg px-4 py-2">
                             <span class="font-semibold text-gray-800">{{ $e->nama_ekstrakurikuler }}</span>
                             <a href="{{ route('ekstrakurikuler.edit', $e->id) }}" class="bg-indigo-600 text-white px-3 py-1 rounded text-xs font-semibold hover:bg-indigo-700">Tugaskan pembina</a>
                         </div>
@@ -77,7 +77,7 @@
                     </form>
                 </div>
             @empty
-                <div class="bg-white p-8 rounded-xl border border-gray-200 text-center text-gray-500">Tidak ada pengajuan yang menunggu keputusanmu.</div>
+                <div class="bg-white p-5 sm:p-8 rounded-xl border border-gray-200 text-center text-gray-500">Tidak ada pengajuan yang menunggu keputusanmu.</div>
             @endforelse
         </div>
 

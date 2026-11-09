@@ -9,13 +9,13 @@
     <title>{{ $ekskul->label_calon }} {{ $casis->user->name ?? '' }}</title>
     @include('partials.head')
 </head>
-<body class="app-bg p-6">
+<body class="app-bg p-3 sm:p-6">
     <div class="max-w-3xl mx-auto">
         @include('partials.navbar')
 
         <div class="flex flex-wrap justify-between items-start gap-3 mb-6" data-aos="fade-down">
             <div>
-                <h1 class="text-3xl font-bold text-gray-800">{{ $casis->user->name ?? 'Pengguna dihapus' }}</h1>
+                <h1 class="text-2xl sm:text-3xl font-bold text-gray-800">{{ $casis->user->name ?? 'Pengguna dihapus' }}</h1>
                 <p class="text-gray-600 text-sm">{{ $casis->user->kelas ?? '-' }} &middot; {{ $ekskul->label_calon }} {{ $ekskul->nama_ekstrakurikuler }} periode {{ $periode->nama }} &middot; {{ \App\Models\CasisPendaftaran::STATUS[$casis->status] }}</p>
             </div>
             <a href="{{ route('casis.index', [$ekskul->id, 'periode' => $periode->id]) }}" class="inline-flex items-center gap-1 text-gray-600 hover:underline text-sm"><x-ikon nama="panah-kiri" :ukuran="14" /> Kembali</a>

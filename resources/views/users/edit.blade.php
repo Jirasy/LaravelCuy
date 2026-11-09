@@ -6,12 +6,12 @@
     <title>Edit User</title>
     @include('partials.head')
 </head>
-<body class="app-bg p-6">
+<body class="app-bg p-3 sm:p-6">
     <div class="max-w-2xl mx-auto">
         @include('partials.navbar')
 
-        <div class="bg-white p-8 rounded-xl shadow-sm border border-gray-200">
-            <div class="flex justify-between items-center mb-6">
+        <div class="bg-white p-5 sm:p-8 rounded-xl shadow-sm border border-gray-200">
+            <div class="flex flex-wrap gap-3 justify-between items-center mb-6">
                 <h1 class="text-2xl font-bold text-gray-800">Edit User</h1>
                 <a href="{{ route('users.index') }}" class="inline-flex items-center gap-1 text-gray-600 hover:underline text-sm"><x-ikon nama="panah-kiri" :ukuran="14" /> Batal</a>
             </div>
@@ -36,7 +36,7 @@
                     <label class="block text-sm font-semibold text-gray-700">Email</label>
                     <input type="email" name="email" value="{{ old('email', $user->email) }}" required class="w-full border p-2 rounded-lg mt-1">
                 </div>
-                <div class="grid grid-cols-2 gap-4">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                         <label class="block text-sm font-semibold text-gray-700">NISN <span class="text-gray-400 font-normal">(opsional)</span></label>
                         <input type="text" name="nisn" value="{{ old('nisn', $user->nisn) }}" class="w-full border p-2 rounded-lg mt-1">
@@ -49,7 +49,7 @@
 
                 <div class="border-t pt-4">
                     <p class="text-sm font-semibold text-gray-700 mb-2">Status sekolah</p>
-                    <div class="grid grid-cols-2 gap-4">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
                             <label class="block text-xs text-gray-500">Angkatan sekolah <span class="text-gray-400">(mis. 2023)</span></label>
                             <input type="text" name="angkatan_sekolah" value="{{ old('angkatan_sekolah', $user->angkatan_sekolah) }}" class="w-full border p-2 rounded-lg">
@@ -67,7 +67,7 @@
 
                 <div class="border-t pt-4">
                     <p class="text-sm font-semibold text-gray-700">Reset Password <span class="text-gray-400 font-normal">(kosongkan kalau tidak ingin mengubah)</span></p>
-                    <div class="grid grid-cols-2 gap-4 mt-2">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
                         <div>
                             <label class="block text-xs text-gray-500">Password baru</label>
                             <input type="password" name="password" minlength="10" autocomplete="new-password" class="w-full border p-2 rounded-lg">
@@ -81,7 +81,7 @@
                     <p class="text-xs text-gray-500 mt-2">Password yang diisi di sini bersifat sementara: user wajib menggantinya saat login berikutnya.</p>
                 </div>
 
-                <div class="flex justify-end space-x-2 pt-4">
+                <div class="flex flex-wrap gap-2 justify-end pt-4">
                     <a href="{{ route('users.index') }}" class="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-semibold hover:bg-gray-300">Batal</a>
                     <button type="submit" class="bg-indigo-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-indigo-700">Perbarui</button>
                 </div>

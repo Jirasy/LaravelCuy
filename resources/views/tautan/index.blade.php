@@ -6,12 +6,12 @@
     <title>Tautan Sekolah</title>
     @include('partials.head')
 </head>
-<body class="app-bg p-6">
+<body class="app-bg p-3 sm:p-6">
     <div class="max-w-2xl mx-auto">
         @include('partials.navbar')
 
         <div class="mb-6" data-aos="fade-down">
-            <h1 class="text-3xl font-bold text-gray-800">Tautan Sekolah</h1>
+            <h1 class="text-2xl sm:text-3xl font-bold text-gray-800">Tautan Sekolah</h1>
             <p class="text-gray-600 text-sm">Tautan ini muncul di menu Pesan/Task di navbar untuk semua pengguna. Hanya admin yang bisa mengaturnya.</p>
         </div>
 
@@ -32,7 +32,7 @@
 
         <div class="space-y-2">
             @forelse($tautans as $t)
-                <div class="bg-white px-4 py-3 rounded-xl border border-gray-200 flex items-center justify-between gap-3" data-aos="fade-up">
+                <div class="bg-white px-4 py-3 rounded-xl border border-gray-200 flex flex-wrap items-center justify-between gap-3" data-aos="fade-up">
                     <div class="min-w-0">
                         <p class="font-semibold text-gray-800"><x-ikon :nama="$t->ikon" :ukuran="16" /> {{ $t->label }}</p>
                         <p class="text-xs text-gray-500 truncate">{{ $t->url }}</p>
@@ -43,7 +43,7 @@
                     </form>
                 </div>
             @empty
-                <div class="bg-white p-8 rounded-xl border border-gray-200 text-center text-gray-500">Belum ada tautan sekolah.</div>
+                <div class="bg-white p-5 sm:p-8 rounded-xl border border-gray-200 text-center text-gray-500">Belum ada tautan sekolah.</div>
             @endforelse
         </div>
     </div>

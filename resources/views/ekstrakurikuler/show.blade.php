@@ -6,19 +6,19 @@
     <title>{{ $ekskul->nama_ekstrakurikuler }}</title>
     @include('partials.head')
 </head>
-<body class="app-bg p-6">
+<body class="app-bg p-3 sm:p-6">
     <div class="max-w-4xl mx-auto">
         @include('partials.navbar')
 
         {{-- Header --}}
-        <div class="flex justify-between items-start mb-4">
+        <div class="flex flex-col-reverse items-start gap-3 sm:flex-row sm:justify-between mb-4">
             <div class="flex items-start gap-4 min-w-0">
             <x-logo-ekskul :ekskul="$ekskul" :ukuran="72" />
             <div class="min-w-0">
                 <span class="inline-block px-3 py-1 text-xs font-semibold rounded-full {{ $ekskul->status === 'aktif' ? 'bg-green-100 text-green-800' : 'bg-gray-200 text-gray-700' }}">
                     {{ ucfirst($ekskul->status) }}
                 </span>
-                <h1 class="text-3xl font-bold text-gray-800 mt-2">{{ $ekskul->nama_ekstrakurikuler }}@if($ekskul->nama_singkatan) <span class="align-middle ml-2 px-3 py-1 text-sm font-semibold rounded-full bg-indigo-100 text-indigo-800">{{ $ekskul->nama_singkatan }}</span>@endif</h1>
+                <h1 class="text-2xl sm:text-3xl font-bold text-gray-800 mt-2">{{ $ekskul->nama_ekstrakurikuler }}@if($ekskul->nama_singkatan) <span class="align-middle ml-2 px-3 py-1 text-sm font-semibold rounded-full bg-indigo-100 text-indigo-800">{{ $ekskul->nama_singkatan }}</span>@endif</h1>
                 <p class="text-gray-600 text-sm">Pembina: <strong>{{ $ekskul->pembina_tampil }}</strong></p>
                 @if($ekskul->kategoris->isNotEmpty())
                     <div class="flex flex-wrap gap-1 mt-2">
@@ -168,7 +168,7 @@
 
         {{-- ========== TAB PENGUMUMAN & ANGGOTA: khusus anggota / pengelola ========== --}}
         @elseif(!$bolehLihat)
-            <div class="bg-white p-8 rounded-xl shadow-sm border border-gray-200 text-center text-gray-600">
+            <div class="bg-white p-5 sm:p-8 rounded-xl shadow-sm border border-gray-200 text-center text-gray-600">
                 <p class="font-semibold text-gray-800 mb-1">Khusus anggota ekskul ini</p>
                 @if(auth()->user()->isStaff())
                     <p class="text-sm">Hanya siswa anggota dan pengelola ekskul ini yang bisa melihatnya.</p>
@@ -202,7 +202,7 @@
             <div class="space-y-4">
                 @forelse($pengumumans as $p)
                     <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                        <div class="flex justify-between items-start gap-4">
+                        <div class="flex flex-wrap justify-between items-start gap-4">
                             <div>
                                 <h3 class="text-lg font-bold text-gray-900">{{ $p->judul }}</h3>
                                 <p class="text-xs text-gray-500 mt-0.5">
@@ -224,7 +224,7 @@
                         <p class="text-gray-800 mt-3 whitespace-pre-line">{{ $p->isi }}</p>
                     </div>
                 @empty
-                    <div class="bg-white p-8 rounded-xl border border-gray-200 text-center text-gray-500">Belum ada pengumuman.</div>
+                    <div class="bg-white p-5 sm:p-8 rounded-xl border border-gray-200 text-center text-gray-500">Belum ada pengumuman.</div>
                 @endforelse
             </div>
 

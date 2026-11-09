@@ -21,8 +21,8 @@
     <div class="mt-3 space-y-2">
         @foreach(\App\Enums\Hari::cases() as $h)
             @php $aktif = in_array($h->value, $hariDipilih); @endphp
-            <div class="baris-jam grid grid-cols-3 gap-3 items-end bg-gray-50 border rounded-lg p-3 {{ $aktif ? '' : 'hidden' }}" data-hari="{{ $h->value }}">
-                <div class="text-sm font-semibold text-gray-700">{{ $h->label() }}</div>
+            <div class="baris-jam grid grid-cols-2 sm:grid-cols-3 gap-3 items-end bg-gray-50 border rounded-lg p-3 {{ $aktif ? '' : 'hidden' }}" data-hari="{{ $h->value }}">
+                <div class="col-span-2 sm:col-span-1 text-sm font-semibold text-gray-700">{{ $h->label() }}</div>
                 <div>
                     <label class="block text-xs text-gray-500">Jam Mulai</label>
                     <input type="time" name="jadwal[{{ $h->value }}][jam_mulai]" value="{{ $jamLama[$h->value]['jam_mulai'] ?? '' }}"

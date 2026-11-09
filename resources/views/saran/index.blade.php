@@ -9,13 +9,13 @@
     <title>Kritik &amp; Saran</title>
     @include('partials.head')
 </head>
-<body class="app-bg p-6">
+<body class="app-bg p-3 sm:p-6">
     <div class="max-w-3xl mx-auto">
         @include('partials.navbar')
 
         <div class="flex flex-wrap justify-between items-center gap-3 mb-6" data-aos="fade-down">
             <div>
-                <h1 class="text-3xl font-bold text-gray-800">Kritik &amp; Saran</h1>
+                <h1 class="text-2xl sm:text-3xl font-bold text-gray-800">Kritik &amp; Saran</h1>
                 <p class="text-gray-600 text-sm">Sampaikan masukanmu untuk sekolah atau ekskul tertentu.</p>
             </div>
             @if(auth()->user()->isStaff())
@@ -87,7 +87,7 @@
                     @endif
                 </div>
             @empty
-                <div class="bg-white p-8 rounded-xl border border-gray-200 text-center text-gray-500">Kamu belum mengirim kritik atau saran.</div>
+                <div class="bg-white p-5 sm:p-8 rounded-xl border border-gray-200 text-center text-gray-500">Kamu belum mengirim kritik atau saran.</div>
             @endforelse
         </div>
     </div>

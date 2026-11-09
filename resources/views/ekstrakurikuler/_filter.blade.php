@@ -19,7 +19,7 @@
     <div class="mb-4 space-y-2" id="saringan-katalog">
         @if($jenisFilter->count() > 1)
             <div class="flex flex-wrap items-center gap-2">
-                <span class="text-xs font-semibold text-gray-500 w-20">Tipe</span>
+                <span class="text-xs font-semibold text-gray-500 w-full sm:w-20">Tipe</span>
                 <a href="{{ $tautan('jenis', null) }}" class="{{ $pillDasar }} {{ $jenisAktif ? $pillBiasa : $pillAktif }}">Semua</a>
                 @foreach($jenisFilter as $j)
                     @php $aktif = $jenisAktif && $jenisAktif->id === $j->id; @endphp
@@ -30,7 +30,7 @@
 
         @if($kategoriFilter->isNotEmpty())
             <div class="flex flex-wrap items-center gap-2">
-                <span class="text-xs font-semibold text-gray-500 w-20">Kategori</span>
+                <span class="text-xs font-semibold text-gray-500 w-full sm:w-20">Kategori</span>
                 <a href="{{ $tautan('kategori', null) }}" class="{{ $pillDasar }} {{ $kategoriAktif ? $pillBiasa : $pillAktif }}">Semua</a>
                 @foreach($kategoriFilter as $k)
                     @php $aktif = $kategoriAktif && $kategoriAktif->id === $k->id; @endphp
@@ -40,7 +40,7 @@
         @endif
 
         <div class="flex flex-wrap items-center gap-2">
-            <span class="text-xs font-semibold text-gray-500 w-20">Pendaftaran</span>
+            <span class="text-xs font-semibold text-gray-500 w-full sm:w-20">Pendaftaran</span>
             <a href="{{ $tautan('status', null) }}" class="{{ $pillDasar }} {{ $statusAktif ? $pillBiasa : $pillAktif }}">Semua</a>
             <a href="{{ $tautan('status', $statusAktif === 'buka' ? null : 'buka') }}" class="{{ $pillDasar }} {{ $statusAktif === 'buka' ? 'bg-emerald-600 text-white border-emerald-600' : $pillBiasa }}" @if($statusAktif === 'buka') aria-current="true" @endif>Buka ({{ $jumlah['status']['buka'] }})</a>
             <a href="{{ $tautan('status', $statusAktif === 'tutup' ? null : 'tutup') }}" class="{{ $pillDasar }} {{ $statusAktif === 'tutup' ? 'bg-gray-700 text-white border-gray-700' : $pillBiasa }}" @if($statusAktif === 'tutup') aria-current="true" @endif>Tutup ({{ $jumlah['status']['tutup'] }})</a>
@@ -48,7 +48,7 @@
         </div>
 
         <div class="flex flex-wrap items-center gap-2">
-            <span class="text-xs font-semibold text-gray-500 w-20">Anggota</span>
+            <span class="text-xs font-semibold text-gray-500 w-full sm:w-20">Anggota</span>
             <a href="{{ $tautan('anggota', null) }}" class="{{ $pillDasar }} {{ $ukuranAktif ? $pillBiasa : $pillAktif }}">Semua</a>
             @foreach(\App\Models\Ekstrakurikuler::UKURAN_ANGGOTA as $kunci => $ukuran)
                 @php $aktif = $ukuranAktif === $kunci; @endphp

@@ -9,12 +9,12 @@
     <title>Pendaftaran {{ $ekskul->label_calon }} {{ $ekskul->nama_ekstrakurikuler }}</title>
     @include('partials.head')
 </head>
-<body class="app-bg p-6">
+<body class="app-bg p-3 sm:p-6">
     <div class="max-w-3xl mx-auto">
         @include('partials.navbar')
 
         <div class="mb-6" data-aos="fade-down">
-            <h1 class="text-3xl font-bold text-gray-800">Pendaftaran {{ $ekskul->label_calon }} {{ $ekskul->nama_ekstrakurikuler }}</h1>
+            <h1 class="text-2xl sm:text-3xl font-bold text-gray-800">Pendaftaran {{ $ekskul->label_calon }} {{ $ekskul->nama_ekstrakurikuler }}</h1>
             <p class="text-gray-600 text-sm">Pendaftar diseleksi bertahap oleh pembina, admin, dan senior {{ $ekskul->nama_ekstrakurikuler }}.</p>
         </div>
 
@@ -31,11 +31,11 @@
         @endif
 
         @if($sudahPengurus)
-            <div class="bg-white p-8 rounded-xl border border-gray-200 text-center text-gray-700 mb-6" data-aos="fade-up">
+            <div class="bg-white p-5 sm:p-8 rounded-xl border border-gray-200 text-center text-gray-700 mb-6" data-aos="fade-up">
                 <x-ikon-kaca nama="gedung" warna="langit" ukuran="sm" class="mr-2 align-middle" /> Kamu sudah tercatat sebagai anggota {{ $ekskul->nama_ekstrakurikuler }}.
             </div>
         @elseif(!$periode)
-            <div class="bg-white p-8 rounded-xl border border-gray-200 text-center text-gray-600 mb-6" data-aos="fade-up">
+            <div class="bg-white p-5 sm:p-8 rounded-xl border border-gray-200 text-center text-gray-600 mb-6" data-aos="fade-up">
                 Pendaftaran {{ $ekskul->label_calon }} sedang ditutup. Pantau notifikasi untuk pengumuman periode berikutnya.
             </div>
         @else
@@ -140,7 +140,7 @@
             <div class="space-y-2">
                 @foreach($riwayat as $r)
                     <div class="bg-white px-5 py-4 rounded-xl border border-gray-200">
-                        <div class="flex justify-between items-center gap-3">
+                        <div class="flex flex-wrap justify-between items-center gap-3">
                             <p class="font-semibold text-gray-900">Periode {{ $r->periode->nama ?? '-' }}</p>
                             @include('partials.status-badge', ['status' => $badgeStatus[$r->status], 'label' => \App\Models\CasisPendaftaran::STATUS[$r->status]])
                         </div>

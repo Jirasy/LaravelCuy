@@ -1,5 +1,5 @@
 @php $adalahAdmin = auth()->user()->isAdmin(); @endphp
-<div class="max-w-2xl mx-auto mt-6 bg-white p-8 rounded-xl shadow-sm border border-gray-200" data-aos="fade-up">
+<div class="max-w-2xl mx-auto mt-6 bg-white p-5 sm:p-8 rounded-xl shadow-sm border border-gray-200" data-aos="fade-up">
     <h2 class="text-lg font-bold text-gray-800 mb-1">Pembina Ekskul</h2>
     <p class="text-xs text-gray-500 mb-4">
         Hanya pembina yang ditugaskan di sini (dan admin) yang bisa mengelola isi ekskul ini.
@@ -15,7 +15,7 @@
 
     <div class="space-y-2 mb-4">
         @forelse($ekstrakurikuler->pembinaAktif as $p)
-            <div class="flex items-center justify-between gap-3 border rounded-lg px-3 py-2">
+            <div class="flex flex-wrap items-center justify-between gap-3 border rounded-lg px-3 py-2">
                 <div class="flex items-center gap-3">
                     @include('partials.avatar', ['user' => $p, 'ukuran' => 32])
                     <div>

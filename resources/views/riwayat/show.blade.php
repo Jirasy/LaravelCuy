@@ -6,16 +6,16 @@
     <title>Riwayat {{ $user->name }}</title>
     @include('partials.head')
 </head>
-<body class="app-bg p-6">
+<body class="app-bg p-3 sm:p-6">
     <div class="max-w-4xl mx-auto">
         @include('partials.navbar')
 
         {{-- Kartu profil --}}
         <div class="relative overflow-hidden rounded-2xl mb-6 shadow-lg hero-glass" data-aos="fade-down">
-            <div class="relative px-8 py-8 flex flex-wrap items-center gap-5">
+            <div class="relative px-5 py-6 sm:px-8 sm:py-8 flex flex-wrap items-center gap-4 sm:gap-5">
                 @include('partials.avatar', ['user' => $user, 'ukuran' => 80])
                 <div>
-                    <h1 class="text-3xl font-bold">{{ $user->name }}</h1>
+                    <h1 class="text-2xl sm:text-3xl font-bold">{{ $user->name }}</h1>
                     <div class="flex flex-wrap items-center gap-2 mt-2 text-sm">
                         <span class="px-2.5 py-0.5 rounded-full bg-white/60 dark:bg-white/15">{{ ucfirst($user->role) }}</span>
                         @if($user->status_sekolah)<span class="px-2.5 py-0.5 rounded-full bg-white/60 dark:bg-white/15"><x-ikon nama="topi" :ukuran="13" /> {{ $user->status_sekolah }}</span>@endif
@@ -27,7 +27,7 @@
         </div>
 
         {{-- Ringkasan --}}
-        <div class="grid grid-cols-3 gap-4 mb-6">
+        <div class="grid grid-cols-3 gap-2 sm:gap-4 mb-6">
             @foreach([
                 ['Ekskul diikuti', $riwayat->where('status', 'diterima')->where('status_anggota', 'aktif')->count(), 'sekolah', 'langit'],
                 ['Prestasi', $prestasis->count(), 'piala', 'amber'],
@@ -89,7 +89,7 @@
                     </div>
                 </div>
             @empty
-                <div class="bg-white p-8 rounded-xl border border-gray-200 text-center text-gray-500">Belum ada riwayat ekskul.</div>
+                <div class="bg-white p-5 sm:p-8 rounded-xl border border-gray-200 text-center text-gray-500">Belum ada riwayat ekskul.</div>
             @endforelse
         </div>
 
@@ -107,7 +107,7 @@
                     <p class="text-xs text-gray-500">{{ $p->ekstrakurikuler->nama_tampil ?? '' }}@if($p->penyelenggara) &middot; {{ $p->penyelenggara }}@endif</p>
                 </div>
             @empty
-                <div class="bg-white p-8 rounded-xl border border-gray-200 text-center text-gray-500">Belum ada prestasi yang tercatat.</div>
+                <div class="bg-white p-5 sm:p-8 rounded-xl border border-gray-200 text-center text-gray-500">Belum ada prestasi yang tercatat.</div>
             @endforelse
         </div>
     </div>

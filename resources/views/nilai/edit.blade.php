@@ -6,13 +6,13 @@
     <title>Nilai {{ $pendaftaran->nama_pendaftar }}</title>
     @include('partials.head')
 </head>
-<body class="app-bg p-6">
+<body class="app-bg p-3 sm:p-6">
     <div class="max-w-2xl mx-auto">
         @include('partials.navbar')
 
         <div class="flex flex-wrap justify-between items-center gap-3 mb-6" data-aos="fade-down">
             <div>
-                <h1 class="text-3xl font-bold text-gray-800">Beri Nilai</h1>
+                <h1 class="text-2xl sm:text-3xl font-bold text-gray-800">Beri Nilai</h1>
                 <p class="text-gray-600 text-sm">{{ $pendaftaran->nama_pendaftar }} &middot; {{ $ekskul->nama_ekstrakurikuler }}</p>
             </div>
             <a href="{{ route('ekstrakurikuler.show', ['id' => $ekskul->id, 'tab' => 'nilai']) }}" class="inline-flex items-center gap-1 text-gray-600 hover:underline text-sm"><x-ikon nama="panah-kiri" :ukuran="14" /> Kembali</a>
@@ -77,7 +77,7 @@
             <h2 class="text-sm font-semibold text-gray-500 uppercase mt-8 mb-2">Riwayat nilai</h2>
             <div class="space-y-2">
                 @foreach($riwayat as $r)
-                    <div class="bg-white px-4 py-3 rounded-lg border border-gray-200 flex items-center justify-between gap-3">
+                    <div class="bg-white px-4 py-3 rounded-lg border border-gray-200 flex flex-wrap items-center justify-between gap-3">
                         <a href="{{ route('nilai.edit', ['pendaftaran' => $pendaftaran->id, 'periode' => $r->periode]) }}" class="text-sm text-gray-800 hover:underline">
                             {{ $r->periode }} &middot; <strong>{{ number_format($r->rata_rata, 1) }}</strong> ({{ $r->predikat }})
                         </a>

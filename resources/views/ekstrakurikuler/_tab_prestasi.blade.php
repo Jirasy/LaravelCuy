@@ -13,7 +13,7 @@
 <div class="space-y-4">
     @forelse($prestasis as $p)
         <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200" data-aos="fade-up">
-            <div class="flex justify-between items-start gap-4">
+            <div class="flex flex-wrap justify-between items-start gap-4">
                 <div>
                     <div class="flex flex-wrap items-center gap-2 mb-1">
                         <span class="inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-semibold rounded-full bg-amber-100 text-amber-800"><x-ikon nama="piala" :ukuran="13" /> {{ $p->peringkat }}</span>
@@ -41,6 +41,6 @@
             @endif
         </div>
     @empty
-        <div class="bg-white p-8 rounded-xl border border-gray-200 text-center text-gray-500">Belum ada prestasi yang tercatat.</div>
+        <div class="bg-white p-5 sm:p-8 rounded-xl border border-gray-200 text-center text-gray-500">Belum ada prestasi yang tercatat.</div>
     @endforelse
 </div>

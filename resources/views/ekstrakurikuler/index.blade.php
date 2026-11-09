@@ -6,7 +6,7 @@
     <title>Katalog Ekstrakurikuler</title>
     @include('partials.head')
 </head>
-<body class="app-bg p-6">
+<body class="app-bg p-3 sm:p-6">
     <div class="max-w-6xl mx-auto">
         @include('partials.navbar')
 
@@ -18,19 +18,19 @@
             @if($heroFoto)
             <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-[2px]"></div>
             @endif
-            <div class="relative px-8 py-10 md:py-14">
-                <h1 class="text-3xl md:text-4xl font-bold" data-sapaan data-nama="{{ auth()->user()->sapaan }}">Halo, {{ auth()->user()->sapaan }}!</h1>
+            <div class="relative px-5 py-8 sm:px-8 sm:py-10 md:py-14">
+                <h1 class="text-2xl sm:text-3xl md:text-4xl font-bold" data-sapaan data-nama="{{ auth()->user()->sapaan }}">Halo, {{ auth()->user()->sapaan }}!</h1>
                 <p class="mt-2 {{ $heroFoto ? 'text-white/90' : 'opacity-80' }}" data-sapaan-sub>Siap untuk jadwal ekskul hari ini?</p>
             </div>
         </div>
         
         <!-- Header & Tombol Aksi -->
-        <div class="flex justify-between items-center mb-6">
+        <div class="flex flex-wrap gap-3 justify-between items-center mb-6">
             <div>
-                <h1 class="text-3xl font-bold text-gray-800">Daftar Ekstrakurikuler</h1>
+                <h1 class="text-2xl sm:text-3xl font-bold text-gray-800">Daftar Ekstrakurikuler</h1>
                 <p class="text-gray-600 text-sm">{{ auth()->user()->isStaff() ? 'Kelola ekstrakurikuler sekolah di sini.' : 'Pilih dan daftar ekstrakurikuler sekolahmu di sini.' }}</p>
             </div>
-            <div class="space-x-2">
+            <div class="flex flex-wrap gap-2">
                 @if(auth()->user()->isAdmin())
                 <a href="{{ route('ekstrakurikuler.create') }}" class="bg-emerald-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-emerald-700">
                     + Tambah Ekskul
@@ -174,7 +174,7 @@
                 </div>
                 </div>
             @empty
-                <div class="col-span-3 bg-white p-8 text-center rounded-xl border border-gray-200 text-gray-500">
+                <div class="md:col-span-3 bg-white p-5 sm:p-8 text-center rounded-xl border border-gray-200 text-gray-500">
                     @if($jenisAktif || $kategoriAktif || $statusAktif || $ukuranAktif)
                         Tidak ada ekskul yang cocok dengan saringan ini. <a href="{{ route('ekstrakurikuler.index') }}" class="underline">Reset filter</a>
                     @else

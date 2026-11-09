@@ -63,12 +63,12 @@
     <title>Pengaturan</title>
     @include('partials.head')
 </head>
-<body class="app-bg p-6">
+<body class="app-bg p-3 sm:p-6">
     <div class="max-w-3xl mx-auto">
         @include('partials.navbar')
 
-        <div class="flex justify-between items-center mb-6">
-            <h1 class="text-3xl font-bold text-gray-800">Pengaturan</h1>
+        <div class="flex flex-wrap gap-3 justify-between items-center mb-6">
+            <h1 class="text-2xl sm:text-3xl font-bold text-gray-800">Pengaturan</h1>
             <a href="{{ route('profil.show') }}" class="inline-flex items-center gap-1 text-gray-600 hover:underline text-sm"><x-ikon nama="panah-kiri" :ukuran="14" /> Profilku</a>
         </div>
 
@@ -195,7 +195,7 @@
             {{-- ---------- Kartu profil ---------- --}}
             <section>
                 <p class="text-sm font-semibold text-gray-700 mb-2">Kartu profil</p>
-                <div class="grid grid-cols-3 gap-3 mb-4">
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
                     @foreach($kartuGaya as $key => $g)
                         <label class="cursor-pointer">
                             <input type="radio" name="kartu_gaya" value="{{ $key }}" class="peer sr-only" @checked($kartuSaya === $key)>

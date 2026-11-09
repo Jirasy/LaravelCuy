@@ -1,6 +1,6 @@
 {{-- Variabel: $ekskul, $staff, $bolehMateri, $materis, $prs, $anggotaAkses, $pengumpulanSaya, $pendaftaranSaya --}}
 @if(!$bolehMateri)
-    <div class="bg-white p-8 rounded-xl shadow-sm border border-gray-200 text-center">
+    <div class="bg-white p-5 sm:p-8 rounded-xl shadow-sm border border-gray-200 text-center">
         <p class="font-semibold text-gray-800 mb-1"><x-ikon-kaca nama="gembok" warna="abu" ukuran="sm" class="mr-2 align-middle" /> Materi &amp; Task belum bisa kamu buka</p>
         <p class="text-sm text-gray-600 mb-4">Akses materi diberikan oleh pembina atau admin. Kamu bisa meminta izin.</p>
         <form action="{{ route('materi.minta-akses', $ekskul->id) }}" method="POST">
@@ -32,7 +32,7 @@
 
             <div class="mt-3 space-y-1">
                 @forelse($anggotaAkses as $a)
-                    <div class="flex items-center justify-between gap-3 border border-gray-100 rounded-lg px-3 py-2">
+                    <div class="flex flex-wrap items-center justify-between gap-3 border border-gray-100 rounded-lg px-3 py-2">
                         <span class="text-sm text-gray-800">{{ $a->nama_pendaftar }}
                             <span class="text-xs text-gray-400">{{ $a->kelas }}</span></span>
                         <form action="{{ route('materi.akses', $a->id) }}" method="POST">
@@ -171,7 +171,7 @@
                 @endunless
             </div>
         @empty
-            <div class="bg-white p-8 rounded-xl border border-gray-200 text-center text-gray-500">Belum ada Task.</div>
+            <div class="bg-white p-5 sm:p-8 rounded-xl border border-gray-200 text-center text-gray-500">Belum ada Task.</div>
         @endforelse
     </div>
 
@@ -180,7 +180,7 @@
     <div class="space-y-4">
         @forelse($materis as $m)
             <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-200" data-aos="fade-up">
-                <div class="flex justify-between items-start gap-3">
+                <div class="flex flex-wrap justify-between items-start gap-3">
                     <div class="min-w-0">
                         <h3 class="font-bold text-gray-900"><x-ikon :nama="\App\Models\EkskulMateri::JENIS[$m->jenis][0]" :ukuran="18" /> {{ $m->judul }}</h3>
                         <p class="text-xs text-gray-500 mt-0.5">
@@ -225,7 +225,7 @@
                 @endif
             </div>
         @empty
-            <div class="bg-white p-8 rounded-xl border border-gray-200 text-center text-gray-500">Belum ada materi.</div>
+            <div class="bg-white p-5 sm:p-8 rounded-xl border border-gray-200 text-center text-gray-500">Belum ada materi.</div>
         @endforelse
     </div>
 @endif

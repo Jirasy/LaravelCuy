@@ -120,7 +120,7 @@
 
 {{-- ===== Galeri ===== --}}
 @if($fotos->isEmpty())
-    <div class="bg-white p-8 rounded-xl border border-gray-200 text-center text-gray-500">Belum ada foto di galeri{{ $kategoriDipilih ? ' untuk kategori ini' : '' }}.</div>
+    <div class="bg-white p-5 sm:p-8 rounded-xl border border-gray-200 text-center text-gray-500">Belum ada foto di galeri{{ $kategoriDipilih ? ' untuk kategori ini' : '' }}.</div>
 @else
     <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
         @foreach($fotos as $f)

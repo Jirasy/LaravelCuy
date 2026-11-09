@@ -11,7 +11,7 @@
         {{ ucfirst($ekskulJalur->sebutan_keanggotaan) }} {{ $namaJalur }} @if($baris->isNotEmpty())({{ $baris->count() }})@endif
     </summary>
 
-    <div class="mt-2 w-80 space-y-3 text-xs">
+    <div class="mt-2 w-72 max-w-[80vw] sm:w-80 space-y-3 text-xs">
         @foreach($baris as $b)
             <form action="{{ route('casis.pengurus.koreksi', $b->id) }}" method="POST" class="border rounded-lg p-2 bg-gray-50 space-y-1">
                 @csrf

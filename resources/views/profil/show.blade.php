@@ -6,7 +6,7 @@
     <title>Profil {{ $user->name }}</title>
     @include('partials.head')
 </head>
-<body class="app-bg p-6">
+<body class="app-bg p-3 sm:p-6">
     <div class="max-w-4xl mx-auto">
         @include('partials.navbar')
 
@@ -80,7 +80,7 @@
                 <div class="space-y-2">
                     @foreach($daftar as $j)
                         @php $bentrokBaris = in_array($j['ekskul_id'], $idBentrokPerHari[$hariDipilih] ?? [], true); @endphp
-                        <div class="flex items-center justify-between gap-3 border rounded-lg px-4 py-3 {{ $bentrokBaris ? 'border-amber-400' : 'border-gray-200' }}">
+                        <div class="flex flex-wrap items-center justify-between gap-3 border rounded-lg px-4 py-3 {{ $bentrokBaris ? 'border-amber-400' : 'border-gray-200' }}">
                             <div>
                                 <a href="{{ route('ekstrakurikuler.show', $j['ekskul_id']) }}" class="font-semibold text-gray-800 hover:underline">{{ $j['ekskul'] }}</a>
                                 <p class="text-xs text-gray-500">

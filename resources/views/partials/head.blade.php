@@ -640,6 +640,79 @@ html.dark .sparkle { color: #e0e7ff; }
     /* Aksen kustom (gradasi atau gambar/pola): latar dari variabel --pk-latar, teks putih. Kontras dijaga di TampilanKustom. */
     .pk-kustom { color: #fff; background: var(--pk-latar); box-shadow: 0 18px 40px -18px rgba(15, 23, 42, .7); }
     .pk-kustom .pk-muted { opacity: .9; }
+
+    /* ============ RESPONSIF MOBILE ============
+       Dipasang paling akhir supaya aturan di sini menang atas aturan desktop di atasnya.
+       Titik patah mengikuti Tailwind: sm = 640px, md = 768px, lg = 1024px. */
+
+    /* Pengaman: tidak ada halaman yang boleh bisa digeser ke samping karena satu elemen kelebihan lebar
+       (mis. animasi AOS yang masuk dari samping). "clip" bukan "hidden" supaya tidak membuat wadah scroll baru. */
+    body { overflow-x: clip; overflow-wrap: break-word; }
+
+    /* HP: efek berat dimatikan supaya hemat baterai & tidak patah-patah */
+    @media (max-width: 767px) {
+        .app-bg .bg-white { backdrop-filter: none; -webkit-backdrop-filter: none; background-color: rgba(255, 255, 255, .92); }
+        html.dark .app-bg .bg-white { background-color: rgba(30, 41, 59, .9); }
+        /* Panel dropdown menimpa konten: tanpa blur ia harus solid, kalau tidak teks di belakangnya tembus */
+        #pesan-task-panel, html.dark #pesan-task-panel { background-color: #fff; }
+        html.dark #pesan-task-panel { background-color: #1e293b; }
+        .app-bg::before { animation: auroraMove 24s ease-in-out infinite alternate; } /* tanpa animasi hue-rotate (filter) */
+        .hero-glass { animation: none; }
+    }
+
+    /* Layar sentuh tidak punya hover sungguhan: jangan sisakan kartu yang terangkat setelah disentuh */
+    @media (hover: none) {
+        .card-hover:hover { transform: none; box-shadow: none; }
+        .btn-glass:hover { transform: none; }
+    }
+
+    /* Isian formulir minimal 16px di HP: kalau lebih kecil, iOS Safari memperbesar halaman sendiri saat isian disentuh.
+       (:not(...) dipakai untuk menaikkan spesifisitas supaya menang atas kelas Tailwind seperti text-sm.) */
+    @media (max-width: 767px) {
+        input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]):not([type="hidden"]),
+        select:not([data-x]), textarea:not([data-x]) { font-size: 16px; }
+    }
+
+    /* Layar sentuh: area sentuh tombol ikon & menu navbar lebih lega */
+    @media (pointer: coarse) {
+        .theme-btn { width: 2.4rem; height: 2.4rem; }
+        .nav-tab { padding-top: .65rem; padding-bottom: .65rem; }
+        .nav-sunk .nav-handle { height: 1.9rem; bottom: -1.9rem; width: 4rem; }
+    }
+
+    /* Navbar di HP */
+    @media (max-width: 639px) {
+        .nav-sunk { padding: .5rem .75rem 0; }
+        .nav-bar { padding: .6rem .75rem; }
+        .nav-actions { gap: .3rem; }
+        /* Panel Notifikasi/Task/Tautan: di HP tombolnya ada di tengah navbar, jadi panel selebar 20rem yang menempel
+           ke tombol terpotong di tepi kiri layar. Lepaskan dari tombol dan bentangkan selebar navbar. */
+        #pesan-task { position: static; }
+        #pesan-task-panel { left: .5rem; right: .5rem; top: 100%; width: auto; max-width: none; margin-top: .5rem; }
+        #pesan-task-panel [data-pt-panel] { max-height: 60vh; }
+    }
+    /* HP sangat kecil (<= 359px, mis. 320px): tombol aksi navbar dirapatkan supaya tidak menabrak logo */
+    @media (max-width: 359px) {
+        .theme-btn { width: 2.25rem; height: 2.25rem; }
+        .nav-actions { gap: .2rem; }
+        .nav-bar { padding-left: .55rem; padding-right: .55rem; }
+        .nav-ident { gap: .3rem; }
+        .nav-brand { padding-right: 0; }
+    }
+
+    /* Tabel lebar: geser ke samping di dalam kartunya, bukan menjepit kolom sampai kata terpotong */
+    .overflow-x-auto { -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; }
+    @media (max-width: 767px) {
+        .overflow-x-auto > table { min-width: 36rem; }
+        .overflow-x-auto > table th, .overflow-x-auto > table td { padding-left: .6rem; padding-right: .6rem; }
+    }
+
+    /* Bar tab (Informasi, Struktur, ...): bisa digeser tanpa batang scroll */
+    .overflow-x-auto[class*="border-b"] { scrollbar-width: none; }
+    .overflow-x-auto[class*="border-b"]::-webkit-scrollbar { display: none; }
+
+    /* Lightbox galeri: tinggi layar dinamis supaya tidak tertutup bar alamat browser HP */
+    #lb-gambar { max-height: 70dvh; }
 </style>
 @endverbatim
 @include('partials.tema-waktu-style')

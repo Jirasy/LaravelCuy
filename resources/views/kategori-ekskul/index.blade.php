@@ -6,13 +6,13 @@
     <title>Kategori Ekskul</title>
     @include('partials.head')
 </head>
-<body class="app-bg p-6">
+<body class="app-bg p-3 sm:p-6">
     <div class="max-w-4xl mx-auto">
         @include('partials.navbar')
         @include('partials.tab-pengelompokan')
 
         <div class="mb-6" data-aos="fade-down">
-            <h1 class="text-3xl font-bold text-gray-800">Kategori Ekskul</h1>
+            <h1 class="text-2xl sm:text-3xl font-bold text-gray-800">Kategori Ekskul</h1>
             <p class="text-gray-600 text-sm">
                 Kategori adalah label topik (mis. <strong>Bela Diri</strong>, <strong>Seni &amp; Olahraga</strong>). Satu ekskul boleh punya
                 lebih dari satu kategori, dan siswa bisa menyaring katalog berdasarkan kategori. Kategori berbeda dengan
